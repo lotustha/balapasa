@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  avatar    String?
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reviews   Review[]
+  addresses Address[]
+
+  @@map("profiles")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String
+  slug     String    @unique
+  icon     String?
+  image    String?
+  color    String    @default("#16A34A")
+  products         Product[]
+  categoryMappings CategoryMapping[]
+
+  @@map("categories")
+}
+
+model Supplier {
+  id          String    @id @default(cuid())
+  name        String
+  contactName String?   @map("contact_name")
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("suppliers")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  description       String   @db.Text
+  price             Float
+  salePrice         Float?   @map("sale_price")
+  costPrice         Float?   @map("cost_price")
+  stock             Int      @default(0)
+  lowStockThreshold Int      @default(10) @map("low_stock_threshold")
+  images            String[]
+  categoryId        String   @map("category_id")
+  supplierId        String?  @map("supplier_id")
+  tags              String[]
+  isActive          Boolean  @default(true) @map("is_active")
+  isFeatured        Boolean  @default(false) @map("is_featured")
+  isNew             Boolean  @default(false) @map("is_new")
+  isTaxable         Boolean  @default(true) @map("is_taxable")
+  trackInventory    Boolean  @default(true) @map("track_inventory")
+  brand             String?
+  sku               String?  @unique
+  barcode           String?
+  weight            Float?
+  videoUrl          String?  @map("video_url")
+  rating            Float    @default(0)
+  reviewCount       Int      @default(0) @map("review_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  category       Category        @relation(fields: [categoryId], references: [id])
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  reviews        Review[]
+  inventoryLogs  InventoryLog[]
+  options        ProductOption[]
+  variants       ProductVariant[]
+
+  @@map("products")
+}
+
+model ProductOption {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  name      String
+  position  Int      @default(0)
+  values    String[]
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_options")
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  title     String
+  sku       String?  @unique
+  price     Float?
+  stock     Int      @default(0)
+  image     String?
+  options   Json
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_variants")
+}
+
+model InventoryLog {
+  id          String        @id @default(cuid())
+  productId   String        @map("product_id")
+  type        InventoryType
+  quantity    Int
+  stockAfter  Int           @map("stock_after")
+  note        String?
+  referenceId String?       @map("reference_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("inventory_logs")
+}
+
+enum InventoryType {
+  PURCHASE    // Received from supplier — stock in
+  SALE        // Deducted by order — stock out
+  ADJUSTMENT  // Manual correction
+  RETURN      // Customer return — stock in
+  DAMAGE      // Written off — stock out
+}
+
+model Order {
+  id             String        @id @default(cuid())
+  userId         String?       @map("user_id")
+  status         OrderStatus   @default(PENDING)
+  total          Float
+  subtotal       Float
+  deliveryCharge Float         @default(0) @map("delivery_charge")
+  name           String
+  phone          String
+  email          String?
+  address        String
+  house          String?
+  road           String?
+  city           String        @default("Kathmandu")
+  lat            Float?
+  lng            Float?
+  paymentMethod  PaymentMethod @map("payment_method")
+  paymentStatus  PaymentStatus @default(UNPAID) @map("payment_status")
+  transactionId  String?       @map("transaction_id")
+  pathaoOrderId  String?       @map("pathao_order_id")
+  pathaoHash     String?       @map("pathao_hash")
+  trackingUrl    String?       @map("tracking_url")
+  shippingOption String?       @map("shipping_option")
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // userId stored for reference — no FK relation so guest orders (null) and
+  // deleted-profile orders don't break
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  productId String  @map("product_id")
+  quantity  Int
+  price     Float
+  name      String
+  image     String?
+
+  order Order @relation(fields: [orderId], references: [id])
+  // productId is stored for reference but has no FK constraint —
+  // orders must survive product edits/deletions
+
+  @@map("order_items")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    Profile @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+  @@map("reviews")
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  label     String  @default("Home")
+  name      String
+  phone     String
+  address   String
+  house     String?
+  road      String?
+  city      String  @default("Kathmandu")
+  lat       Float?
+  lng       Float?
+  isDefault Boolean @default(false) @map("is_default")
+
+  user Profile @relation(fields: [userId], references: [id])
+
+  @@map("addresses")
+}
+
+model PathaoToken {
+  id          String   @id @default(cuid())
+  accessToken String   @db.Text @map("access_token")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("pathao_tokens")
+}
+
+model CategoryMapping {
+  id             String   @id @default(cuid())
+  source         String                          // "daraz" | "amazon" | etc.
+  externalName   String   @map("external_name") // "Home Decor"
+  externalId     String?  @map("external_id")   // "10000426"
+  categoryId     String   @map("category_id")
+  category       Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([source, externalName])
+  @@map("category_mappings")
+}
+
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model LogisticsSettings {
+  id           String   @id @default(cuid())
+  provider     String   @unique  // 'PATHAO' | 'PICKNDROP'
+  isActive     Boolean  @default(true)  @map("is_active")
+  isMock       Boolean  @default(true)  @map("is_mock")
+
+  // Auth credentials
+  clientId     String?  @map("client_id")
+  clientSecret String?  @map("client_secret") @db.Text
+  apiKey       String?  @map("api_key")
+  apiSecret    String?  @map("api_secret") @db.Text
+
+  // Store / pickup details
+  storeId      String?  @map("store_id")
+  storeName    String?  @map("store_name")
+  storePhone   String?  @map("store_phone")
+  storeAddress String?  @map("store_address")
+  storeLat     Float?   @map("store_lat")
+  storeLng     Float?   @map("store_lng")
+
+  // Base URL override
+  baseUrl      String?  @map("base_url")
+
+  notes        String?  @db.Text
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("logistics_settings")
+}
+
+enum Role {
+  CUSTOMER  // Shoppers — account, orders, wishlist
+  STAFF     // View/update orders, customer support only
+  MANAGER   // Products + orders + customers + analytics
+  ADMIN     // Full access including settings & logistics
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  ESEWA
+  KHALTI
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  FAILED
+}
