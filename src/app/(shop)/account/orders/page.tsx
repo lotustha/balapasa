@@ -1,8 +1,6 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -48,7 +46,7 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('en-NP', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function OrdersPage() {
+function OrdersContent() {
   const searchParams  = useSearchParams()
   const paymentResult = searchParams.get('payment')
   const method        = searchParams.get('method')
@@ -232,5 +230,13 @@ export default function OrdersPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <OrdersContent />
+    </Suspense>
   )
 }
