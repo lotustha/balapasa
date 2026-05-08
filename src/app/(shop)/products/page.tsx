@@ -7,7 +7,36 @@ import ProductSidebar from '@/components/ui/ProductSidebar'
 import { prisma } from '@/lib/prisma'
 import { PackageOpen, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'All Products' }
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Params> }): Promise<Metadata> {
+  const params = await searchParams
+  const title = params.search
+    ? `Results for "${params.search}"`
+    : params.category
+    ? params.category.charAt(0).toUpperCase() + params.category.slice(1)
+    : 'All Products'
+
+  const description = params.search
+    ? `Shop ${params.search} products in Nepal — best prices, fast delivery.`
+    : params.category
+    ? `Buy ${title} online in Nepal. Best prices & fast delivery across Kathmandu.`
+    : 'Browse all electronics, gadgets, skincare & beauty products. Best prices in Nepal with fast delivery.'
+
+  const canonical = params.category ? `/products?category=${params.category}` : '/products'
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${title} | Balapasa`,
+      description,
+      url: canonical,
+      type: 'website',
+      images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Balapasa Products' }],
+    },
+    twitter: { card: 'summary', title: `${title} | Balapasa`, description },
+  }
+}
 
 const PAGE_SIZE = 24
 

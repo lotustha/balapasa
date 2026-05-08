@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /cart
+Disallow: /checkout
+Disallow: /account
+Disallow: /api/
+Disallow: /admin
+
+Sitemap: https://balapasa.com/sitemap.xml

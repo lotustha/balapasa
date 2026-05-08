@@ -7,8 +7,23 @@ import Newsletter from '@/components/home/Newsletter'
 import { ShieldCheck, Truck, RefreshCcw, Headphones } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Balapasa — Tech & Beauty Hub',
-  description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
+  title: 'Balapasa — Tech & Beauty Hub Nepal',
+  description: 'Shop electronics, gadgets, skincare & beauty at the best prices in Nepal. Fast same-day delivery in Kathmandu via Pathao. 100% authentic products.',
+  keywords: ['online shopping Nepal', 'buy electronics Nepal', 'beauty products Nepal', 'fast delivery Kathmandu', 'gadgets Nepal', 'Balapasa'],
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'Balapasa — Tech & Beauty Hub Nepal',
+    description: 'Shop electronics, gadgets, skincare & beauty at the best prices in Nepal. Fast same-day delivery across Kathmandu.',
+    url: '/',
+    type: 'website',
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Balapasa Nepal' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Balapasa — Tech & Beauty Hub Nepal',
+    description: 'Best prices on electronics, gadgets & beauty in Nepal. Fast delivery.',
+    images: ['/logo.png'],
+  },
 }
 
 const TRUST = [
@@ -21,6 +36,22 @@ const TRUST = [
 export default function HomePage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'OnlineStore',
+        name: 'Balapasa',
+        description: 'Premium electronics, gadgets & beauty products. Fast delivery across Nepal.',
+        url: 'https://balapasa.com',
+        logo: 'https://balapasa.com/logo.png',
+        areaServed: { '@type': 'Country', name: 'Nepal' },
+        priceRange: '$$',
+        currenciesAccepted: 'NPR',
+        paymentAccepted: 'Cash, Esewa, Khalti',
+        hasOfferCatalog: {
+          '@type': 'OfferCatalog',
+          name: 'Electronics, Gadgets & Beauty',
+        },
+      }) }} />
       <Hero />
       <CategorySection />
       <FeaturedProducts />
