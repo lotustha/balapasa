@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  Settings, Store, Bell, Shield, Sparkles, CreditCard,
+  Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
-  ExternalLink, AlertCircle, RefreshCw, Truck,
+  ExternalLink, AlertCircle, RefreshCw, ChevronRight,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 
@@ -19,15 +19,28 @@ interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHA
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
 
-// ── Reusable field label ───────────────────────────────────────────────────
+type TabId = 'store' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'danger'
 
-const inputCls = 'w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+// ── Primitives ─────────────────────────────────────────────────────────────
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+
+function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{children}</label>
 }
 
-// ── Masked API key input ───────────────────────────────────────────────────
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{children}</p>
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-5">
+      <div className="w-0.5 h-4 rounded-full bg-primary" />
+      <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">{children}</h3>
+    </div>
+  )
+}
 
 function SecretInput({ label, value, onChange, placeholder, hint, testStatus }: {
   label: string; value: string; onChange: (v: string) => void
@@ -35,18 +48,13 @@ function SecretInput({ label, value, onChange, placeholder, hint, testStatus }: 
 }) {
   const [show, setShow] = useState(false)
   const isMasked = value.startsWith('••')
-
   return (
     <div>
-      <FieldLabel>{label}</FieldLabel>
+      <Label>{label}</Label>
       <div className="relative">
-        <input
-          type={show || isMasked ? 'text' : 'password'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={`${inputCls} pr-20 font-mono`}
-        />
+        <input type={show || isMasked ? 'text' : 'password'} value={value}
+          onChange={e => onChange(e.target.value)} placeholder={placeholder}
+          className={`${inputCls} pr-20 font-mono`} />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
           {testStatus === 'ok'      && <CheckCircle2 size={14} className="text-green-500" />}
           {testStatus === 'fail'    && <AlertCircle  size={14} className="text-red-500"   />}
@@ -56,53 +64,49 @@ function SecretInput({ label, value, onChange, placeholder, hint, testStatus }: 
           </button>
         </div>
       </div>
-      {hint && <p className="text-[10px] text-slate-400 mt-1">{hint}</p>}
-      {isMasked && <p className="text-[10px] text-amber-600 mt-1">A key is already set. Type a new value to replace it.</p>}
+      {hint && <Hint>{hint}</Hint>}
+      {isMasked && <p className="text-[10px] text-amber-600 mt-1">A key is set. Type a new value to replace it.</p>}
     </div>
   )
 }
-
-// ── Section wrapper ────────────────────────────────────────────────────────
-
-function Section({ icon: Icon, title, iconBg, badge, children }: {
-  icon: typeof Settings; title: string; iconBg: string
-  badge?: React.ReactNode; children: React.ReactNode
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
-        <div className="flex items-center gap-2.5">
-          <div className={`w-8 h-8 ${iconBg} rounded-xl flex items-center justify-center shrink-0`}>
-            <Icon size={15} className="text-white" />
-          </div>
-          <h2 className="font-heading font-bold text-slate-800 text-sm">{title}</h2>
-        </div>
-        {badge}
-      </div>
-      <div className="p-6 space-y-4">{children}</div>
-    </div>
-  )
-}
-
-// ── Save button ────────────────────────────────────────────────────────────
 
 function SaveBtn({ section, saving, saved }: { section: string; saving: string | null; saved: string | null }) {
   return (
-    <button type="submit"
-      className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold text-sm rounded-xl transition-colors cursor-pointer shadow-md shadow-primary/15 disabled:opacity-50"
-      disabled={saving === section}>
+    <button type="submit" disabled={saving === section}
+      className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer shadow-md shadow-primary/15">
       {saving === section
         ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
         : saved === section
         ? <><CheckCircle2 size={14} /> Saved!</>
-        : <><Save size={14} /> Save</>}
+        : <><Save size={14} /> Save changes</>}
     </button>
   )
 }
 
+function InfoBanner({ icon: Icon, color, children }: { icon: typeof Sparkles; color: string; children: React.ReactNode }) {
+  return (
+    <div className={`flex items-start gap-3 px-4 py-3 rounded-xl text-xs mb-5 ${color}`}>
+      <Icon size={13} className="shrink-0 mt-0.5" />
+      <span>{children}</span>
+    </div>
+  )
+}
+
+// ── Tabs config ────────────────────────────────────────────────────────────
+
+const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] = [
+  { id: 'store',         icon: Store,      label: 'Store',         desc: 'Name, contact & delivery' },
+  { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
+  { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
+  { id: 'ai',            icon: Sparkles,   label: 'AI',            desc: 'Anthropic & Gemini'        },
+  { id: 'notifications', icon: Bell,       label: 'Notifications', desc: 'Email alerts'              },
+  { id: 'danger',        icon: Shield,     label: 'Danger Zone',   desc: 'Destructive actions'       },
+]
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const [tab,        setTab]        = useState<TabId>('store')
   const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState<string | null>(null)
   const [saved,      setSaved]      = useState<string | null>(null)
@@ -113,53 +117,43 @@ export default function SettingsPage() {
     STORE_NAME: STORE_NAME, STORE_EMAIL: '', STORE_PHONE: '',
     STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '',
   })
-  const [payment, setPayment] = useState<PaymentForm>({
-    ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '', KHALTI_SECRET_KEY: '',
-  })
-  const [notif, setNotif] = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
-  const [ai,    setAi]    = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
+  const [payment, setPayment] = useState<PaymentForm>({ ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '', KHALTI_SECRET_KEY: '' })
+  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
+  const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
 
   useEffect(() => {
-    fetch('/api/admin/settings')
-      .then(r => r.json())
-      .then(({ settings }) => {
-        if (!settings) return
-        setStore(s => ({
-          ...s,
-          STORE_NAME:              settings.STORE_NAME              ?? s.STORE_NAME,
-          STORE_EMAIL:             settings.STORE_EMAIL             ?? s.STORE_EMAIL,
-          STORE_PHONE:             settings.STORE_PHONE             ?? s.STORE_PHONE,
-          STORE_ADDRESS:           settings.STORE_ADDRESS           ?? s.STORE_ADDRESS,
-          FREE_DELIVERY_THRESHOLD: settings.FREE_DELIVERY_THRESHOLD ?? s.FREE_DELIVERY_THRESHOLD,
-          STORE_LOGO_URL:          settings.STORE_LOGO_URL          ?? s.STORE_LOGO_URL,
-        }))
-        setPayment(p => ({
-          ...p,
-          ESEWA_MERCHANT_ID: settings.ESEWA_MERCHANT_ID ?? p.ESEWA_MERCHANT_ID,
-          ESEWA_SECRET_KEY:  settings.ESEWA_SECRET_KEY  ?? p.ESEWA_SECRET_KEY,
-          KHALTI_SECRET_KEY: settings.KHALTI_SECRET_KEY ?? p.KHALTI_SECRET_KEY,
-        }))
-        setNotif({ ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '' })
-        setAi(a => ({
-          ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY ?? a.ANTHROPIC_API_KEY,
-          GEMINI_API_KEY:    settings.GEMINI_API_KEY    ?? a.GEMINI_API_KEY,
-        }))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings }) => {
+      if (!settings) return
+      setStore(s  => ({ ...s,
+        STORE_NAME:              settings.STORE_NAME              ?? s.STORE_NAME,
+        STORE_EMAIL:             settings.STORE_EMAIL             ?? s.STORE_EMAIL,
+        STORE_PHONE:             settings.STORE_PHONE             ?? s.STORE_PHONE,
+        STORE_ADDRESS:           settings.STORE_ADDRESS           ?? s.STORE_ADDRESS,
+        FREE_DELIVERY_THRESHOLD: settings.FREE_DELIVERY_THRESHOLD ?? s.FREE_DELIVERY_THRESHOLD,
+        STORE_LOGO_URL:          settings.STORE_LOGO_URL          ?? s.STORE_LOGO_URL,
+      }))
+      setPayment(p => ({
+        ESEWA_MERCHANT_ID: settings.ESEWA_MERCHANT_ID ?? p.ESEWA_MERCHANT_ID,
+        ESEWA_SECRET_KEY:  settings.ESEWA_SECRET_KEY  ?? p.ESEWA_SECRET_KEY,
+        KHALTI_SECRET_KEY: settings.KHALTI_SECRET_KEY ?? p.KHALTI_SECRET_KEY,
+      }))
+      setNotif({ ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '' })
+      setAi(a => ({
+        ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY ?? a.ANTHROPIC_API_KEY,
+        GEMINI_API_KEY:    settings.GEMINI_API_KEY    ?? a.GEMINI_API_KEY,
+      }))
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
   async function save(section: string, data: Record<string, string>) {
     setSaving(section); setSaved(null); setSaveError(null)
     try {
       const res  = await fetch('/api/admin/settings', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
       })
       const json = await res.json()
       if (!res.ok || json.error) { setSaveError(json.error ?? `HTTP ${res.status}`); setSaving(null); return }
-      setSaved(section)
-      setTimeout(() => setSaved(null), 3000)
+      setSaved(section); setTimeout(() => setSaved(null), 3000)
     } catch (e) { setSaveError(e instanceof Error ? e.message : 'Network error') }
     setSaving(null)
   }
@@ -182,279 +176,356 @@ export default function SettingsPage() {
     </div>
   )
 
-  return (
-    <div className="p-8 max-w-3xl space-y-6">
+  const activeTab = TABS.find(t => t.id === tab)!
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Settings size={22} className="text-primary" />
+  return (
+    <div className="p-8">
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-8">
+        <div className="w-10 h-10 bg-primary-bg rounded-2xl flex items-center justify-center">
+          <Settings size={18} className="text-primary" />
+        </div>
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900">Settings</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Manage your store configuration and integrations</p>
+          <p className="text-slate-500 text-sm mt-0.5">Configure your store, integrations, and preferences</p>
         </div>
       </div>
 
       {/* Error banner */}
       {saveError && (
-        <div className="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
+        <div className="flex items-start gap-2.5 px-4 py-3 mb-6 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
           <AlertCircle size={15} className="shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold">Save failed</p>
-            <p className="text-xs mt-0.5 font-mono">{saveError}</p>
-          </div>
+          <div><p className="font-bold">Save failed</p><p className="text-xs mt-0.5 font-mono">{saveError}</p></div>
         </div>
       )}
 
-      {/* ── Store Information ─────────────────────────────────────────── */}
-      <form onSubmit={e => { e.preventDefault(); save('store', store as unknown as Record<string, string>) }}>
-        <Section icon={Store} title="Store Information" iconBg="bg-primary">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <FieldLabel>Store Name</FieldLabel>
-              <input value={store.STORE_NAME} onChange={e => setStore(s => ({ ...s, STORE_NAME: e.target.value }))}
-                placeholder="Your Store Name" className={inputCls} />
-            </div>
-            <div>
-              <FieldLabel>Store Email</FieldLabel>
-              <input type="email" value={store.STORE_EMAIL} onChange={e => setStore(s => ({ ...s, STORE_EMAIL: e.target.value }))}
-                placeholder="hello@yourstore.com" className={inputCls} />
-            </div>
-            <div>
-              <FieldLabel>Phone</FieldLabel>
-              <input value={store.STORE_PHONE} onChange={e => setStore(s => ({ ...s, STORE_PHONE: e.target.value }))}
-                placeholder="+977 98XXXXXXXX" className={inputCls} />
-            </div>
-            <div>
-              <FieldLabel>Address</FieldLabel>
-              <input value={store.STORE_ADDRESS} onChange={e => setStore(s => ({ ...s, STORE_ADDRESS: e.target.value }))}
-                placeholder="Kathmandu, Nepal" className={inputCls} />
-            </div>
-            <div>
-              <FieldLabel>Logo URL (for receipts)</FieldLabel>
-              <input value={store.STORE_LOGO_URL} onChange={e => setStore(s => ({ ...s, STORE_LOGO_URL: e.target.value }))}
-                placeholder="https://yourdomain.com/logo.png" className={inputCls} />
-            </div>
-            <div>
-              <FieldLabel>Free Delivery Above (NPR)</FieldLabel>
-              <input type="number" value={store.FREE_DELIVERY_THRESHOLD}
-                onChange={e => setStore(s => ({ ...s, FREE_DELIVERY_THRESHOLD: e.target.value }))}
-                placeholder="5000" className={inputCls} />
-              <p className="text-[10px] text-slate-400 mt-1">Orders above this amount qualify for free delivery</p>
-            </div>
-          </div>
-          <div className="flex justify-end pt-2 border-t border-slate-50">
-            <SaveBtn section="store" saving={saving} saved={saved} />
-          </div>
-        </Section>
-      </form>
+      {/* Settings layout: sidebar + panel */}
+      <div className="flex gap-6 items-start">
 
-      {/* ── Payment Gateways ──────────────────────────────────────────── */}
-      <form onSubmit={e => { e.preventDefault(); save('payment', payment as unknown as Record<string, string>) }}>
-        <Section icon={CreditCard} title="Payment Gateways" iconBg="bg-emerald-500"
-          badge={
-            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-100">
-              DB override — takes precedence over .env
-            </span>
-          }>
-          <div className="flex items-start gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-slate-600 mb-2">
-            <Shield size={13} className="shrink-0 mt-0.5 text-slate-400" />
-            Keys saved here take precedence over <code className="font-mono bg-white px-1 rounded">.env.local</code> values and are encrypted in the database.
-          </div>
-
-          {/* eSewa */}
-          <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
-                  <span className="text-[10px] font-extrabold text-green-700">eS</span>
+        {/* ── Left sidebar ──────────────────────────────────────────── */}
+        <nav className="w-52 shrink-0 bg-white rounded-2xl border border-slate-100 overflow-hidden sticky top-6">
+          {TABS.map(t => {
+            const Icon    = t.icon
+            const isActive = tab === t.id
+            const isDanger = t.id === 'danger'
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all duration-150 cursor-pointer relative ${
+                  isActive
+                    ? isDanger
+                      ? 'bg-red-50 text-red-600'
+                      : 'bg-primary-bg text-primary'
+                    : isDanger
+                    ? 'text-red-400 hover:bg-red-50 hover:text-red-600'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}>
+                {isActive && (
+                  <span className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full ${isDanger ? 'bg-red-500' : 'bg-primary'}`} />
+                )}
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                  isActive
+                    ? isDanger ? 'bg-red-100' : 'bg-primary/15'
+                    : 'bg-slate-100'
+                }`}>
+                  <Icon size={14} />
                 </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-none">{t.label}</p>
+                  <p className={`text-[10px] mt-0.5 truncate ${isActive ? 'opacity-70' : 'text-slate-400'}`}>{t.desc}</p>
+                </div>
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* ── Right panel ───────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0">
+
+          {/* Panel header */}
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
+            <span>Settings</span>
+            <ChevronRight size={12} />
+            <span className="text-slate-600 font-semibold">{activeTab.label}</span>
+          </div>
+
+          {/* ── Store tab ─────────────────────────────────────────── */}
+          {tab === 'store' && (
+            <form onSubmit={e => { e.preventDefault(); save('store', store as unknown as Record<string, string>) }}>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-6">
+                <SectionTitle>Store Identity</SectionTitle>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Store Name</Label>
+                    <input value={store.STORE_NAME} onChange={e => setStore(s => ({ ...s, STORE_NAME: e.target.value }))}
+                      placeholder="Your Store" className={inputCls} />
+                  </div>
+                  <div>
+                    <Label>Store Email</Label>
+                    <input type="email" value={store.STORE_EMAIL} onChange={e => setStore(s => ({ ...s, STORE_EMAIL: e.target.value }))}
+                      placeholder="hello@store.com" className={inputCls} />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <input value={store.STORE_PHONE} onChange={e => setStore(s => ({ ...s, STORE_PHONE: e.target.value }))}
+                      placeholder="+977 98XXXXXXXX" className={inputCls} />
+                  </div>
+                  <div>
+                    <Label>Address</Label>
+                    <input value={store.STORE_ADDRESS} onChange={e => setStore(s => ({ ...s, STORE_ADDRESS: e.target.value }))}
+                      placeholder="Kathmandu, Nepal" className={inputCls} />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-50 pt-5">
+                  <SectionTitle>Branding & Commerce</SectionTitle>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Logo URL <span className="normal-case font-normal text-slate-400">(for receipts)</span></Label>
+                      <input value={store.STORE_LOGO_URL} onChange={e => setStore(s => ({ ...s, STORE_LOGO_URL: e.target.value }))}
+                        placeholder="https://yourdomain.com/logo.png" className={inputCls} />
+                      <Hint>Used in printed shipping labels and email receipts</Hint>
+                    </div>
+                    <div>
+                      <Label>Free Delivery Above (NPR)</Label>
+                      <input type="number" min="0" value={store.FREE_DELIVERY_THRESHOLD}
+                        onChange={e => setStore(s => ({ ...s, FREE_DELIVERY_THRESHOLD: e.target.value }))}
+                        placeholder="5000" className={inputCls} />
+                      <Hint>Orders at or above this amount get free delivery</Hint>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-50">
+                  <SaveBtn section="store" saving={saving} saved={saved} />
+                </div>
+              </div>
+            </form>
+          )}
+
+          {/* ── Payments tab ──────────────────────────────────────── */}
+          {tab === 'payments' && (
+            <form onSubmit={e => { e.preventDefault(); save('payment', payment as unknown as Record<string, string>) }}>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+                <InfoBanner icon={Shield} color="bg-slate-50 border border-slate-100 text-slate-600">
+                  Keys saved here are masked in the UI and override <code className="font-mono bg-white px-1 rounded text-[10px]">.env.local</code> values. They take effect immediately.
+                </InfoBanner>
+
+                {/* eSewa */}
                 <div>
-                  <p className="text-sm font-bold text-slate-800">eSewa</p>
-                  <p className="text-[10px] text-slate-400">merchant.esewa.com.np → API</p>
+                  <SectionTitle>eSewa</SectionTitle>
+                  <div className="border border-slate-100 rounded-2xl p-4 space-y-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center">
+                          <span className="text-xs font-extrabold text-green-700">eS</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">eSewa Nepal</p>
+                          <p className="text-[10px] text-slate-400">merchant.esewa.com.np</p>
+                        </div>
+                      </div>
+                      <a href="https://merchant.esewa.com.np" target="_blank" rel="noopener"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                        Dashboard <ExternalLink size={11} />
+                      </a>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label>Merchant ID</Label>
+                        <input value={payment.ESEWA_MERCHANT_ID}
+                          onChange={e => setPayment(p => ({ ...p, ESEWA_MERCHANT_ID: e.target.value }))}
+                          placeholder="EPAYTEST" className={inputCls} />
+                      </div>
+                      <SecretInput label="Secret Key" value={payment.ESEWA_SECRET_KEY}
+                        onChange={v => setPayment(p => ({ ...p, ESEWA_SECRET_KEY: v }))}
+                        placeholder="8gBm/:&EnhH.1/q" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <a href="https://merchant.esewa.com.np" target="_blank" rel="noopener"
-                className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <ExternalLink size={13} />
-              </a>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <FieldLabel>Merchant ID</FieldLabel>
-                <input value={payment.ESEWA_MERCHANT_ID}
-                  onChange={e => setPayment(p => ({ ...p, ESEWA_MERCHANT_ID: e.target.value }))}
-                  placeholder="EPAYTEST" className={inputCls} />
-              </div>
-              <SecretInput label="Secret Key" value={payment.ESEWA_SECRET_KEY}
-                onChange={v => setPayment(p => ({ ...p, ESEWA_SECRET_KEY: v }))}
-                placeholder="8gBm/:&EnhH.1/q" />
-            </div>
-          </div>
 
-          {/* Khalti */}
-          <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <span className="text-[10px] font-extrabold text-purple-700">K</span>
-                </div>
+                {/* Khalti */}
                 <div>
-                  <p className="text-sm font-bold text-slate-800">Khalti</p>
-                  <p className="text-[10px] text-slate-400">admin.khalti.com → Merchant → API Keys</p>
+                  <SectionTitle>Khalti</SectionTitle>
+                  <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center">
+                          <span className="text-xs font-extrabold text-purple-700">K</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">Khalti Digital Wallet</p>
+                          <p className="text-[10px] text-slate-400">admin.khalti.com → Merchant → API Keys</p>
+                        </div>
+                      </div>
+                      <a href="https://admin.khalti.com" target="_blank" rel="noopener"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                        Dashboard <ExternalLink size={11} />
+                      </a>
+                    </div>
+                    <SecretInput label="Secret Key" value={payment.KHALTI_SECRET_KEY}
+                      onChange={v => setPayment(p => ({ ...p, KHALTI_SECRET_KEY: v }))}
+                      placeholder="live_secret_key_..."
+                      hint="Use live_ prefix for production, test_secret_key_ for sandbox" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-50">
+                  <SaveBtn section="payment" saving={saving} saved={saved} />
                 </div>
               </div>
-              <a href="https://admin.khalti.com" target="_blank" rel="noopener"
-                className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <ExternalLink size={13} />
-              </a>
-            </div>
-            <SecretInput label="Secret Key" value={payment.KHALTI_SECRET_KEY}
-              onChange={v => setPayment(p => ({ ...p, KHALTI_SECRET_KEY: v }))}
-              placeholder="live_secret_key_..." hint="Use live_ prefix for production, test_secret_key_ for sandbox" />
-          </div>
+            </form>
+          )}
 
-          <div className="flex justify-end pt-2 border-t border-slate-50">
-            <SaveBtn section="payment" saving={saving} saved={saved} />
-          </div>
-        </Section>
-      </form>
-
-      {/* ── Delivery ──────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center shrink-0">
-              <Truck size={15} className="text-white" />
+          {/* ── Delivery tab ──────────────────────────────────────── */}
+          {tab === 'delivery' && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-6">
+              <SectionTitle>Pathao Delivery</SectionTitle>
+              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                Pathao API credentials, pickup location, zone configuration, and mock mode are managed in the dedicated Logistics page.
+                Changes take effect immediately without a server restart.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link href="/admin/logistics"
+                  className="flex items-center justify-center gap-2 px-5 py-3 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-md shadow-primary/15">
+                  Open Logistics Settings <ExternalLink size={14} />
+                </Link>
+                <a href="https://merchant.pathao.com" target="_blank" rel="noopener"
+                  className="flex items-center justify-center gap-2 px-5 py-3 border border-slate-200 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+                  Pathao Merchant Portal <ExternalLink size={14} />
+                </a>
+              </div>
             </div>
-            <h2 className="font-heading font-bold text-slate-800 text-sm">Delivery — Pathao</h2>
-          </div>
-        </div>
-        <div className="px-6 py-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-600">Configure Pathao API credentials, pickup location, and delivery zones.</p>
-            <p className="text-xs text-slate-400 mt-0.5">Changes take effect immediately without a server restart.</p>
-          </div>
-          <Link href="/admin/logistics"
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shrink-0 shadow-md shadow-primary/15">
-            Open Logistics <ExternalLink size={13} />
-          </Link>
+          )}
+
+          {/* ── AI tab ────────────────────────────────────────────── */}
+          {tab === 'ai' && (
+            <form onSubmit={e => { e.preventDefault(); save('ai', ai as unknown as Record<string, string>) }}>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+                <InfoBanner icon={Sparkles} color="bg-violet-50 border border-violet-100 text-violet-700">
+                  Keys are stored encrypted in the database and never sent to the browser. They power product tag generation, image descriptions, and AI-assisted features.
+                </InfoBanner>
+
+                {/* Anthropic */}
+                <div>
+                  <SectionTitle>Anthropic (Claude)</SectionTitle>
+                  <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center">
+                          <span className="text-xs font-extrabold text-violet-700">A</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">Anthropic</p>
+                          <p className="text-[10px] text-slate-400">console.anthropic.com → API Keys</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => testKey('claude')}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold rounded-lg transition-colors cursor-pointer">
+                          <RefreshCw size={11} /> Test
+                        </button>
+                        <a href="https://console.anthropic.com" target="_blank" rel="noopener"
+                          className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    </div>
+                    <SecretInput label="API Key" value={ai.ANTHROPIC_API_KEY}
+                      onChange={v => setAi(a => ({ ...a, ANTHROPIC_API_KEY: v }))}
+                      placeholder="sk-ant-api03-..."
+                      hint="claude-haiku-4-5 (fast) · claude-sonnet-4-6 (smart)"
+                      testStatus={testStatus['ANTHROPIC_API_KEY'] as 'idle'|'ok'|'fail'|'testing' ?? 'idle'} />
+                  </div>
+                </div>
+
+                {/* Gemini */}
+                <div>
+                  <SectionTitle>Google Gemini</SectionTitle>
+                  <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                          <span className="text-xs font-extrabold text-blue-700">G</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">Google Gemini</p>
+                          <p className="text-[10px] text-slate-400">aistudio.google.com → Get API key</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => testKey('gemini')}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-colors cursor-pointer">
+                          <RefreshCw size={11} /> Test
+                        </button>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"
+                          className="text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    </div>
+                    <SecretInput label="API Key" value={ai.GEMINI_API_KEY}
+                      onChange={v => setAi(a => ({ ...a, GEMINI_API_KEY: v }))}
+                      placeholder="AIzaSy..."
+                      hint="Free tier: 60 req/min. Gemini 2.0 Flash · Flash Lite · Pro 2.5"
+                      testStatus={testStatus['GEMINI_API_KEY'] as 'idle'|'ok'|'fail'|'testing' ?? 'idle'} />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-50">
+                  <SaveBtn section="ai" saving={saving} saved={saved} />
+                </div>
+              </div>
+            </form>
+          )}
+
+          {/* ── Notifications tab ─────────────────────────────────── */}
+          {tab === 'notifications' && (
+            <form onSubmit={e => { e.preventDefault(); save('notif', notif as unknown as Record<string, string>) }}>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+                <SectionTitle>Email Alerts</SectionTitle>
+                <div className="max-w-md">
+                  <Label>Order Notification Email</Label>
+                  <input type="email" value={notif.ORDER_NOTIFICATION_EMAIL}
+                    onChange={e => setNotif({ ORDER_NOTIFICATION_EMAIL: e.target.value })}
+                    placeholder="admin@yourstore.com" className={inputCls} />
+                  <Hint>Receive an email whenever a new order is placed. Leave empty to disable.</Hint>
+                </div>
+                <div className="flex justify-end pt-2 border-t border-slate-50">
+                  <SaveBtn section="notif" saving={saving} saved={saved} />
+                </div>
+              </div>
+            </form>
+          )}
+
+          {/* ── Danger tab ────────────────────────────────────────── */}
+          {tab === 'danger' && (
+            <div className="bg-white rounded-2xl border border-red-100 overflow-hidden">
+              <div className="px-6 py-4 border-b border-red-50 bg-red-50/50">
+                <p className="text-sm font-bold text-red-700">These actions are permanent and cannot be undone.</p>
+                <p className="text-xs text-red-500 mt-0.5">Proceed only if you are absolutely sure.</p>
+              </div>
+              <div className="divide-y divide-red-50">
+                <div className="p-6 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-bold text-slate-800 text-sm">Clear all orders</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Permanently delete all orders and order items from the database.</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Delete ALL orders permanently? This cannot be undone.')) return
+                      const res = await fetch('/api/admin/products/all', { method: 'DELETE' })
+                      alert(res.ok ? 'All orders cleared.' : 'Failed.')
+                    }}
+                    className="shrink-0 px-4 py-2 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                    Clear Orders
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
-
-      {/* ── AI Configuration ──────────────────────────────────────────── */}
-      <form onSubmit={e => { e.preventDefault(); save('ai', ai as unknown as Record<string, string>) }}>
-        <Section icon={Sparkles} title="AI Configuration" iconBg="bg-violet-500">
-          <div className="flex items-start gap-3 px-4 py-3 bg-violet-50 border border-violet-100 rounded-2xl text-xs text-violet-700 mb-2">
-            <Sparkles size={13} className="shrink-0 mt-0.5" />
-            Keys are stored in the database and never sent to the browser. They take effect immediately.
-          </div>
-
-          {/* Anthropic */}
-          <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <span className="text-[10px] font-extrabold text-violet-700">A</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Anthropic (Claude)</p>
-                  <p className="text-[10px] text-slate-400">console.anthropic.com → API Keys</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => testKey('claude')}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold rounded-lg transition-colors cursor-pointer">
-                  <RefreshCw size={11} /> Test
-                </button>
-                <a href="https://console.anthropic.com" target="_blank" rel="noopener"
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"><ExternalLink size={13} /></a>
-              </div>
-            </div>
-            <SecretInput label="API Key" value={ai.ANTHROPIC_API_KEY}
-              onChange={v => setAi(a => ({ ...a, ANTHROPIC_API_KEY: v }))}
-              placeholder="sk-ant-api03-..."
-              hint="Models: claude-haiku-4-5 (fast) · claude-sonnet-4-6 (smart)"
-              testStatus={testStatus['ANTHROPIC_API_KEY'] as 'idle' | 'ok' | 'fail' | 'testing' ?? 'idle'} />
-          </div>
-
-          {/* Gemini */}
-          <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <span className="text-[10px] font-extrabold text-blue-700">G</span>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Google Gemini</p>
-                  <p className="text-[10px] text-slate-400">aistudio.google.com → Get API key</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => testKey('gemini')}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-colors cursor-pointer">
-                  <RefreshCw size={11} /> Test
-                </button>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"><ExternalLink size={13} /></a>
-              </div>
-            </div>
-            <SecretInput label="API Key" value={ai.GEMINI_API_KEY}
-              onChange={v => setAi(a => ({ ...a, GEMINI_API_KEY: v }))}
-              placeholder="AIzaSy..."
-              hint="Free tier: 60 req/min. Models: Gemini 2.0 Flash · Flash Lite · Pro 2.5"
-              testStatus={testStatus['GEMINI_API_KEY'] as 'idle' | 'ok' | 'fail' | 'testing' ?? 'idle'} />
-          </div>
-
-          <div className="flex justify-end pt-2 border-t border-slate-50">
-            <SaveBtn section="ai" saving={saving} saved={saved} />
-          </div>
-        </Section>
-      </form>
-
-      {/* ── Notifications ─────────────────────────────────────────────── */}
-      <form onSubmit={e => { e.preventDefault(); save('notif', notif as unknown as Record<string, string>) }}>
-        <Section icon={Bell} title="Notifications" iconBg="bg-amber-500">
-          <div>
-            <FieldLabel>Order Notification Email</FieldLabel>
-            <input type="email" value={notif.ORDER_NOTIFICATION_EMAIL}
-              onChange={e => setNotif({ ORDER_NOTIFICATION_EMAIL: e.target.value })}
-              placeholder="admin@yourstore.com" className={inputCls} />
-            <p className="text-[10px] text-slate-400 mt-1">Receive an email when a new order is placed</p>
-          </div>
-          <div className="flex justify-end pt-2 border-t border-slate-50">
-            <SaveBtn section="notif" saving={saving} saved={saved} />
-          </div>
-        </Section>
-      </form>
-
-      {/* ── Danger Zone ───────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-red-100 overflow-hidden">
-        <div className="flex items-center gap-2.5 px-6 py-4 border-b border-red-50">
-          <div className="w-8 h-8 bg-red-500 rounded-xl flex items-center justify-center">
-            <Shield size={15} className="text-white" />
-          </div>
-          <h2 className="font-heading font-bold text-slate-800 text-sm">Danger Zone</h2>
-        </div>
-        <div className="divide-y divide-red-50">
-          <div className="p-6 flex items-center justify-between gap-4">
-            <div>
-              <p className="font-bold text-slate-800 text-sm">Clear all orders</p>
-              <p className="text-xs text-slate-400 mt-0.5">Permanently delete all orders and order items. Cannot be undone.</p>
-            </div>
-            <button
-              onClick={async () => {
-                if (!confirm('Delete ALL orders permanently? This cannot be undone.')) return
-                const res = await fetch('/api/admin/products/all', { method: 'DELETE' })
-                if (res.ok) alert('All orders cleared.')
-                else alert('Failed to clear orders.')
-              }}
-              className="px-4 py-2 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl transition-colors cursor-pointer shrink-0">
-              Clear Orders
-            </button>
-          </div>
-        </div>
-      </div>
-
     </div>
   )
 }
