@@ -77,60 +77,19 @@ async function readExcel(file: File) {
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws)
 }
 
-// ── Images: server-side attempt first, browser-side fallback ─────────────────
-// Server may be blocked by Daraz CDN (datacenter IP). Browser (user's machine)
-// uses a residential IP so it can fetch CDN images directly.
-async function findAndUploadImages(productName: string, excelImageUrls: string[]): Promise<{ urls: string[]; count: number }> {
-  // 1. Server-side: use Excel URLs or fall back to Daraz name search
-  let serverUrls: string[] = []
+// ── Images: Daraz name search → scrape PDP → download via proxy if needed ────
+// Excel im1-im8 URLs use a dead CDN hostname (static-1.daraz.com.np).
+// Name search finds live static-01.daraz.com.np URLs instead.
+// The server tries direct download first, then wsrv.nl proxy (bypasses VPS IP blocks).
+async function findAndUploadImages(productName: string): Promise<{ urls: string[]; count: number }> {
   try {
-    const body = excelImageUrls.length > 0 ? { imageUrls: excelImageUrls } : { productName }
     const res  = await fetch('/api/admin/find-images', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ productName }),
     })
     const data = await res.json()
-    serverUrls = data.images ?? []
-  } catch { }
-
-  // 2. Browser-side fallback: for any CDN URL the server couldn't download,
-  //    fetch it from the browser (not blocked) and POST bytes to server
-  const finalUrls = await Promise.all(serverUrls.map(async (url) => {
-    if (url.startsWith('/uploads/')) return url
-    try {
-      const res = await fetch(url)
-      if (!res.ok) return url
-      const ct = res.headers.get('content-type') ?? 'image/jpeg'
-      if (!ct.startsWith('image/')) return url
-      const buf = await res.arrayBuffer()
-      const up  = await fetch('/api/upload/image', {
-        method: 'POST', headers: { 'content-type': ct }, body: buf,
-      })
-      if (!up.ok) return url
-      return (await up.json()).url ?? url
-    } catch { return url }
-  }))
-
-  // 3. If server found nothing (search blocked entirely), try Excel URLs in browser
-  if (finalUrls.length === 0 && excelImageUrls.length > 0) {
-    const browserUrls = await Promise.all(excelImageUrls.map(async (url) => {
-      try {
-        const res = await fetch(url)
-        if (!res.ok) return url
-        const ct = res.headers.get('content-type') ?? 'image/jpeg'
-        if (!ct.startsWith('image/')) return url
-        const buf = await res.arrayBuffer()
-        const up  = await fetch('/api/upload/image', {
-          method: 'POST', headers: { 'content-type': ct }, body: buf,
-        })
-        if (!up.ok) return url
-        return (await up.json()).url ?? url
-      } catch { return url }
-    }))
-    return { urls: browserUrls, count: browserUrls.filter(u => u.startsWith('/uploads')).length }
-  }
-
-  return { urls: finalUrls, count: finalUrls.filter(u => u.startsWith('/uploads')).length }
+    return { urls: data.images ?? [], count: data.uploaded ?? 0 }
+  } catch { return { urls: [], count: 0 } }
 }
 
 // ── Ensure category exists in DB ──────────────────────────────────────────────
@@ -240,8 +199,8 @@ export default function ImportPage() {
         return next
       })
 
-      // Use Excel CDN URLs directly; fall back to Daraz name search if none
-      const { urls: uploadedUrls, count: uploadedCount } = await findAndUploadImages(p.nameEn, p.images)
+      // Search Daraz by name → scrape PDP → download via proxy
+      const { urls: uploadedUrls, count: uploadedCount } = await findAndUploadImages(p.nameEn)
       setResults(prev => {
         const next = [...prev]
         next[i] = { ...next[i], uploaded: uploadedCount, images: uploadedUrls.length }
