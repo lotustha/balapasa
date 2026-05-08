@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma }     from '@/lib/prisma'
 
-const SECRET_KEYS = new Set(['ANTHROPIC_API_KEY', 'GEMINI_API_KEY'])
+const SECRET_KEYS = new Set(['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'ESEWA_SECRET_KEY', 'KHALTI_SECRET_KEY'])
 
 function mask(key: string, value: string) {
   if (!SECRET_KEYS.has(key)) return value
