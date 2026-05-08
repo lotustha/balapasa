@@ -16,7 +16,6 @@ const NAV = [
   { href: '/admin',            icon: LayoutDashboard, label: 'Dashboard',  minRole: 'STAFF'   },
   { href: '/admin/orders',     icon: ShoppingBag,     label: 'Orders',     minRole: 'STAFF'   },
   { href: '/admin/products',   icon: Package,         label: 'Products',   minRole: 'MANAGER' },
-  { href: '/admin/import',     icon: Upload,          label: 'Import',     minRole: 'MANAGER' },
   { href: '/admin/customers',  icon: Users,           label: 'Customers',  minRole: 'MANAGER' },
   { href: '/admin/categories', icon: Tag,             label: 'Categories', minRole: 'MANAGER' },
   { href: '/admin/coupons',     icon: Ticket,          label: 'Coupons',     minRole: 'MANAGER' },

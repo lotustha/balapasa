@@ -307,6 +307,10 @@ export default function ProductsPage() {
             className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Import
           </button>
+          <Link href="/admin/import"
+            className="flex items-center gap-2 px-4 py-2.5 border border-violet-200 bg-violet-50 rounded-xl text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors cursor-pointer">
+            <Upload size={14} /> Daraz Excel Import
+          </Link>
           <button onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer">
             <Download size={14} /> Export
