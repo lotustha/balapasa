@@ -538,7 +538,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               {/* Price + CTA */}
               <div className="glass-panel p-4 animate-fade-in-up flex flex-col gap-4">
                 <div className="flex items-baseline gap-3">
-                  <span className="font-heading font-extrabold text-4xl text-slate-900">{formatPrice(effectivePrice)}</span>
+                  <span className="font-heading font-extrabold text-3xl sm:text-4xl text-slate-900">{formatPrice(effectivePrice)}</span>
                   {originalPrice > effectivePrice && (
                     <span className="text-xl text-slate-400 line-through font-medium">{formatPrice(originalPrice)}</span>
                   )}
@@ -810,15 +810,15 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               </button>
             </div>
           ) : (
-            <div className="glass-panel p-6 flex gap-6 items-start overflow-hidden">
+            <div className="glass-panel p-6 flex flex-col md:flex-row gap-6 items-start overflow-hidden">
               {/* Summary */}
-              <div className="shrink-0 w-44 flex flex-col items-center text-center border-r pr-6" style={{ borderColor:'rgba(255,255,255,0.40)' }}>
+              <div className="shrink-0 w-full md:w-44 flex flex-col items-center text-center border-b md:border-b-0 md:border-r pb-5 md:pb-0 md:pr-6" style={{ borderColor:'rgba(255,255,255,0.40)' }}>
                 <p className="font-heading font-extrabold text-5xl text-slate-900">{p.rating.toFixed(1)}</p>
                 <div className="flex items-center gap-0.5 mt-2">
                   {[1,2,3,4,5].map(i=><Star key={i} size={15} className={i<=Math.round(p.rating)?'fill-gold-bright text-gold-bright':'text-slate-200'} aria-hidden="true" />)}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">{reviews.length} reviews</p>
-                <div className="w-full mt-4 space-y-1.5">
+                <div className="w-full max-w-[180px] mt-4 space-y-1.5">
                   {ratingBreakdown.map(({stars,pct,count})=>(
                     <div key={stars} className="flex items-center gap-1.5" title={`${count} reviews`}>
                       <span className="text-[10px] text-slate-500 w-2.5">{stars}</span>
@@ -996,8 +996,9 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       )}
 
       {/* ── Sticky buy bar ─────────────────────────────────────────────── */}
+      {/* bottom-16 on mobile = sits above the bottom nav bar (h-16); md:bottom-0 on desktop */}
       {showSticky && (
-        <div className="fixed bottom-0 inset-x-0 z-40 animate-fade-in-up"
+        <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-40 animate-fade-in-up"
           style={{ background:'rgba(255,255,255,0.88)', backdropFilter:'blur(24px) saturate(180%)', borderTop:'1px solid rgba(255,255,255,0.80)', boxShadow:'0 -4px 24px rgba(0,0,0,0.08)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
             <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0" style={{ border:'1px solid rgba(255,255,255,0.80)' }}>

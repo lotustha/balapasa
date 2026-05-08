@@ -131,7 +131,7 @@ function ActiveFilters({ params }: { params: Params }) {
     <div className="flex flex-wrap gap-2 mb-5">
       {chips.map(({ label, key }) => (
         <Link key={key} href={removeUrl(key)} scroll={false}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors cursor-pointer">
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary/10 text-primary rounded-full text-xs font-semibold hover:bg-primary/20 transition-colors cursor-pointer min-h-[36px]">
           {label} <X size={11} />
         </Link>
       ))}

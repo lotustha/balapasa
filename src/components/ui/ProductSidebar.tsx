@@ -333,7 +333,7 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
       <div className="lg:hidden flex items-center gap-3 mb-5">
         <button
           onClick={() => setMobileOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 glass-card rounded-2xl text-sm font-semibold text-slate-700 hover:bg-white/90 cursor-pointer transition-all shadow-sm"
+          className="flex items-center gap-2 px-4 py-3 glass-card rounded-2xl text-sm font-semibold text-slate-700 hover:bg-white/90 cursor-pointer transition-all shadow-sm min-h-[44px]"
         >
           <SlidersHorizontal size={15} className="text-primary" />
           Filters {filterCount > 0 && (
