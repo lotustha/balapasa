@@ -9,6 +9,7 @@ import {
   CheckCircle2, Loader2, Zap, BarChart2,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import pkg from '../../../package.json'
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING:    'bg-yellow-100 text-yellow-700',
@@ -355,6 +356,11 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Version footer */}
+      <p className="mt-8 text-center text-[11px] text-slate-300 font-mono select-none">
+        Balapasa v{pkg.version}
+      </p>
     </div>
   )
 }
