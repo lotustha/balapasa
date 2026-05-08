@@ -55,17 +55,30 @@ const DARAZ_HEADERS = {
   'Accept':     'image/webp,image/avif,image/*,*/*;q=0.8',
 }
 
-async function uploadImageLocally(imgUrl: string): Promise<string> {
-  const res = await fetch(imgUrl, {
-    headers: DARAZ_HEADERS,
-    signal: AbortSignal.timeout(15000),
-  })
+async function tryFetch(url: string, headers?: Record<string, string>) {
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(18000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const ct = res.headers.get('content-type') ?? ''
   if (!ct.startsWith('image/')) throw new Error(`Not an image (got ${ct})`)
   const buf = await res.arrayBuffer()
-  if (buf.byteLength < 512) throw new Error('Response too small — likely an error page')
-  return saveFile(buf, ct || 'image/jpeg')
+  if (buf.byteLength < 512) throw new Error('Response too small')
+  return { buf, ct }
+}
+
+async function uploadImageLocally(imgUrl: string): Promise<string> {
+  // 1. Direct download (works if CDN isn't blocking the VPS IP)
+  // 2. Via wsrv.nl public image proxy (bypasses datacenter IP blocks)
+  const attempts: Array<() => Promise<{ buf: ArrayBuffer; ct: string }>> = [
+    () => tryFetch(imgUrl, DARAZ_HEADERS),
+    () => tryFetch(`https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}`),
+  ]
+  for (const attempt of attempts) {
+    try {
+      const { buf, ct } = await attempt()
+      return saveFile(buf, ct)
+    } catch { /* try next */ }
+  }
+  throw new Error('All download attempts failed')
 }
 
 export async function POST(req: Request) {
