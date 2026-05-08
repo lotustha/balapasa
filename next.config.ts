@@ -5,9 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
-      { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'cdn.pathao.com' },
-      // Daraz / Lazada CDN — for products not yet migrated to Supabase
+      // Daraz / Lazada CDN
       { protocol: 'https', hostname: '*.daraz.com.np' },
       { protocol: 'https', hostname: '*.daraz.com' },
       { protocol: 'https', hostname: '*.lazcdn.com' },

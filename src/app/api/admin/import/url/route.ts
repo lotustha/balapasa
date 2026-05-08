@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
   const isDaraz = host.includes('daraz') || host.includes('lazada')
   const partial = isDaraz ? extractDaraz(html) : extractGeneric(html)
 
-  // Re-upload images to Supabase Storage
+  // Re-upload images to local storage
   let images = partial.images ?? []
   let uploadedCount = 0
 

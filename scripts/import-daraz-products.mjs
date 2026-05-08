@@ -5,64 +5,19 @@
  *
  * Run: node scripts/import-daraz-products.mjs
  * Options:
- *   --upload-images   Re-upload images to Supabase (slow but recommended)
  *   --dry-run         Show counts without writing to DB
  */
 
 import { config }            from 'dotenv'
 import XLSX                  from 'xlsx'
 import pg                    from 'pg'
-import { createClient }      from '@supabase/supabase-js'
 import { createId }          from '@paralleldrive/cuid2'
 
 config({ path: '.env.local' })
 
-const DRY_RUN      = process.argv.includes('--dry-run')
-const UPLOAD_IMGS  = process.argv.includes('--upload-images')
+const DRY_RUN = process.argv.includes('--dry-run')
 
 const pool = new pg.Pool({ connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL })
-
-// Supabase client for image uploads
-let supabaseAdmin = null
-if (UPLOAD_IMGS) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key || key === 'your-service-role-key') {
-    console.warn('⚠️  Supabase not configured — images will use Daraz URLs')
-  } else {
-    supabaseAdmin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-    // Ensure bucket exists
-    const { data: buckets } = await supabaseAdmin.storage.listBuckets()
-    if (!buckets?.find(b => b.name === 'product-images')) {
-      await supabaseAdmin.storage.createBucket('product-images', { public: true, fileSizeLimit: 10 * 1024 * 1024 })
-    }
-  }
-}
-
-// ── Upload single image to Supabase ───────────────────────────────────────────
-
-async function uploadImage(url) {
-  if (!supabaseAdmin || !url) return url
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
-        'Referer':    'https://www.daraz.com.np/',
-        'Accept':     'image/webp,image/avif,image/*,*/*;q=0.8',
-      },
-      signal: AbortSignal.timeout(15000),
-    })
-    if (!res.ok) return url
-    const ct   = res.headers.get('content-type') ?? 'image/jpeg'
-    const ext  = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : 'jpg'
-    const buf  = await res.arrayBuffer()
-    const path = `imports/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const { error } = await supabaseAdmin.storage.from('product-images').upload(path, buf, { contentType: ct })
-    if (error) return url
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('product-images').getPublicUrl(path)
-    return publicUrl
-  } catch { return url }
-}
 
 // ── Slugify ───────────────────────────────────────────────────────────────────
 
@@ -204,7 +159,7 @@ const COLORS = ['#16A34A','#06B6D4','#8B5CF6','#EC4899','#F59E0B','#EF4444','#3B
 
 let created = 0, skipped = 0, failed = 0
 
-console.log(`\n📦 Importing ${prodRows.length} products${UPLOAD_IMGS ? ' + uploading images' : ''}...\n`)
+console.log(`\n📦 Importing ${prodRows.length} products...\n`)
 
 for (let i = 0; i < prodRows.length; i++) {
   const row     = prodRows[i]
@@ -237,15 +192,8 @@ for (let i = 0; i < prodRows.length; i++) {
   }
 
   try {
-    // Upload images if requested
-    let images = rawImages
-    if (UPLOAD_IMGS && rawImages.length) {
-      process.stdout.write(`  [${i+1}/${prodRows.length}] ${name.slice(0,40)}… `)
-      images = await Promise.all(rawImages.map(uploadImage))
-      console.log(`${images.filter(u => u.includes('supabase')).length}/${rawImages.length} uploaded`)
-    } else {
-      process.stdout.write(`  [${i+1}/${prodRows.length}] ${name.slice(0,50)}\n`)
-    }
+    const images = rawImages
+    process.stdout.write(`  [${i+1}/${prodRows.length}] ${name.slice(0,50)}\n`)
 
     await pool.query(`
       INSERT INTO products (

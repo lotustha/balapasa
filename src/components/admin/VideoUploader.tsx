@@ -140,7 +140,7 @@ export default function VideoUploader({ value, onChange }: Props) {
           </div>
           <div className="flex-1">
             <p className="text-sm font-bold text-slate-800">{fileInfo?.name}</p>
-            <p className="text-xs text-slate-500">{fileInfo ? formatSize(fileInfo.size) : ''} · Uploading to Supabase Storage…</p>
+            <p className="text-xs text-slate-500">{fileInfo ? formatSize(fileInfo.size) : ''} · Uploading…</p>
           </div>
           <span className="font-extrabold text-primary text-sm">{progress}%</span>
         </div>

@@ -77,7 +77,7 @@ async function readExcel(file: File) {
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws)
 }
 
-// ── Images: search Daraz by name → scrape product page → upload to Supabase ──
+// ── Images: search Daraz by name → scrape product page → upload locally ──
 // (Seller export URLs are broken; we find fresh images via Daraz search API)
 async function findAndUploadImages(productName: string): Promise<{ urls: string[]; count: number }> {
   try {
@@ -198,7 +198,7 @@ export default function ImportPage() {
         return next
       })
 
-      // Search Daraz by product name → scrape product page → upload all images to Supabase
+      // Search Daraz by product name → scrape product page → upload all images locally
       const { urls: uploadedUrls, count: uploadedCount } = await findAndUploadImages(p.nameEn)
       setResults(prev => {
         const next = [...prev]

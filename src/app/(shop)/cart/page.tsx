@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
@@ -79,6 +79,7 @@ export default function CartPage() {
       .catch(() => {})
   }, [])
 
+  const deliveryFee = subtotal >= freeThreshold ? 0 : BASE_DELIVERY;
   const toFreeDelivery = Math.max(0, freeThreshold - subtotal);
   const deliveryPct = Math.min(100, (subtotal / freeThreshold) * 100);
   const totalSavings = items.reduce(

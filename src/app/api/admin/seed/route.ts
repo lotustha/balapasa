@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs'
 export async function POST(req: NextRequest) {
   const { secret } = await req.json() as { secret: string }
 
-  const adminSecret = process.env.SEED_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY
+  const adminSecret = process.env.SEED_SECRET
   if (!adminSecret || secret !== adminSecret) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -836,10 +836,6 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       if (p.sku)              set('sku',         p.sku)
       if (p.images?.length)   set('images',      p.images)
       if (p.tags?.length)     set('tags',        p.tags)
-      // Show how many images were saved to Supabase
-      const uploaded = data.uploaded_to_supabase ?? 0
-      if (uploaded > 0) console.info(`[import] ${uploaded}/${p.images?.length} images re-uploaded to Supabase Storage`)
-
       // Category resolution: mapping table → fuzzy match → hint
       if (data.mappedCategoryId) {
         set('categoryId', data.mappedCategoryId)   // saved mapping → auto-select
