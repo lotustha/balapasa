@@ -12,9 +12,9 @@ async function searchDaraz(productName: string): Promise<SearchItem | null> {
   try {
     const res  = await fetch(url, {
       headers: {
-        'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
+        ...DARAZ_HEADERS,
+        'Accept':           'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        'Accept':          'application/json',
       },
       signal: AbortSignal.timeout(10000),
     })
@@ -48,24 +48,39 @@ function extractImages(html: string): string[] {
   return imgs.slice(0, 10)
 }
 
+const DARAZ_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
+  'Referer':    'https://www.daraz.com.np/',
+  'Origin':     'https://www.daraz.com.np',
+  'Accept':     'image/webp,image/avif,image/*,*/*;q=0.8',
+}
+
 async function uploadImageLocally(imgUrl: string): Promise<string> {
   const res = await fetch(imgUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
-      'Referer':    'https://www.daraz.com.np/',
-      'Accept':     'image/webp,image/avif,image/*,*/*;q=0.8',
-    },
+    headers: DARAZ_HEADERS,
     signal: AbortSignal.timeout(15000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const ct  = res.headers.get('content-type') ?? 'image/jpeg'
+  const ct = res.headers.get('content-type') ?? ''
+  if (!ct.startsWith('image/')) throw new Error(`Not an image (got ${ct})`)
   const buf = await res.arrayBuffer()
-  return saveFile(buf, ct)
+  if (buf.byteLength < 512) throw new Error('Response too small — likely an error page')
+  return saveFile(buf, ct || 'image/jpeg')
 }
 
 export async function POST(req: Request) {
-  const { productName } = await req.json() as { productName: string }
-  if (!productName) return Response.json({ error: 'productName required' }, { status: 400 })
+  const body = await req.json() as { productName?: string; imageUrls?: string[] }
+  const { productName, imageUrls } = body
+
+  // Fast path: caller already has CDN URLs from the Excel export — download them directly
+  if (imageUrls && imageUrls.length > 0) {
+    const settled = await Promise.allSettled(imageUrls.map(u => uploadImageLocally(u)))
+    const images  = settled.map((r, i) => r.status === 'fulfilled' ? r.value : imageUrls[i])
+    const uploaded = images.filter(u => u.startsWith('/uploads')).length
+    return Response.json({ images, uploaded, total: images.length })
+  }
+
+  if (!productName) return Response.json({ error: 'productName or imageUrls required' }, { status: 400 })
 
   const item = await searchDaraz(productName)
   if (!item) return Response.json({ error: 'Product not found on Daraz', images: [] })
@@ -75,10 +90,7 @@ export async function POST(req: Request) {
 
   try {
     const pdpRes = await fetch(pdpUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
-        'Accept':     'text/html',
-      },
+      headers: { ...DARAZ_HEADERS, 'Accept': 'text/html' },
       signal: AbortSignal.timeout(15000),
     })
     if (pdpRes.ok) allImages = extractImages(await pdpRes.text())

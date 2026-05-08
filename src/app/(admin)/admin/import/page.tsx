@@ -77,14 +77,16 @@ async function readExcel(file: File) {
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws)
 }
 
-// ── Images: search Daraz by name → scrape product page → upload locally ──
-// (Seller export URLs are broken; we find fresh images via Daraz search API)
-async function findAndUploadImages(productName: string): Promise<{ urls: string[]; count: number }> {
+// ── Images: use Excel CDN URLs first, fall back to Daraz name search ──
+async function findAndUploadImages(productName: string, excelImageUrls: string[]): Promise<{ urls: string[]; count: number }> {
   try {
+    const body = excelImageUrls.length > 0
+      ? { imageUrls: excelImageUrls }
+      : { productName }
     const res  = await fetch('/api/admin/find-images', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ productName }),
+      body:    JSON.stringify(body),
     })
     const data = await res.json()
     return { urls: data.images ?? [], count: data.uploaded ?? 0 }
@@ -198,8 +200,8 @@ export default function ImportPage() {
         return next
       })
 
-      // Search Daraz by product name → scrape product page → upload all images locally
-      const { urls: uploadedUrls, count: uploadedCount } = await findAndUploadImages(p.nameEn)
+      // Use Excel CDN URLs directly; fall back to Daraz name search if none
+      const { urls: uploadedUrls, count: uploadedCount } = await findAndUploadImages(p.nameEn, p.images)
       setResults(prev => {
         const next = [...prev]
         next[i] = { ...next[i], uploaded: uploadedCount, images: uploadedUrls.length }
