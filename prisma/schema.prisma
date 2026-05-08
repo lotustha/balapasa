@@ -360,6 +360,18 @@ model CartAbandonment {
   @@map("cart_abandonments")
 }
 
+// Customer wishlist
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("wishlist_items")
+}
+
 // FCM push notification tokens for the Flutter mobile app
 model DeviceToken {
   id        String   @id @default(cuid())
