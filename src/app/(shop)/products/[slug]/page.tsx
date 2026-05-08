@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params
   const product  = await getProduct(slug)
-  const { STORE_URL: appUrl } = await import('@/lib/config')
+  const { STORE_URL: appUrl, STORE_NAME } = await import('@/lib/config')
 
   const [similar, shopsChoice, boughtTogether, rawReviews] = await Promise.all([
     product ? prisma.product.findMany({
