@@ -13,3 +13,10 @@ export function getThemeCss(key: string): string {
   const t = THEMES[key] ?? THEMES['emerald']
   return `:root{--clr-primary:${t.primary};--clr-primary-dark:${t.dark};--clr-primary-light:${t.light};--clr-primary-bg:${t.bg}}`
 }
+
+/** Returns a synchronous JS snippet that sets CSS vars before first paint.
+ *  Inject as a blocking <script> in <body> — avoids hydration mismatches. */
+export function getThemeScript(key: string): string {
+  const t = THEMES[key] ?? THEMES['emerald']
+  return `(function(){var s=document.documentElement.style;s.setProperty('--clr-primary','${t.primary}');s.setProperty('--clr-primary-dark','${t.dark}');s.setProperty('--clr-primary-light','${t.light}');s.setProperty('--clr-primary-bg','${t.bg}');})()`
+}
