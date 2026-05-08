@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     } catch { /* guest checkout */ }
 
     const body = await req.json()
-    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod } = body
+    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod, couponCode, couponDiscount } = body
 
     const order = await prisma.order.create({
       data: {
@@ -37,9 +37,11 @@ export async function POST(req: NextRequest) {
         city,
         lat:          lat          ? Number(lat)          : null,
         lng:          lng          ? Number(lng)          : null,
-        advancePaid:  advancePaid  ? Number(advancePaid)  : null,
-        codAmount:    codAmount    ? Number(codAmount)    : null,
-        advanceMethod: advanceMethod || null,
+        advancePaid:    advancePaid    ? Number(advancePaid)    : null,
+        codAmount:      codAmount      ? Number(codAmount)      : null,
+        advanceMethod:  advanceMethod  || null,
+        couponCode:     couponCode     || null,
+        couponDiscount: couponDiscount ? Number(couponDiscount) : null,
         items: {
           create: items.map((item: {
             id: string; name: string; price: number; salePrice?: number | null;
@@ -54,6 +56,14 @@ export async function POST(req: NextRequest) {
         },
       },
     })
+
+    // Increment coupon usedCount (fire-and-forget — non-critical)
+    if (couponCode) {
+      prisma.coupon.update({
+        where: { code: couponCode },
+        data: { usedCount: { increment: 1 } },
+      }).catch(() => {})
+    }
 
     try {
       for (const item of items as { id: string; quantity: number }[]) {

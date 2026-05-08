@@ -196,18 +196,21 @@ export default function CheckoutPage() {
   const [couponError,    setCouponError]    = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
 
-  const VALID_COUPONS: Record<string, { pct: number; label: string }> = {
-    BALAPASA10: { pct: 10, label: '10% off' },
-    WELCOME:    { pct:  5, label: '5% off'  },
-  }
-  function applyCoupon() {
+  const [couponValidating, setCouponValidating] = useState(false)
+  async function applyCoupon() {
     const code = coupon.trim().toUpperCase()
     if (!code) { setCouponError('Enter a promo code'); return }
-    const c = VALID_COUPONS[code]
-    if (!c) { setCouponError('Invalid or expired code'); setCouponDiscount(0); setCouponApplied(false); return }
-    setCouponDiscount(Math.round(subtotal * c.pct / 100))
-    setCouponApplied(true)
-    setCouponError('')
+    setCouponValidating(true); setCouponError('')
+    try {
+      const res  = await fetch('/api/coupons/validate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCouponError(data.error ?? 'Invalid code'); setCouponDiscount(0); setCouponApplied(false) }
+      else { setCouponDiscount(data.discount); setCouponApplied(true) }
+    } catch { setCouponError('Could not validate code') }
+    setCouponValidating(false)
   }
   function removeCoupon() { setCoupon(''); setCouponApplied(false); setCouponDiscount(0); setCouponError('') }
 
@@ -303,6 +306,8 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items, subtotal, deliveryCharge, total,
+          couponCode:     couponApplied ? coupon.trim().toUpperCase() : undefined,
+          couponDiscount: couponApplied ? couponDiscount : undefined,
           paymentMethod: (payment === 'COD' && partialCod) ? 'PARTIAL_COD' : payment,
           advancePaid:   (payment === 'COD' && partialCod) ? Math.round(total * advancePct / 100) : undefined,
           codAmount:     (payment === 'COD' && partialCod) ? Math.round(total * (100 - advancePct) / 100) : undefined,
@@ -1016,9 +1021,10 @@ export default function CheckoutPage() {
                         <button
                           type="button"
                           onClick={applyCoupon}
-                          className="px-4 py-2.5 text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shrink-0"
+                          disabled={couponValidating}
+                          className="px-4 py-2.5 text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shrink-0 disabled:opacity-60 flex items-center gap-1.5"
                         >
-                          Apply
+                          {couponValidating ? <><Loader2 size={13} className="animate-spin" /> Checking…</> : 'Apply'}
                         </button>
                       </div>
                       {couponError && (
