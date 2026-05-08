@@ -28,7 +28,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const desc   = stripHtml(product.description).slice(0, 160)
   const image  = product.images[0] ?? null
   const title  = `${product.name} | ${STORE_NAME} Nepal`
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://balapasa.com'
   const url    = `${appUrl}/products/${slug}`
 
   return {
