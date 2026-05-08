@@ -358,7 +358,7 @@ export default function AdminDashboard() {
 
       {/* Version footer */}
       <p className="mt-8 text-center text-[11px] text-slate-300 font-mono select-none">
-        Balapasa v{process.env.NEXT_PUBLIC_APP_VERSION}
+        Balapasa v1.0.0
       </p>
     </div>
   )
