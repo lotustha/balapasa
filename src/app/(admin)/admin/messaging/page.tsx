@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   MessageCircle, Search, Loader2, RefreshCw,
-  ChevronRight, Phone, Users,
+  ChevronRight, Phone, Users, CheckCircle2, AlertCircle, Zap,
 } from 'lucide-react'
 
 interface Conversation {
@@ -148,12 +148,45 @@ export default function MessagingPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-primary" /></div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mb-4">
-              <MessageCircle size={28} className="text-slate-300" />
+          <div className="px-8 py-10 max-w-xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="w-14 h-14 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <MessageCircle size={24} className="text-slate-300" />
+              </div>
+              <p className="font-bold text-slate-600 text-lg">No conversations yet</p>
+              <p className="text-sm text-slate-400 mt-1">Complete the setup below to start receiving messages</p>
             </div>
-            <p className="font-semibold text-slate-500">No conversations yet</p>
-            <p className="text-sm text-slate-400 mt-1">Messages will appear here when customers contact you via WhatsApp or Messenger</p>
+
+            {/* Setup checklist */}
+            <div className="space-y-3 mb-6">
+              <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Webhook Setup Checklist</p>
+              {[
+                { step: '1', label: 'Save credentials in Settings → Messaging tab', detail: 'Phone Number ID, Access Token, Webhook Verify Token', done: false },
+                { step: '2', label: 'Register your webhook URL with Meta', detail: window?.location?.origin ? `${window.location.origin}/api/webhooks/whatsapp` : 'https://yourdomain.com/api/webhooks/whatsapp', done: false },
+                { step: '3', label: 'Set Verify Token in Meta dashboard', detail: 'Use the same token you saved in Settings → Messaging → Webhook Verify Token', done: false },
+                { step: '4', label: 'Subscribe to "messages" webhook field', detail: 'In Meta App Dashboard → WhatsApp → Configuration → Webhooks', done: false },
+              ].map(({ step, label, detail }) => (
+                <div key={step} className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="w-6 h-6 rounded-full bg-primary-bg text-primary flex items-center justify-center text-[11px] font-extrabold shrink-0 mt-0.5">{step}</div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{label}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 font-mono break-all">{detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Test button */}
+            <div className="border-t border-slate-100 pt-6">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Test without webhook</p>
+              <button onClick={async () => {
+                await fetch('/api/admin/messaging/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'WHATSAPP', phone: '+977 9800000000', name: 'Test Customer', text: 'Hello! Is this product available?' }) })
+                load()
+              }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark cursor-pointer transition-colors shadow-md shadow-primary/15">
+                <Zap size={14} /> Simulate incoming WhatsApp message
+              </button>
+              <p className="text-[11px] text-slate-400 mt-2">Creates a fake conversation so you can test the inbox UI before going live.</p>
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-slate-50">

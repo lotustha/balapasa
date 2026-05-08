@@ -246,9 +246,11 @@ function MessagingSettingsPanel({
 
         <div className="grid sm:grid-cols-2 gap-3">
           <div><Label>Phone Number ID</Label>
-            <input value={wa.WHATSAPP_PHONE_NUMBER_ID} onChange={e => setWa(v => ({ ...v, WHATSAPP_PHONE_NUMBER_ID: e.target.value }))} placeholder="1234567890" className={fieldCls} /></div>
-          <div><Label>Business Account ID</Label>
-            <input value={wa.WHATSAPP_BUSINESS_ACCOUNT_ID} onChange={e => setWa(v => ({ ...v, WHATSAPP_BUSINESS_ACCOUNT_ID: e.target.value }))} placeholder="9876543210" className={fieldCls} /></div>
+            <input type="text" inputMode="numeric" value={wa.WHATSAPP_PHONE_NUMBER_ID} onChange={e => setWa(v => ({ ...v, WHATSAPP_PHONE_NUMBER_ID: e.target.value }))} placeholder="e.g. 1135659409632322" className={fieldCls} />
+            <Hint>Found in Meta App Dashboard → WhatsApp → API Setup → Phone number ID</Hint></div>
+          <div><Label>Business Account ID (WABA ID)</Label>
+            <input type="text" inputMode="numeric" value={wa.WHATSAPP_BUSINESS_ACCOUNT_ID} onChange={e => setWa(v => ({ ...v, WHATSAPP_BUSINESS_ACCOUNT_ID: e.target.value }))} placeholder="e.g. 9876543210" className={fieldCls} />
+            <Hint>Found in Meta App Dashboard → WhatsApp → API Setup → WhatsApp Business Account ID</Hint></div>
           <div className="sm:col-span-2"><Label>System User Access Token</Label>
             <SecretInput label="" value={wa.WHATSAPP_ACCESS_TOKEN} onChange={v => setWa(s => ({ ...s, WHATSAPP_ACCESS_TOKEN: v }))} placeholder="EAABm..." hint="Generate in Meta Business Suite → System Users → Generate Token (never expires)" /></div>
           <div><Label>Webhook Verify Token</Label>
