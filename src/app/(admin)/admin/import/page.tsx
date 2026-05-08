@@ -279,6 +279,7 @@ export default function ImportPage() {
           }),
         })
 
+        let ok = res.ok
         if (res.ok) {
           setResults(prev => {
             const next = [...prev]; next[i] = { ...next[i], status: 'done', uploaded: uploadedUrls.filter(u => u.startsWith('/uploads')).length }
@@ -286,10 +287,33 @@ export default function ImportPage() {
           })
         } else {
           const err = await res.json()
-          setResults(prev => {
-            const next = [...prev]; next[i] = { ...next[i], status: 'failed', error: err.error }
-            return next
-          })
+          // SKU conflict → find existing product and update it instead
+          if (p.sku && err.error?.toLowerCase().includes('sku')) {
+            const listRes = await fetch(`/api/products?search=${encodeURIComponent(p.sku)}&admin=true&limit=5`)
+            if (listRes.ok) {
+              const { products: existing } = await listRes.json()
+              const match = existing?.find((x: { sku: string | null }) => x.sku === p.sku)
+              if (match) {
+                const patchRes = await fetch(`/api/products/${match.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: p.nameEn, price: p.price, salePrice: p.salePrice, stock: p.stock, images: uploadedUrls }),
+                })
+                ok = patchRes.ok
+              }
+            }
+          }
+          if (ok) {
+            setResults(prev => {
+              const next = [...prev]; next[i] = { ...next[i], status: 'done', uploaded: uploadedUrls.filter(u => u.startsWith('/uploads')).length }
+              return next
+            })
+          } else {
+            setResults(prev => {
+              const next = [...prev]; next[i] = { ...next[i], status: 'failed', error: err.error }
+              return next
+            })
+          }
         }
       } catch (e) {
         setResults(prev => {
