@@ -56,7 +56,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className={`${jakartaSans.variable} ${inter.variable}`}>
-      {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
+      <head>
+        {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
+      </head>
       <body className="min-h-screen flex flex-col font-body antialiased" style={{ background: '#F4F6FF' }}>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           '@context': 'https://schema.org',
