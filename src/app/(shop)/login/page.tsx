@@ -41,9 +41,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-xl p-8 animate-fade-in-up">
           <div className="flex flex-col items-center mb-8">
-            <Image src="/logo.png" alt="Balapasa" width={56} height={56} className="rounded-2xl mb-3" />
+            <Image src="/logo.png" alt="Store logo" width={56} height={56} className="rounded-2xl mb-3" />
             <h1 className="font-heading font-extrabold text-2xl text-gray-900">Welcome back</h1>
-            <p className="text-gray-500 text-sm mt-1">Sign in to your Balapasa account</p>
+            <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
           </div>
 
           {error && (

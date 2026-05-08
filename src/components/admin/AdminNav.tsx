@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, LogOut, Upload,
 } from 'lucide-react'
+import { STORE_NAME } from '@/lib/config'
 
 // minRole: the minimum role required to see this nav item
 // STAFF < MANAGER < ADMIN
@@ -49,9 +50,9 @@ export default function AdminNav() {
 
       {/* Brand */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/5">
-        <Image src="/logo.png" alt="Balapasa" width={36} height={36} className="rounded-xl" />
+        <Image src="/logo.png" alt={STORE_NAME} width={36} height={36} className="rounded-xl" />
         <div>
-          <p className="font-heading font-bold text-white text-sm leading-tight">Balapasa</p>
+          <p className="font-heading font-bold text-white text-sm leading-tight">{STORE_NAME}</p>
           <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Admin Panel</p>
         </div>
       </div>

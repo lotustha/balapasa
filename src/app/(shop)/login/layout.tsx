@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Sign In',
-  description: 'Sign in to your Balapasa account to track orders, manage wishlist and more.',
+  description: `Sign in to your ${process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa'} account to track orders, manage wishlist and more.`,
   robots: { index: false, follow: false },
 }
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { STORE_NAME, STORE_URL } from '@/lib/config'
 import Hero from '@/components/home/Hero'
 import CategorySection from '@/components/home/CategorySection'
 import FeaturedProducts from '@/components/home/FeaturedProducts'
@@ -39,10 +40,10 @@ export default function HomePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'OnlineStore',
-        name: 'Balapasa',
+        name: STORE_NAME,
         description: 'Premium electronics, gadgets & beauty products. Fast delivery across Nepal.',
-        url: 'https://balapasa.com',
-        logo: 'https://balapasa.com/logo.png',
+        url: STORE_URL,
+        logo: `${STORE_URL}/logo.png`,
         areaServed: { '@type': 'Country', name: 'Nepal' },
         priceRange: '$$',
         currenciesAccepted: 'NPR',

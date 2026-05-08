@@ -11,6 +11,7 @@ import {
   Truck, ArrowRight, Star, Loader2,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { STORE_NAME } from '@/lib/config'
 
 interface SearchResult {
   id: string; name: string; slug: string; price: number;
@@ -235,9 +236,9 @@ export default function Navbar() {
           <div className="flex items-center px-4 sm:px-5 h-14 gap-3">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 shrink-0 cursor-pointer">
-              <Image src="/logo.png" alt="Balapasa" width={34} height={34} className="rounded-xl" />
+              <Image src="/logo.png" alt={STORE_NAME} width={34} height={34} className="rounded-xl" />
               <span className="font-heading font-bold text-lg text-slate-800 hidden sm:block">
-                Bala<span className="iridescent-text">pasa</span>
+                {STORE_NAME}
               </span>
             </Link>
 

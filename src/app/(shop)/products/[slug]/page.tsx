@@ -22,20 +22,21 @@ const getProduct = cache(async (slug: string) => {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const product = await getProduct(slug)
-  if (!product) return { title: 'Product Not Found | Balapasa', description: 'The product you are looking for does not exist.' }
+  const { STORE_NAME, STORE_URL: appUrl } = await import('@/lib/config')
+  if (!product) return { title: `Product Not Found | ${STORE_NAME}`, description: 'The product you are looking for does not exist.' }
 
   const desc   = stripHtml(product.description).slice(0, 160)
   const image  = product.images[0] ?? null
-  const title  = `${product.name} | Balapasa Nepal`
+  const title  = `${product.name} | ${STORE_NAME} Nepal`
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://balapasa.com'
   const url    = `${appUrl}/products/${slug}`
 
   return {
     title,
     description: desc,
-    keywords: [...product.tags, product.brand ?? '', product.category.name, 'Nepal', 'buy online', 'Balapasa', 'online shopping Nepal'].filter(Boolean).join(', '),
+    keywords: [...product.tags, product.brand ?? '', product.category.name, 'Nepal', 'buy online', STORE_NAME, 'online shopping Nepal'].filter(Boolean).join(', '),
     alternates: { canonical: url },
-    openGraph: { title, description: desc, url, siteName: 'Balapasa', type: 'website', images: image ? [{ url: image, width: 800, height: 800, alt: product.name }] : [], locale: 'en_US' },
+    openGraph: { title, description: desc, url, siteName: STORE_NAME, type: 'website', images: image ? [{ url: image, width: 800, height: 800, alt: product.name }] : [], locale: 'en_US' },
     twitter: { card: 'summary_large_image', title, description: desc, images: image ? [image] : [] },
   }
 }
@@ -43,7 +44,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params
   const product  = await getProduct(slug)
-  const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://balapasa.com'
+  const { STORE_URL: appUrl } = await import('@/lib/config')
 
   const [similar, shopsChoice, boughtTogether, rawReviews] = await Promise.all([
     product ? prisma.product.findMany({
@@ -106,7 +107,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       highPrice: product.price, lowPrice: product.salePrice ?? product.price,
       availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       url: `${appUrl}/products/${slug}`,
-      seller: { '@type': 'Organization', name: 'Balapasa', url: appUrl },
+      seller: { '@type': 'Organization', name: STORE_NAME, url: appUrl },
     },
     ...(product.reviewCount > 0 && { aggregateRating: { '@type': 'AggregateRating', ratingValue: product.rating, reviewCount: product.reviewCount, bestRating: 5, worstRating: 1 } }),
   } : null

@@ -358,7 +358,7 @@ export default function AdminDashboard() {
 
       {/* Version footer */}
       <p className="mt-8 text-center text-[11px] text-slate-300 font-mono select-none">
-        Balapasa v1.0.2
+{process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa'} v1.0.7
       </p>
     </div>
   )

@@ -17,28 +17,27 @@ const inter = Inter({
   display: 'swap',
 })
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://balapasa.com'
+import { STORE_NAME, STORE_URL } from '@/lib/config'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(APP_URL),
-  title: { default: 'Balapasa — Tech & Beauty', template: '%s | Balapasa' },
+  metadataBase: new URL(STORE_URL),
+  title: { default: `${STORE_NAME} — Tech & Beauty`, template: `%s | ${STORE_NAME}` },
   description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
-  keywords: ['online shopping Nepal', 'electronics Nepal', 'gadgets', 'beauty products', 'Balapasa', 'buy online Nepal'],
-  authors: [{ name: 'Balapasa' }],
-  creator: 'Balapasa',
+  keywords: ['online shopping Nepal', 'electronics Nepal', 'gadgets', 'beauty products', STORE_NAME, 'buy online Nepal'],
+  authors: [{ name: STORE_NAME }],
+  creator: STORE_NAME,
   openGraph: {
-    siteName: 'Balapasa',
+    siteName: STORE_NAME,
     type: 'website',
     locale: 'en_US',
-    url: APP_URL,
-    title: 'Balapasa — Tech & Beauty Hub Nepal',
+    url: STORE_URL,
+    title: `${STORE_NAME} — Tech & Beauty Hub Nepal`,
     description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
-    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Balapasa' }],
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: STORE_NAME }],
   },
   twitter: {
     card: 'summary_large_image',
-    site: '@balapasa',
-    title: 'Balapasa — Tech & Beauty Hub Nepal',
+    title: `${STORE_NAME} — Tech & Beauty Hub Nepal`,
     description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
     images: ['/logo.png'],
   },
@@ -52,9 +51,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: 'Balapasa',
-          url: APP_URL,
-          logo: `${APP_URL}/logo.png`,
+          name: STORE_NAME,
+          url: STORE_URL,
+          logo: `${STORE_URL}/logo.png`,
           description: 'Premium electronics, gadgets & beauty. Fast delivery across Nepal.',
           areaServed: 'NP',
           sameAs: [],

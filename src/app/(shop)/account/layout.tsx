@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'My Account',
-  description: 'Manage your Balapasa account, orders, and profile.',
+  description: `Manage your ${process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa'} account, orders, and profile.`,
   robots: { index: false, follow: false },
 }
 

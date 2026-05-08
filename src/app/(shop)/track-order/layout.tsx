@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Track Order',
-  description: 'Track your Balapasa order status in real time. Enter your order ID to get live updates.',
+  description: `Track your ${process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa'} order status in real time. Enter your order ID to get live updates.`,
   alternates: { canonical: '/track-order' },
   openGraph: {
     title: 'Track Your Order | Balapasa',

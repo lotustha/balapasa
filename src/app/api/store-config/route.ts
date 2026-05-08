@@ -19,13 +19,13 @@ export async function GET() {
     for (const s of settings) config[s.key] = s.value
     return Response.json({
       FREE_DELIVERY_THRESHOLD: parseInt(config.FREE_DELIVERY_THRESHOLD ?? '5000', 10),
-      STORE_NAME:    config.STORE_NAME    ?? 'Balapasa',
+      STORE_NAME:    config.STORE_NAME    ?? process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa',
       STORE_PHONE:   config.STORE_PHONE   ?? '',
       STORE_EMAIL:   config.STORE_EMAIL   ?? '',
       STORE_ADDRESS: config.STORE_ADDRESS ?? 'Kathmandu, Nepal',
       STORE_LOGO_URL:config.STORE_LOGO_URL ?? '',
     }, { headers: { 'Cache-Control': 'public, max-age=60' } })
   } catch {
-    return Response.json({ FREE_DELIVERY_THRESHOLD: 5000, STORE_NAME: 'Balapasa', STORE_PHONE: '', STORE_EMAIL: '', STORE_ADDRESS: '', STORE_LOGO_URL: '' })
+    return Response.json({ FREE_DELIVERY_THRESHOLD: 5000, STORE_NAME: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa', STORE_PHONE: '', STORE_EMAIL: '', STORE_ADDRESS: '', STORE_LOGO_URL: '' })
   }
 }
