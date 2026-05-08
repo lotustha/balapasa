@@ -11,7 +11,11 @@ interface Coupon {
   id: string; code: string; type: 'PERCENT' | 'FIXED'; value: number
   minOrder: number | null; maxUses: number | null; usedCount: number
   expiresAt: string | null; isActive: boolean; createdAt: string
+  scope: 'ALL' | 'CATEGORY' | 'PRODUCT'
+  categoryIds: string[]; productIds: string[]
 }
+interface Cat { id: string; name: string; slug: string }
+interface Prod { id: string; name: string; slug: string; images: string[] }
 
 function statusCls(c: Coupon) {
   if (!c.isActive) return 'bg-slate-100 text-slate-500'
@@ -28,24 +32,45 @@ function statusLabel(c: Coupon) {
 
 const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
 
+const SCOPE_LABELS = { ALL: 'All products', CATEGORY: 'Specific categories', PRODUCT: 'Specific products' }
+
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>([])
-  const [loading, setLoading] = useState(true)
+  const [coupons,  setCoupons]  = useState<Coupon[]>([])
+  const [cats,     setCats]     = useState<Cat[]>([])
+  const [loading,  setLoading]  = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [saving,   setSaving]  = useState(false)
-  const [copied,   setCopied]  = useState<string | null>(null)
+  const [saving,   setSaving]   = useState(false)
+  const [copied,   setCopied]   = useState<string | null>(null)
+  const [prodSearch, setProdSearch] = useState('')
+  const [prodResults, setProdResults] = useState<Prod[]>([])
   const [form, setForm] = useState({
     code: '', type: 'PERCENT' as 'PERCENT' | 'FIXED',
     value: '', minOrder: '', maxUses: '', expiresAt: '',
+    scope: 'ALL' as 'ALL' | 'CATEGORY' | 'PRODUCT',
+    categoryIds: [] as string[], productIds: [] as string[],
+    selectedProducts: [] as Prod[],
   })
 
   async function load() {
     setLoading(true)
-    const res = await fetch('/api/admin/coupons')
-    if (res.ok) setCoupons((await res.json()).coupons ?? [])
+    const [cr, catsRes] = await Promise.all([
+      fetch('/api/admin/coupons'),
+      fetch('/api/admin/categories'),
+    ])
+    if (cr.ok) setCoupons((await cr.json()).coupons ?? [])
+    if (catsRes.ok) setCats((await catsRes.json()).categories ?? [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!prodSearch.trim()) { setProdResults([]); return }
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/products?search=${encodeURIComponent(prodSearch)}&limit=8`)
+      if (res.ok) setProdResults((await res.json()).products ?? [])
+    }, 300)
+    return () => clearTimeout(t)
+  }, [prodSearch])
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -57,7 +82,7 @@ export default function CouponsPage() {
     const data = await res.json()
     if (res.ok) {
       setShowForm(false)
-      setForm({ code: '', type: 'PERCENT', value: '', minOrder: '', maxUses: '', expiresAt: '' })
+      setForm({ code: '', type: 'PERCENT', value: '', minOrder: '', maxUses: '', expiresAt: '', scope: 'ALL', categoryIds: [], productIds: [], selectedProducts: [] })
       load()
     } else { alert(data.error ?? 'Failed to create') }
     setSaving(false)
@@ -154,7 +179,12 @@ export default function CouponsPage() {
                     {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-NP', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
                   </td>
                   <td className="px-4 py-4">
-                    <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${statusCls(c)}`}>{statusLabel(c)}</span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit ${statusCls(c)}`}>{statusLabel(c)}</span>
+                      {c.scope !== 'ALL' && (
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-500 w-fit">{SCOPE_LABELS[c.scope]}</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-1 justify-end">
@@ -242,6 +272,77 @@ export default function CouponsPage() {
                   onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))}
                   className={inputCls} />
               </div>
+
+              {/* Scope */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Applies To</label>
+                <div className="flex gap-2 flex-wrap">
+                  {(['ALL', 'CATEGORY', 'PRODUCT'] as const).map(s => (
+                    <button key={s} type="button"
+                      onClick={() => setForm(f => ({ ...f, scope: s, categoryIds: [], productIds: [], selectedProducts: [] }))}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${form.scope === s ? 'border-primary bg-primary-bg text-primary' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}>
+                      {s === 'ALL' ? 'All Products' : s === 'CATEGORY' ? 'Categories' : 'Specific Products'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category picker */}
+              {form.scope === 'CATEGORY' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Categories</label>
+                  <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
+                    {cats.map(c => (
+                      <button key={c.id} type="button"
+                        onClick={() => setForm(f => ({
+                          ...f,
+                          categoryIds: f.categoryIds.includes(c.id)
+                            ? f.categoryIds.filter(x => x !== c.id)
+                            : [...f.categoryIds, c.id],
+                        }))}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${form.categoryIds.includes(c.id) ? 'border-primary bg-primary-bg text-primary' : 'border-slate-200 text-slate-600 hover:border-primary/40'}`}>
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Product picker */}
+              {form.scope === 'PRODUCT' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Search & Select Products</label>
+                  <input value={prodSearch} onChange={e => setProdSearch(e.target.value)}
+                    placeholder="Type to search products…" className={inputCls} />
+                  {prodResults.length > 0 && (
+                    <div className="mt-2 border border-slate-100 rounded-xl overflow-hidden max-h-40 overflow-y-auto">
+                      {prodResults.map(p => (
+                        <button key={p.id} type="button"
+                          onClick={() => {
+                            if (!form.productIds.includes(p.id)) {
+                              setForm(f => ({ ...f, productIds: [...f.productIds, p.id], selectedProducts: [...f.selectedProducts, p] }))
+                            }
+                            setProdSearch(''); setProdResults([])
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors cursor-pointer text-sm border-b border-slate-50 last:border-0">
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {form.selectedProducts.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {form.selectedProducts.map(p => (
+                        <span key={p.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-bg text-primary text-xs font-semibold rounded-xl">
+                          {p.name}
+                          <button type="button" onClick={() => setForm(f => ({ ...f, productIds: f.productIds.filter(x => x !== p.id), selectedProducts: f.selectedProducts.filter(x => x.id !== p.id) }))}
+                            className="text-primary/60 hover:text-primary cursor-pointer">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)}

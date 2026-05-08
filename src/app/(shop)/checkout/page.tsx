@@ -204,7 +204,10 @@ export default function CheckoutPage() {
     try {
       const res  = await fetch('/api/coupons/validate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, subtotal }),
+        body: JSON.stringify({
+          code, subtotal,
+          items: items.map(i => ({ productId: i.id, price: i.salePrice ?? i.price, quantity: i.quantity })),
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setCouponError(data.error ?? 'Invalid code'); setCouponDiscount(0); setCouponApplied(false) }

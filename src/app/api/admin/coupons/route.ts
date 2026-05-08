@@ -13,16 +13,19 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { code, type, value, minOrder, maxUses, expiresAt } = body
+    const { code, type, value, minOrder, maxUses, expiresAt, scope, categoryIds, productIds } = body
     if (!code || !type || !value) return Response.json({ error: 'code, type, value required' }, { status: 400 })
     const coupon = await prisma.coupon.create({
       data: {
         code: String(code).toUpperCase().trim(),
         type,
-        value: Number(value),
-        minOrder: minOrder ? Number(minOrder) : null,
-        maxUses:  maxUses  ? Number(maxUses)  : null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        value:      Number(value),
+        minOrder:   minOrder  ? Number(minOrder)  : null,
+        maxUses:    maxUses   ? Number(maxUses)   : null,
+        expiresAt:  expiresAt ? new Date(expiresAt) : null,
+        scope:      scope     ?? 'ALL',
+        categoryIds: categoryIds ?? [],
+        productIds:  productIds  ?? [],
       },
     })
     return Response.json({ coupon })
