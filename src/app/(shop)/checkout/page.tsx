@@ -808,7 +808,6 @@ export default function CheckoutPage() {
                                   </div>
                                 )
                               })()}
-                              </div>
                             </div>
 
                             {/* Price + custom radio */}
