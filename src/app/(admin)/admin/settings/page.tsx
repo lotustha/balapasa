@@ -17,7 +17,7 @@ import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
 interface StoreForm {
   STORE_NAME: string; STORE_EMAIL: string; STORE_PHONE: string
   STORE_ADDRESS: string; FREE_DELIVERY_THRESHOLD: string; STORE_LOGO_URL: string
-  STORE_THEME: string
+  STORE_THEME: string; STORE_FAVICON_URL: string
 }
 interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHALTI_SECRET_KEY: string }
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
@@ -158,6 +158,39 @@ function LogoUploader({ url, onChange }: { url: string; onChange: (url: string) 
         </div>
       </div>
       <Hint>Used in shipping labels and email receipts</Hint>
+    </div>
+  )
+}
+
+function FaviconUploader({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    setUploading(true)
+    try {
+      const res = await fetch('/api/upload/image', {
+        method: 'POST', headers: { 'content-type': file.type }, body: await file.arrayBuffer(),
+      })
+      const data = await res.json()
+      if (res.ok && data.url) onChange(data.url)
+    } catch {}
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  return (
+    <div className="flex-1 space-y-2">
+      <input ref={fileRef} type="file" accept="image/png,image/x-icon,image/svg+xml,image/jpeg" className="hidden" onChange={handleFile} />
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+        className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+        {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload favicon</>}
+      </button>
+      {url && (
+        <input value={url} onChange={e => onChange(e.target.value)} placeholder="or paste URL…"
+          className="w-full px-3 py-1.5 text-[11px] font-mono border border-slate-100 rounded-lg bg-white text-slate-500 outline-none focus:border-primary focus:ring-1 focus:ring-primary/10" />
+      )}
     </div>
   )
 }
@@ -446,7 +479,7 @@ export default function SettingsPage() {
 
   const [store, setStore] = useState<StoreForm>({
     STORE_NAME: STORE_NAME, STORE_EMAIL: '', STORE_PHONE: '',
-    STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '', STORE_THEME: 'emerald',
+    STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '', STORE_THEME: 'emerald', STORE_FAVICON_URL: '',
   })
   const [payment, setPayment] = useState<PaymentForm>({ ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '', KHALTI_SECRET_KEY: '' })
   const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
@@ -463,6 +496,7 @@ export default function SettingsPage() {
         FREE_DELIVERY_THRESHOLD: settings.FREE_DELIVERY_THRESHOLD ?? s.FREE_DELIVERY_THRESHOLD,
         STORE_LOGO_URL:          settings.STORE_LOGO_URL          ?? s.STORE_LOGO_URL,
           STORE_THEME:             settings.STORE_THEME             ?? s.STORE_THEME,
+          STORE_FAVICON_URL:       settings.STORE_FAVICON_URL       ?? s.STORE_FAVICON_URL,
       }))
       setPayment(p => ({
         ESEWA_MERCHANT_ID: settings.ESEWA_MERCHANT_ID ?? p.ESEWA_MERCHANT_ID,
@@ -616,6 +650,22 @@ export default function SettingsPage() {
                     url={store.STORE_LOGO_URL}
                     onChange={url => setStore(s => ({ ...s, STORE_LOGO_URL: url }))}
                   />
+
+                  {/* Favicon upload */}
+                  <div className="mt-5">
+                    <Label>Favicon <span className="normal-case font-normal text-slate-400">(browser tab icon · .ico, .png or .svg · 32×32 recommended)</span></Label>
+                    <div className="flex items-center gap-4 mt-1">
+                      <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden shrink-0">
+                        {store.STORE_FAVICON_URL
+                          ? <img src={store.STORE_FAVICON_URL} alt="Favicon preview" className="w-10 h-10 object-contain" />
+                          : <span className="text-[10px] text-slate-400 font-bold text-center leading-tight px-1">No<br/>favicon</span>}
+                      </div>
+                      <FaviconUploader
+                        url={store.STORE_FAVICON_URL}
+                        onChange={url => setStore(s => ({ ...s, STORE_FAVICON_URL: url }))}
+                      />
+                    </div>
+                  </div>
 
                   <div className="mt-4">
                     <Label>Free Delivery Above (NPR)</Label>

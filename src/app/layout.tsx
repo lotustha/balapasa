@@ -21,29 +21,40 @@ const inter = Inter({
 
 import { STORE_NAME, STORE_URL } from '@/lib/config'
 
-export const metadata: Metadata = {
-  metadataBase: new URL(STORE_URL),
-  title: { default: `${STORE_NAME} — Tech & Beauty`, template: `%s | ${STORE_NAME}` },
-  description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
-  keywords: ['online shopping Nepal', 'electronics Nepal', 'gadgets', 'beauty products', STORE_NAME, 'buy online Nepal'],
-  authors: [{ name: STORE_NAME }],
-  creator: STORE_NAME,
-  openGraph: {
-    siteName: STORE_NAME,
-    type: 'website',
-    locale: 'en_US',
-    url: STORE_URL,
-    title: `${STORE_NAME} — Tech & Beauty Hub Nepal`,
+export async function generateMetadata(): Promise<Metadata> {
+  let faviconUrl: string | undefined
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key: 'STORE_FAVICON_URL' } })
+    if (row?.value) faviconUrl = row.value
+  } catch {}
+
+  return {
+    metadataBase: new URL(STORE_URL),
+    title: { default: `${STORE_NAME} — Tech & Beauty`, template: `%s | ${STORE_NAME}` },
     description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
-    images: [{ url: '/logo.png', width: 512, height: 512, alt: STORE_NAME }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: `${STORE_NAME} — Tech & Beauty Hub Nepal`,
-    description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
-    images: ['/logo.png'],
-  },
-  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+    keywords: ['online shopping Nepal', 'electronics Nepal', 'gadgets', 'beauty products', STORE_NAME, 'buy online Nepal'],
+    authors: [{ name: STORE_NAME }],
+    creator: STORE_NAME,
+    icons: faviconUrl
+      ? { icon: faviconUrl, shortcut: faviconUrl, apple: faviconUrl }
+      : { icon: '/favicon.ico' },
+    openGraph: {
+      siteName: STORE_NAME,
+      type: 'website',
+      locale: 'en_US',
+      url: STORE_URL,
+      title: `${STORE_NAME} — Tech & Beauty Hub Nepal`,
+      description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
+      images: [{ url: '/logo.png', width: 512, height: 512, alt: STORE_NAME }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${STORE_NAME} — Tech & Beauty Hub Nepal`,
+      description: 'Shop electronics, gadgets, skincare & beauty at the best prices. Fast delivery across Nepal.',
+      images: ['/logo.png'],
+    },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  }
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
