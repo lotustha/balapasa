@@ -3,11 +3,15 @@ import Footer from '@/components/layout/Footer'
 import BottomNav from '@/components/layout/BottomNav'
 import ScrollReset from '@/components/layout/ScrollReset'
 import ThemeApplicator from '@/components/layout/ThemeApplicator'
+import FacebookPixel from '@/components/layout/FacebookPixel'
+import MessengerWidget from '@/components/layout/MessengerWidget'
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ThemeApplicator />
+      <FacebookPixel />
+      <MessengerWidget />
       <ScrollReset />
       <Navbar />
       {/* pt-20 clears floating navbar; pb-20 clears bottom nav on mobile */}

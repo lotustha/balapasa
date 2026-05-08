@@ -7,6 +7,7 @@ import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, Upload, Palette,
+  MessageCircle,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
@@ -22,7 +23,7 @@ interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHA
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
 
-type TabId = 'store' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'danger'
+type TabId = 'store' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -102,8 +103,9 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
   { id: 'ai',            icon: Sparkles,   label: 'AI',            desc: 'Anthropic & Gemini'        },
-  { id: 'notifications', icon: Bell,       label: 'Notifications', desc: 'Email alerts'              },
-  { id: 'danger',        icon: Shield,     label: 'Danger Zone',   desc: 'Destructive actions'       },
+  { id: 'notifications', icon: Bell,          label: 'Notifications', desc: 'Email alerts'              },
+  { id: 'messaging',     icon: MessageCircle, label: 'Messaging',     desc: 'WhatsApp & Facebook'       },
+  { id: 'danger',        icon: Shield,        label: 'Danger Zone',   desc: 'Destructive actions'       },
 ]
 
 // ── Logo uploader ─────────────────────────────────────────────────────────
@@ -156,6 +158,113 @@ function LogoUploader({ url, onChange }: { url: string; onChange: (url: string) 
         </div>
       </div>
       <Hint>Used in shipping labels and email receipts</Hint>
+    </div>
+  )
+}
+
+// ── Messaging settings panel ──────────────────────────────────────────────
+
+function MessagingSettingsPanel({
+  saving, saved, onSave,
+}: { saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void }) {
+  const [wa, setWa] = useState({
+    WHATSAPP_PHONE_NUMBER_ID: '', WHATSAPP_ACCESS_TOKEN: '',
+    WHATSAPP_BUSINESS_ACCOUNT_ID: '', WHATSAPP_WEBHOOK_VERIFY_TOKEN: '',
+  })
+  const [fb, setFb] = useState({
+    FACEBOOK_PAGE_ID: '', FACEBOOK_PAGE_ACCESS_TOKEN: '', FACEBOOK_PIXEL_ID: '',
+  })
+  const fieldCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (!s) return
+      setWa(v => ({
+        WHATSAPP_PHONE_NUMBER_ID:     s.WHATSAPP_PHONE_NUMBER_ID     ?? v.WHATSAPP_PHONE_NUMBER_ID,
+        WHATSAPP_ACCESS_TOKEN:        s.WHATSAPP_ACCESS_TOKEN        ?? v.WHATSAPP_ACCESS_TOKEN,
+        WHATSAPP_BUSINESS_ACCOUNT_ID: s.WHATSAPP_BUSINESS_ACCOUNT_ID ?? v.WHATSAPP_BUSINESS_ACCOUNT_ID,
+        WHATSAPP_WEBHOOK_VERIFY_TOKEN:s.WHATSAPP_WEBHOOK_VERIFY_TOKEN ?? v.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+      }))
+      setFb(v => ({
+        FACEBOOK_PAGE_ID:           s.FACEBOOK_PAGE_ID           ?? v.FACEBOOK_PAGE_ID,
+        FACEBOOK_PAGE_ACCESS_TOKEN: s.FACEBOOK_PAGE_ACCESS_TOKEN ?? v.FACEBOOK_PAGE_ACCESS_TOKEN,
+        FACEBOOK_PIXEL_ID:          s.FACEBOOK_PIXEL_ID          ?? v.FACEBOOK_PIXEL_ID,
+      }))
+    }).catch(() => {})
+  }, [])
+
+  return (
+    <div className="space-y-6">
+      {/* WhatsApp */}
+      <form onSubmit={e => { e.preventDefault(); onSave('whatsapp', wa as unknown as Record<string, string>) }}
+        className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-green-600"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+          </div>
+          <div>
+            <p className="font-bold text-slate-800">WhatsApp Business (Meta Cloud API)</p>
+            <a href="https://business.facebook.com" target="_blank" rel="noopener"
+              className="text-[10px] text-slate-400 hover:text-primary flex items-center gap-1 cursor-pointer">
+              business.facebook.com <ExternalLink size={9} />
+            </a>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div><Label>Phone Number ID</Label>
+            <input value={wa.WHATSAPP_PHONE_NUMBER_ID} onChange={e => setWa(v => ({ ...v, WHATSAPP_PHONE_NUMBER_ID: e.target.value }))} placeholder="1234567890" className={fieldCls} /></div>
+          <div><Label>Business Account ID</Label>
+            <input value={wa.WHATSAPP_BUSINESS_ACCOUNT_ID} onChange={e => setWa(v => ({ ...v, WHATSAPP_BUSINESS_ACCOUNT_ID: e.target.value }))} placeholder="9876543210" className={fieldCls} /></div>
+          <div className="sm:col-span-2"><Label>System User Access Token</Label>
+            <SecretInput label="" value={wa.WHATSAPP_ACCESS_TOKEN} onChange={v => setWa(s => ({ ...s, WHATSAPP_ACCESS_TOKEN: v }))} placeholder="EAABm..." hint="Generate in Meta Business Suite → System Users → Generate Token (never expires)" /></div>
+          <div><Label>Webhook Verify Token</Label>
+            <input value={wa.WHATSAPP_WEBHOOK_VERIFY_TOKEN} onChange={e => setWa(v => ({ ...v, WHATSAPP_WEBHOOK_VERIFY_TOKEN: e.target.value }))} placeholder="my-secret-verify-token" className={fieldCls} />
+            <Hint>Register webhook URL: {typeof window !== 'undefined' ? window.location.origin : 'https://balapasa.com'}/api/webhooks/whatsapp</Hint></div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-slate-50">
+          <SaveBtn section="whatsapp" saving={saving} saved={saved} />
+        </div>
+      </form>
+
+      {/* Facebook */}
+      <form onSubmit={e => { e.preventDefault(); onSave('facebook', fb as unknown as Record<string, string>) }}
+        className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-blue-600"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </div>
+          <div>
+            <p className="font-bold text-slate-800">Facebook & Messenger</p>
+            <p className="text-[10px] text-slate-400">Facebook Pixel, Messenger widget, and Page access</p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div><Label>Facebook Page ID</Label>
+            <input value={fb.FACEBOOK_PAGE_ID} onChange={e => setFb(v => ({ ...v, FACEBOOK_PAGE_ID: e.target.value }))} placeholder="12345678901234" className={fieldCls} /></div>
+          <div><Label>Facebook Pixel ID</Label>
+            <input value={fb.FACEBOOK_PIXEL_ID} onChange={e => setFb(v => ({ ...v, FACEBOOK_PIXEL_ID: e.target.value }))} placeholder="123456789012345" className={fieldCls} /></div>
+          <div className="sm:col-span-2">
+            <SecretInput label="Page Access Token" value={fb.FACEBOOK_PAGE_ACCESS_TOKEN} onChange={v => setFb(s => ({ ...s, FACEBOOK_PAGE_ACCESS_TOKEN: v }))} placeholder="EAABm..." hint="Grants Messenger send permission. Generate in Meta Business Suite → Your App → Messenger → Page Access Tokens." />
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-slate-50">
+          <SaveBtn section="facebook" saving={saving} saved={saved} />
+        </div>
+      </form>
+
+      {/* Catalog info */}
+      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+        <p className="font-bold text-slate-800 text-sm mb-1">Facebook Product Catalog</p>
+        <p className="text-xs text-slate-500 mb-3">Register this URL as a data feed in Meta Commerce Manager to sync your products:</p>
+        <code className="block px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-primary break-all">
+          {typeof window !== 'undefined' ? window.location.origin : 'https://balapasa.com'}/api/facebook/catalog
+        </code>
+        <p className="text-[10px] text-slate-400 mt-2">Meta will crawl this URL hourly. Requires active products with images.</p>
+      </div>
     </div>
   )
 }
@@ -730,6 +839,11 @@ export default function SettingsPage() {
                 </div>
               </div>
             </form>
+          )}
+
+          {/* ── Messaging tab ────────────────────────────────────── */}
+          {tab === 'messaging' && (
+            <MessagingSettingsPanel saving={saving} saved={saved} onSave={save} />
           )}
 
           {/* ── Danger tab ────────────────────────────────────────── */}

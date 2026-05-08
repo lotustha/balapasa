@@ -58,6 +58,11 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // WhatsApp order confirmation (fire-and-forget)
+    import('@/lib/notifications').then(({ sendOrderConfirmation }) =>
+      sendOrderConfirmation(order.id, phone, name, total).catch(() => {})
+    ).catch(() => {})
+
     // Increment coupon usedCount (fire-and-forget — non-critical)
     if (couponCode) {
       prisma.coupon.update({

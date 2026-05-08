@@ -16,6 +16,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       where: { id }, data,
       include: { items: true },
     })
+
+    // Fire WA shipped notification when status → SHIPPED
+    if (body.status === 'SHIPPED' && order.trackingUrl && order.phone) {
+      import('@/lib/notifications').then(({ sendShippingNotification }) =>
+        sendShippingNotification(order.id, order.phone, order.trackingUrl!).catch(() => {})
+      ).catch(() => {})
+    }
+
     return Response.json({ ...order, createdAt: order.createdAt.toISOString(), updatedAt: order.updatedAt.toISOString() })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })

@@ -9,6 +9,8 @@ const PUBLIC_KEYS = [
   'STORE_ADDRESS',
   'STORE_LOGO_URL',
   'STORE_THEME',
+  'FACEBOOK_PIXEL_ID',
+  'FACEBOOK_PAGE_ID',
 ]
 
 export async function GET() {

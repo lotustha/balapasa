@@ -297,6 +297,55 @@ model LogisticsSettings {
   @@map("logistics_settings")
 }
 
+model Conversation {
+  id            String    @id @default(cuid())
+  platform      String    // WHATSAPP | MESSENGER
+  customerId    String    @map("customer_id")
+  customerName  String?   @map("customer_name")
+  customerPhone String?   @map("customer_phone")
+  status        String    @default("OPEN")       // OPEN | CLOSED
+  lastMessageAt DateTime? @map("last_message_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  messages      Message[]
+  @@unique([platform, customerId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  direction      String       // IN | OUT
+  content        String       @db.Text
+  externalId     String?      @map("external_id")
+  status         String       @default("SENT")  // SENT | DELIVERED | READ | FAILED
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  @@map("messages")
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  type      String   // ORDER_CONFIRMED | ORDER_SHIPPED | ORDER_DELIVERED | ABANDONED_CART
+  phone     String
+  status    String   // SENT | FAILED
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("notification_logs")
+}
+
+model CartAbandonment {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String?
+  cartJson  String   @db.Text @map("cart_json")
+  reminded  Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("cart_abandonments")
+}
+
 model Coupon {
   id          String     @id @default(cuid())
   code        String     @unique
