@@ -7,7 +7,7 @@ import {
   Package, Plus, Search, Filter, Edit2, Trash2, Eye,
   Download, Upload, Loader2, CheckCircle2, AlertTriangle, X,
   Building2, TrendingUp, TrendingDown, RefreshCw, RotateCcw,
-  Minus, History, Warehouse,
+  Minus, History, Warehouse, ImageOff,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
@@ -123,10 +123,13 @@ export default function ProductsPage() {
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Delete
-  const [deleteTarget,  setDeleteTarget]  = useState<Product | null>(null)
-  const [deleting,      setDeleting]      = useState(false)
-  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
-  const [deletingAll,   setDeletingAll]   = useState(false)
+  const [deleteTarget,       setDeleteTarget]       = useState<Product | null>(null)
+  const [deleting,           setDeleting]           = useState(false)
+  const [deleteAllOpen,      setDeleteAllOpen]      = useState(false)
+  const [deletingAll,        setDeletingAll]        = useState(false)
+  const [deleteNoImageOpen,  setDeleteNoImageOpen]  = useState(false)
+  const [deletingNoImage,    setDeletingNoImage]    = useState(false)
+  const [noImageCount,       setNoImageCount]       = useState<number | null>(null)
 
   // Import / Export
   const [importing,    setImporting]    = useState(false)
@@ -228,6 +231,20 @@ export default function ProductsPage() {
     setDeletingAll(false)
   }
 
+  async function openDeleteNoImage() {
+    setNoImageCount(null)
+    setDeleteNoImageOpen(true)
+    const res = await fetch('/api/admin/products/no-image')
+    if (res.ok) setNoImageCount((await res.json()).count ?? 0)
+  }
+
+  async function confirmDeleteNoImage() {
+    setDeletingNoImage(true)
+    const res = await fetch('/api/admin/products/no-image', { method: 'DELETE' })
+    if (res.ok) { setDeleteNoImageOpen(false); void load() }
+    setDeletingNoImage(false)
+  }
+
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return
     setImporting(true); setImportResult(null)
@@ -295,10 +312,16 @@ export default function ProductsPage() {
             <Download size={14} /> Export
           </button>
           {products.length > 0 && (
-            <button onClick={() => setDeleteAllOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-red-200 bg-red-50 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors cursor-pointer">
-              <Trash2 size={14} /> Delete All
-            </button>
+            <>
+              <button onClick={openDeleteNoImage}
+                className="flex items-center gap-2 px-4 py-2.5 border border-orange-200 bg-orange-50 rounded-xl text-sm font-semibold text-orange-600 hover:bg-orange-100 transition-colors cursor-pointer">
+                <ImageOff size={14} /> No-Image
+              </button>
+              <button onClick={() => setDeleteAllOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 border border-red-200 bg-red-50 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors cursor-pointer">
+                <Trash2 size={14} /> Delete All
+              </button>
+            </>
           )}
           <Link href="/admin/products/new"
             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-md shadow-primary/20">
@@ -723,6 +746,32 @@ export default function ProductsPage() {
               className="w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-primary-dark disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer">
               {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Apply Adjustment'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete no-image modal */}
+      {deleteNoImageOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><ImageOff size={22} className="text-orange-500" /></div>
+            <h3 className="font-heading font-bold text-slate-900 text-lg text-center mb-1">Delete Products Without Images?</h3>
+            <p className="text-slate-500 text-sm text-center mb-5 leading-relaxed">
+              {noImageCount === null
+                ? <span className="flex items-center justify-center gap-2"><Loader2 size={14} className="animate-spin" /> Counting…</span>
+                : noImageCount === 0
+                ? 'No products without images found.'
+                : <>Permanently delete <strong className="text-slate-800">{noImageCount} product{noImageCount !== 1 ? 's' : ''}</strong> with no images. Inventory logs are cleared. Orders are preserved.</>
+              }
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteNoImageOpen(false)} disabled={deletingNoImage}
+                className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
+              <button onClick={confirmDeleteNoImage} disabled={deletingNoImage || noImageCount === null || noImageCount === 0}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold text-sm rounded-xl cursor-pointer">
+                {deletingNoImage ? <><Loader2 size={14} className="animate-spin" /> Deleting…</> : <><Trash2 size={14} /> Delete {noImageCount ?? ''}</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
