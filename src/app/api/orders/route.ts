@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { esewaFormData, ESEWA_PAYMENT_URL, khaltiInitiate } from '@/lib/payment'
 import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
+import { pushOrderEvent } from '@/lib/push'
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
     import('@/lib/notifications').then(({ sendOrderConfirmation }) =>
       sendOrderConfirmation(order.id, phone, name, total).catch(() => {})
     ).catch(() => {})
+
+    // FCM push notification (fire-and-forget)
+    pushOrderEvent({
+      userId:  userId,
+      orderId: order.id,
+      title:   '✅ Order Confirmed!',
+      body:    `Your order of Rs. ${Math.round(total).toLocaleString('en-IN')} is confirmed. We'll notify you when it ships.`,
+    }).catch(() => {})
 
     // Increment coupon usedCount (fire-and-forget — non-critical)
     if (couponCode) {

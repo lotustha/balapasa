@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { pushOrderEvent } from '@/lib/push'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -17,11 +18,46 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       include: { items: true },
     })
 
-    // Fire WA shipped notification when status → SHIPPED
-    if (body.status === 'SHIPPED' && order.trackingUrl && order.phone) {
-      import('@/lib/notifications').then(({ sendShippingNotification }) =>
-        sendShippingNotification(order.id, order.phone, order.trackingUrl!).catch(() => {})
-      ).catch(() => {})
+    // Push + WhatsApp on status changes
+    if (body.status === 'SHIPPED') {
+      if (order.trackingUrl && order.phone) {
+        import('@/lib/notifications').then(({ sendShippingNotification }) =>
+          sendShippingNotification(order.id, order.phone, order.trackingUrl!).catch(() => {})
+        ).catch(() => {})
+      }
+      pushOrderEvent({
+        userId:  order.userId,
+        orderId: order.id,
+        title:   '🚚 Your order is on its way!',
+        body:    `Order #${order.id.slice(0, 8).toUpperCase()} has been shipped via Pathao.${order.trackingUrl ? ' Tap to track.' : ''}`,
+      }).catch(() => {})
+    }
+
+    if (body.status === 'DELIVERED') {
+      pushOrderEvent({
+        userId:  order.userId,
+        orderId: order.id,
+        title:   '✅ Order Delivered!',
+        body:    `Order #${order.id.slice(0, 8).toUpperCase()} was delivered. Enjoy your purchase!`,
+      }).catch(() => {})
+    }
+
+    if (body.status === 'CANCELLED') {
+      pushOrderEvent({
+        userId:  order.userId,
+        orderId: order.id,
+        title:   '❌ Order Cancelled',
+        body:    `Order #${order.id.slice(0, 8).toUpperCase()} has been cancelled. Contact support if this was unexpected.`,
+      }).catch(() => {})
+    }
+
+    if (body.paymentStatus === 'PAID' && order.paymentStatus === 'PAID') {
+      pushOrderEvent({
+        userId:  order.userId,
+        orderId: order.id,
+        title:   '💳 Payment Confirmed',
+        body:    `Rs. ${Math.round(order.total).toLocaleString('en-IN')} payment received for order #${order.id.slice(0, 8).toUpperCase()}.`,
+      }).catch(() => {})
     }
 
     return Response.json({ ...order, createdAt: order.createdAt.toISOString(), updatedAt: order.updatedAt.toISOString() })

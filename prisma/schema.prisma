@@ -360,6 +360,19 @@ model CartAbandonment {
   @@map("cart_abandonments")
 }
 
+// FCM push notification tokens for the Flutter mobile app
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")        // null = guest device
+  token     String   @unique                 // FCM registration token
+  platform  String   @default("android")    // android | ios
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
 model Coupon {
   id          String     @id @default(cuid())
   code        String     @unique
