@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
+import { prisma } from '@/lib/prisma'
+import { getThemeCss } from '@/lib/themes'
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -44,9 +46,17 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Fetch theme server-side so CSS vars are injected before first paint — no flash
+  let themeCss = ''
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key: 'STORE_THEME' } })
+    if (row?.value) themeCss = getThemeCss(row.value)
+  } catch { /* DB unavailable — defaults from globals.css apply */ }
+
   return (
     <html lang="en" className={`${jakartaSans.variable} ${inter.variable}`}>
+      {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
       <body className="min-h-screen flex flex-col font-body antialiased" style={{ background: '#F4F6FF' }}>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           '@context': 'https://schema.org',

@@ -1,17 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
+import { THEMES } from '@/lib/themes'
 
-export const THEMES: Record<string, { primary: string; dark: string; light: string; bg: string; name: string }> = {
-  emerald: { name: 'Emerald',  primary: '#16A34A', dark: '#15803D', light: '#DCFCE7', bg: '#F0FDF4' },
-  blue:    { name: 'Blue',     primary: '#2563EB', dark: '#1D4ED8', light: '#DBEAFE', bg: '#EFF6FF' },
-  purple:  { name: 'Purple',   primary: '#7C3AED', dark: '#6D28D9', light: '#EDE9FE', bg: '#F5F3FF' },
-  rose:    { name: 'Rose',     primary: '#E11D48', dark: '#BE123C', light: '#FFE4E6', bg: '#FFF1F2' },
-  orange:  { name: 'Orange',   primary: '#EA580C', dark: '#C2410C', light: '#FFEDD5', bg: '#FFF7ED' },
-  teal:    { name: 'Teal',     primary: '#0D9488', dark: '#0F766E', light: '#CCFBF1', bg: '#F0FDFA' },
-  indigo:  { name: 'Indigo',   primary: '#4F46E5', dark: '#4338CA', light: '#E0E7FF', bg: '#EEF2FF' },
-  slate:   { name: 'Slate',    primary: '#475569', dark: '#334155', light: '#E2E8F0', bg: '#F8FAFC' },
-}
+export { THEMES }
 
 export function applyTheme(key: string) {
   const t = THEMES[key] ?? THEMES['emerald']
@@ -22,6 +14,9 @@ export function applyTheme(key: string) {
   r.style.setProperty('--clr-primary-bg',     t.bg)
 }
 
+// No-op after SSR: the <style> tag in <head> already applied the right vars.
+// This component only re-applies when the theme changes client-side (e.g. after
+// the user picks a new theme in settings and saves).
 export default function ThemeApplicator() {
   useEffect(() => {
     fetch('/api/store-config')
