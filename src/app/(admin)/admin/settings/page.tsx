@@ -1,19 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
-  ExternalLink, AlertCircle, RefreshCw, ChevronRight,
+  ExternalLink, AlertCircle, RefreshCw, ChevronRight, Upload, Palette,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
+import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
 interface StoreForm {
   STORE_NAME: string; STORE_EMAIL: string; STORE_PHONE: string
   STORE_ADDRESS: string; FREE_DELIVERY_THRESHOLD: string; STORE_LOGO_URL: string
+  STORE_THEME: string
 }
 interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHALTI_SECRET_KEY: string }
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
@@ -102,6 +105,60 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'notifications', icon: Bell,       label: 'Notifications', desc: 'Email alerts'              },
   { id: 'danger',        icon: Shield,     label: 'Danger Zone',   desc: 'Destructive actions'       },
 ]
+
+// ── Logo uploader ─────────────────────────────────────────────────────────
+
+function LogoUploader({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    setUploading(true)
+    try {
+      const res = await fetch('/api/upload/image', {
+        method: 'POST',
+        headers: { 'content-type': file.type },
+        body: await file.arrayBuffer(),
+      })
+      const data = await res.json()
+      if (res.ok && data.url) onChange(data.url)
+    } catch {}
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  return (
+    <div>
+      <Label>Store Logo</Label>
+      <div className="flex items-center gap-4 mt-1">
+        {/* Preview */}
+        <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden shrink-0">
+          {url ? (
+            <Image src={url} alt="Store logo" width={80} height={80} className="object-contain w-full h-full p-1" />
+          ) : (
+            <Upload size={20} className="text-slate-300" />
+          )}
+        </div>
+        {/* Actions */}
+        <div className="flex-1">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+            {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload logo</>}
+          </button>
+          <p className="text-[10px] text-slate-400 mt-1.5">PNG or SVG recommended · max 2MB</p>
+          {url && (
+            <input value={url} onChange={e => onChange(e.target.value)}
+              placeholder="or paste URL…"
+              className="mt-2 w-full px-3 py-1.5 text-[11px] font-mono border border-slate-100 rounded-lg bg-white text-slate-500 outline-none focus:border-primary focus:ring-1 focus:ring-primary/10" />
+          )}
+        </div>
+      </div>
+      <Hint>Used in shipping labels and email receipts</Hint>
+    </div>
+  )
+}
 
 // ── Delivery settings panel (embedded logistics config) ───────────────────
 
@@ -280,7 +337,7 @@ export default function SettingsPage() {
 
   const [store, setStore] = useState<StoreForm>({
     STORE_NAME: STORE_NAME, STORE_EMAIL: '', STORE_PHONE: '',
-    STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '',
+    STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '', STORE_THEME: 'emerald',
   })
   const [payment, setPayment] = useState<PaymentForm>({ ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '', KHALTI_SECRET_KEY: '' })
   const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
@@ -296,6 +353,7 @@ export default function SettingsPage() {
         STORE_ADDRESS:           settings.STORE_ADDRESS           ?? s.STORE_ADDRESS,
         FREE_DELIVERY_THRESHOLD: settings.FREE_DELIVERY_THRESHOLD ?? s.FREE_DELIVERY_THRESHOLD,
         STORE_LOGO_URL:          settings.STORE_LOGO_URL          ?? s.STORE_LOGO_URL,
+          STORE_THEME:             settings.STORE_THEME             ?? s.STORE_THEME,
       }))
       setPayment(p => ({
         ESEWA_MERCHANT_ID: settings.ESEWA_MERCHANT_ID ?? p.ESEWA_MERCHANT_ID,
@@ -443,21 +501,49 @@ export default function SettingsPage() {
 
                 <div className="border-t border-slate-50 pt-5">
                   <SectionTitle>Branding & Commerce</SectionTitle>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Logo URL <span className="normal-case font-normal text-slate-400">(for receipts)</span></Label>
-                      <input value={store.STORE_LOGO_URL} onChange={e => setStore(s => ({ ...s, STORE_LOGO_URL: e.target.value }))}
-                        placeholder="https://yourdomain.com/logo.png" className={inputCls} />
-                      <Hint>Used in printed shipping labels and email receipts</Hint>
-                    </div>
-                    <div>
-                      <Label>Free Delivery Above (NPR)</Label>
-                      <input type="number" min="0" value={store.FREE_DELIVERY_THRESHOLD}
-                        onChange={e => setStore(s => ({ ...s, FREE_DELIVERY_THRESHOLD: e.target.value }))}
-                        placeholder="5000" className={inputCls} />
-                      <Hint>Orders at or above this amount get free delivery</Hint>
-                    </div>
+
+                  {/* Logo upload */}
+                  <LogoUploader
+                    url={store.STORE_LOGO_URL}
+                    onChange={url => setStore(s => ({ ...s, STORE_LOGO_URL: url }))}
+                  />
+
+                  <div className="mt-4">
+                    <Label>Free Delivery Above (NPR)</Label>
+                    <input type="number" min="0" value={store.FREE_DELIVERY_THRESHOLD}
+                      onChange={e => setStore(s => ({ ...s, FREE_DELIVERY_THRESHOLD: e.target.value }))}
+                      placeholder="5000" className={inputCls + ' max-w-xs'} />
+                    <Hint>Orders at or above this amount get free delivery</Hint>
                   </div>
+                </div>
+
+                {/* Theme picker */}
+                <div className="border-t border-slate-50 pt-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-0.5 h-4 rounded-full bg-primary" />
+                    <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide flex items-center gap-1.5">
+                      <Palette size={14} className="text-primary" /> Theme Color
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {Object.entries(THEMES).map(([key, t]) => (
+                      <button key={key} type="button"
+                        onClick={() => { setStore(s => ({ ...s, STORE_THEME: key })); applyTheme(key) }}
+                        title={t.name}
+                        className={`group flex flex-col items-center gap-1.5 cursor-pointer`}>
+                        <div className={`w-10 h-10 rounded-2xl transition-all ${store.STORE_THEME === key ? 'ring-2 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                          style={{ background: t.primary, ringColor: t.primary }}>
+                          {store.STORE_THEME === key && (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <CheckCircle2 size={16} className="text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-500">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <Hint>Theme color applies to buttons, links, and accent elements across the store.</Hint>
                 </div>
 
                 <div className="flex justify-end pt-2 border-t border-slate-50">

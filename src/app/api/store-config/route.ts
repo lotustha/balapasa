@@ -8,6 +8,7 @@ const PUBLIC_KEYS = [
   'STORE_EMAIL',
   'STORE_ADDRESS',
   'STORE_LOGO_URL',
+  'STORE_THEME',
 ]
 
 export async function GET() {
@@ -24,6 +25,7 @@ export async function GET() {
       STORE_EMAIL:   config.STORE_EMAIL   ?? '',
       STORE_ADDRESS: config.STORE_ADDRESS ?? 'Kathmandu, Nepal',
       STORE_LOGO_URL:config.STORE_LOGO_URL ?? '',
+      STORE_THEME:   config.STORE_THEME   ?? 'emerald',
     }, { headers: { 'Cache-Control': 'public, max-age=60' } })
   } catch {
     return Response.json({ FREE_DELIVERY_THRESHOLD: 5000, STORE_NAME: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa', STORE_PHONE: '', STORE_EMAIL: '', STORE_ADDRESS: '', STORE_LOGO_URL: '' })
