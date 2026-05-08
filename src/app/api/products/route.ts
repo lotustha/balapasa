@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
   const category   = searchParams.get('category')
   const search     = searchParams.get('search')
   const featured   = searchParams.get('featured')
+  const flash      = searchParams.get('flash')      // 'true' = only products with active salePrice
   const status     = searchParams.get('status')     // 'active' | 'draft' | null (null = active only for shop)
   const stock      = searchParams.get('stock')      // 'low' | 'out' | null
   const supplierId = searchParams.get('supplier')
@@ -32,6 +33,10 @@ export async function GET(req: NextRequest) {
     if (supplierId)          where.supplierId  = supplierId
     if (stock === 'out')  where.stock = 0
     if (stock === 'low')  Object.assign(where, { trackInventory: true, stock: { gt: 0, lte: 10 } })
+    if (flash === 'true') Object.assign(where, {
+      salePrice: { not: null },
+      OR: [{ salePriceExpiresAt: null }, { salePriceExpiresAt: { gt: new Date() } }],
+    })
 
     if (search) {
       where.OR = [
@@ -57,10 +62,18 @@ export async function GET(req: NextRequest) {
       ? { category: { select: { name: true, slug: true } }, supplier: { select: { id: true, name: true, email: true } } }
       : { category: { select: { name: true, slug: true } } }
 
-    const [products, total] = await Promise.all([
+    const [rawProducts, total] = await Promise.all([
       prisma.product.findMany({ where, orderBy, include, take: limit, skip }),
       prisma.product.count({ where }),
     ])
+
+    // Null out salePrice if its expiry has passed (enforce at response time)
+    const now = new Date()
+    const products = rawProducts.map(p =>
+      p.salePriceExpiresAt && p.salePriceExpiresAt <= now
+        ? { ...p, salePrice: null, salePriceExpiresAt: null }
+        : p
+    )
 
     return Response.json({ products, total, page, totalPages: Math.ceil(total / limit) })
   } catch {
