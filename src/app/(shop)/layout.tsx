@@ -1,5 +1,6 @@
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import BottomNav from '@/components/layout/BottomNav'
 import ScrollReset from '@/components/layout/ScrollReset'
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
@@ -7,11 +8,13 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
     <>
       <ScrollReset />
       <Navbar />
-      {/* pt-20 = 80px clears the floating navbar (top-3 + h-14 + breathing room) */}
-      <main className="flex-1 pt-20">
+      {/* pt-20 clears floating navbar; pb-20 clears bottom nav on mobile */}
+      <main className="flex-1 pt-20 pb-20 md:pb-0">
         {children}
       </main>
-      <Footer />
+      {/* Footer hidden on mobile — bottom nav replaces it */}
+      <div className="hidden md:block"><Footer /></div>
+      <BottomNav />
     </>
   )
 }

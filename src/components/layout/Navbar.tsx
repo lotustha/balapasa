@@ -284,9 +284,9 @@ export default function Navbar() {
                 )}
               </button>
 
-              {/* Mobile menu toggle */}
+              {/* Mobile menu toggle — desktop only (bottom nav handles mobile) */}
               <button onClick={() => setMobileOpen(o => !o)} aria-label="Menu"
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all sm:hidden cursor-pointer">
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex md:hidden cursor-pointer">
                 {mobileOpen ? <X size={18} /> : <Menu size={18} />}
               </button>
             </div>
