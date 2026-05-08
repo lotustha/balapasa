@@ -36,12 +36,12 @@ async function getAnalytics() {
         GROUP BY c.name ORDER BY rev DESC LIMIT 5
       `,
       prisma.$queryRaw<{ day: string; rev: number }[]>`
-        SELECT TO_CHAR(created_at AT TIME ZONE 'Asia/Kathmandu','Mon DD') as day,
-               COALESCE(SUM(total),0) as rev
-        FROM orders WHERE payment_status='PAID' AND created_at >= ${day30ago}
-        GROUP BY TO_CHAR(created_at AT TIME ZONE 'Asia/Kathmandu','Mon DD'),
-                 DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Kathmandu')
-        ORDER BY DATE_TRUNC('day', created_at AT TIME ZONE 'Asia/Kathmandu')
+        SELECT TO_CHAR(created_at, 'Mon DD') as day,
+               COALESCE(SUM(total), 0) as rev
+        FROM orders
+        WHERE payment_status = 'PAID' AND created_at >= ${day30ago}
+        GROUP BY TO_CHAR(created_at, 'Mon DD'), DATE_TRUNC('day', created_at)
+        ORDER BY DATE_TRUNC('day', created_at)
         LIMIT 30
       `,
     ])
@@ -57,7 +57,8 @@ async function getAnalytics() {
       topCategories: topCategories.map(c => ({ ...c, qty: Number(c.qty), rev: Number(c.rev) })),
       dailyRevenue: dailyRevenue.map(r => ({ day: r.day, rev: Number(r.rev) })),
     }
-  } catch {
+  } catch (e) {
+    console.error('[analytics] query failed:', e)
     return null
   }
 }
