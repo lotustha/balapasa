@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     } catch { /* guest checkout */ }
 
     const body = await req.json()
-    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod, couponCode, couponDiscount } = body
+    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod, couponCode, couponDiscount, autoDiscount } = body
 
     const order = await prisma.order.create({
       data: {
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
         advanceMethod:  advanceMethod  || null,
         couponCode:     couponCode     || null,
         couponDiscount: couponDiscount ? Number(couponDiscount) : null,
+        autoDiscount:   autoDiscount   ? Number(autoDiscount)   : null,
         items: {
           create: items.map((item: {
             id: string; name: string; price: number; salePrice?: number | null;

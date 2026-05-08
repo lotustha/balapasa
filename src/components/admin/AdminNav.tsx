@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Settings, BarChart3, Truck, LogOut, Upload, Ticket,
+  Tag, Settings, BarChart3, Truck, LogOut, Upload, Ticket, Zap,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 
@@ -19,7 +19,8 @@ const NAV = [
   { href: '/admin/import',     icon: Upload,          label: 'Import',     minRole: 'MANAGER' },
   { href: '/admin/customers',  icon: Users,           label: 'Customers',  minRole: 'MANAGER' },
   { href: '/admin/categories', icon: Tag,             label: 'Categories', minRole: 'MANAGER' },
-  { href: '/admin/coupons',    icon: Ticket,          label: 'Coupons',    minRole: 'MANAGER' },
+  { href: '/admin/coupons',     icon: Ticket,          label: 'Coupons',     minRole: 'MANAGER' },
+  { href: '/admin/promotions',  icon: Zap,             label: 'Promotions',  minRole: 'MANAGER' },
   { href: '/admin/analytics',  icon: BarChart3,       label: 'Analytics',  minRole: 'MANAGER' },
   { href: '/admin/logistics',  icon: Truck,           label: 'Logistics',  minRole: 'ADMIN'   },
   { href: '/admin/settings',   icon: Settings,        label: 'Settings',   minRole: 'ADMIN'   },

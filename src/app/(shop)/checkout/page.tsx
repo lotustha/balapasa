@@ -215,16 +215,33 @@ export default function CheckoutPage() {
   function removeCoupon() { setCoupon(''); setCouponApplied(false); setCouponDiscount(0); setCouponError('') }
 
   const [freeThreshold, setFreeThreshold] = useState(5000)
+  const [autoRules, setAutoRules] = useState<import('@/app/api/discount-rules/route').DiscountRule[]>([])
   useEffect(() => {
     fetch('/api/store-config').then(r => r.json())
       .then(d => setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000))
       .catch(() => {})
+    fetch('/api/discount-rules').then(r => r.json())
+      .then(d => setAutoRules(d.rules ?? []))
+      .catch(() => {})
   }, [])
+
+  // Compute auto-discounts from rules
+  const { deliverySubsidy, orderDiscount: autoDiscount } = (() => {
+    const active = autoRules.filter(r => r.isActive && subtotal >= r.minOrder)
+    const subsidy = active.filter(r => r.type === 'DELIVERY_SUBSIDY').sort((a,b) => b.minOrder - a.minOrder)[0]
+    let od = 0
+    for (const r of active.filter(r => r.type === 'ORDER_DISCOUNT')) {
+      const raw = r.percent ? Math.round((subtotal * r.percent) / 100) : 0
+      od += r.maxDiscount ? Math.min(raw, r.maxDiscount) : raw
+    }
+    return { deliverySubsidy: subsidy?.deliveryCredit ?? 0, orderDiscount: od }
+  })()
+
   const FREE_DELIVERY_THRESHOLD = freeThreshold
   const freeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD
-  // If order qualifies for free delivery, store absorbs the delivery cost
-  const deliveryCharge = freeDelivery ? 0 : (selectedOption?.charge ?? 0)
-  const total = Math.max(0, subtotal + deliveryCharge - couponDiscount)
+  const rawDelivery  = freeDelivery ? 0 : (selectedOption?.charge ?? 0)
+  const deliveryCharge = Math.max(0, rawDelivery - deliverySubsidy)
+  const total = Math.max(0, subtotal + deliveryCharge - couponDiscount - autoDiscount)
 
   const fetchCoverage = useCallback(async (addr: NepalAddress) => {
     if (!addr.province || !addr.district || !addr.municipality) return
@@ -308,6 +325,7 @@ export default function CheckoutPage() {
           items, subtotal, deliveryCharge, total,
           couponCode:     couponApplied ? coupon.trim().toUpperCase() : undefined,
           couponDiscount: couponApplied ? couponDiscount : undefined,
+          autoDiscount:   autoDiscount > 0 ? autoDiscount : undefined,
           paymentMethod: (payment === 'COD' && partialCod) ? 'PARTIAL_COD' : payment,
           advancePaid:   (payment === 'COD' && partialCod) ? Math.round(total * advancePct / 100) : undefined,
           codAmount:     (payment === 'COD' && partialCod) ? Math.round(total * (100 - advancePct) / 100) : undefined,
@@ -1066,6 +1084,19 @@ export default function CheckoutPage() {
                       )}
                     </div>
                   </div>
+                  {/* Auto-discount from promotion rules */}
+                  {autoDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span className="flex items-center gap-1.5"><Zap size={12} /> Auto discount</span>
+                      <span className="font-semibold">− {formatPrice(autoDiscount)}</span>
+                    </div>
+                  )}
+                  {deliverySubsidy > 0 && !freeDelivery && (
+                    <div className="flex justify-between text-blue-600">
+                      <span className="flex items-center gap-1.5"><Truck size={12} /> Delivery subsidy</span>
+                      <span className="font-semibold">− {formatPrice(Math.min(deliverySubsidy, rawDelivery))}</span>
+                    </div>
+                  )}
                   {/* Coupon discount */}
                   {couponApplied && couponDiscount > 0 && (
                     <div className="flex justify-between text-green-600">

@@ -176,6 +176,7 @@ model Order {
   shippingProvider String?  @map("shipping_provider")
   couponCode     String?       @map("coupon_code")
   couponDiscount Float?        @map("coupon_discount")
+  autoDiscount   Float?        @map("auto_discount")
   notes          String?
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
