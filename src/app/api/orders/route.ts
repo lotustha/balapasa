@@ -1,22 +1,23 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { esewaFormData, ESEWA_PAYMENT_URL, khaltiInitiate } from '@/lib/payment'
-import { createClient } from '@/lib/supabase/server'
+import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth is optional — guest checkout is allowed
     let userId: string | null = null
     let userEmail: string | null = null
     try {
-      const supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      userId    = user?.id    ?? null
-      userEmail = user?.email ?? null
-    } catch { /* Supabase not configured or user not logged in */ }
+      const token = req.cookies.get(AUTH_COOKIE)?.value
+      if (token) {
+        const payload = await verifyToken(token)
+        userId    = payload?.sub    ?? null
+        userEmail = payload?.email  ?? null
+      }
+    } catch { /* guest checkout */ }
 
     const body = await req.json()
-    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, name, phone, email, address, house, road, city } = body
+    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod } = body
 
     const order = await prisma.order.create({
       data: {
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
         total,
         paymentMethod,
         shippingOption,
+        shippingProvider: shippingProvider ?? null,
         name,
         phone,
         email: email || userEmail || null,
@@ -33,6 +35,11 @@ export async function POST(req: NextRequest) {
         house,
         road,
         city,
+        lat:          lat          ? Number(lat)          : null,
+        lng:          lng          ? Number(lng)          : null,
+        advancePaid:  advancePaid  ? Number(advancePaid)  : null,
+        codAmount:    codAmount    ? Number(codAmount)    : null,
+        advanceMethod: advanceMethod || null,
         items: {
           create: items.map((item: {
             id: string; name: string; price: number; salePrice?: number | null;
@@ -48,7 +55,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Auto-deduct stock for tracked products (best-effort, don't block order)
     try {
       for (const item of items as { id: string; quantity: number }[]) {
         const product = await prisma.product.findUnique({
@@ -83,14 +89,13 @@ export async function POST(req: NextRequest) {
       const khalti = await khaltiInitiate({
         orderId:       order.id,
         orderName:     `Balapasa Order ${order.id.slice(0, 8)}`,
-        amount:        total,    // khaltiInitiate converts to paisa internally
+        amount:        total,
         customerName:  name,
         customerEmail: email || userEmail || 'customer@balapasa.com',
         customerPhone: phone,
       })
 
       if (khalti.error || !khalti.payment_url) {
-        // Clean up the order so it doesn't linger in PENDING state
         await prisma.order.delete({ where: { id: order.id } }).catch(() => {})
         return Response.json(
           { error: `Khalti initiation failed: ${khalti.error ?? 'no payment_url'}` },
@@ -98,7 +103,6 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Store pidx so the verify route can look it up by purchase_order_id
       await prisma.order.update({
         where: { id: order.id },
         data: { transactionId: khalti.pidx },
@@ -119,16 +123,14 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    let user = null
-    try {
-      const supabase = await createClient()
-      const { data } = await supabase.auth.getUser()
-      user = data.user
-    } catch { /* Supabase not configured */ }
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const token = req.cookies.get(AUTH_COOKIE)?.value
+    if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const payload = await verifyToken(token)
+    if (!payload) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
     const orders = await prisma.order.findMany({
-      where: { userId: user.id },
+      where: { userId: payload.sub },
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     })

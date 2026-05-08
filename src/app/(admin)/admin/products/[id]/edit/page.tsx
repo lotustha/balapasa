@@ -39,6 +39,8 @@ export default function EditProductPage() {
           isActive:          p.isActive    ?? true,
           isFeatured:        p.isFeatured  ?? false,
           isNew:             p.isNew       ?? false,
+          videoUrl:          p.videoUrl    ?? '',
+          boughtTogetherIds: p.boughtTogetherIds ?? [],
         })
       })
       .catch(() => setError('Failed to load product'))

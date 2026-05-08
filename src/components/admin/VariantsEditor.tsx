@@ -11,44 +11,90 @@ async function uploadVariantImage(file: File): Promise<string | null> {
   return res.ok ? data.url : null
 }
 
-function VariantImageCell({ value, onChange }: { value: string; onChange: (url: string) => void }) {
-  const [loading, setLoading] = useState(false)
-  const ref = useRef<HTMLInputElement>(null)
-
-  async function handleFile(file: File) {
-    setLoading(true)
-    const url = await uploadVariantImage(file)
-    if (url) onChange(url)
-    setLoading(false)
-  }
+function VariantImageCell({
+  value, onChange, productImages,
+}: {
+  value: string; onChange: (url: string) => void; productImages: string[]
+}) {
+  const [open, setOpen] = useState(false)
 
   return (
     <div className="flex items-center justify-center">
-      <input ref={ref} type="file" accept="image/*" className="hidden"
-        onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
-      <button type="button" onClick={() => ref.current?.click()}
+      {/* Trigger */}
+      <button type="button" onClick={() => setOpen(true)}
         className="relative w-10 h-10 rounded-xl overflow-hidden border-2 border-dashed border-slate-200 hover:border-primary/50 transition-colors cursor-pointer group"
-        title="Upload variant image">
-        {loading ? (
-          <div className="w-full h-full flex items-center justify-center bg-slate-50">
-            <Loader2 size={12} className="animate-spin text-primary" />
-          </div>
-        ) : value ? (
+        title="Pick image from product images">
+        {value ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={value} alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Upload size={10} className="text-white" />
+              <ImageIcon size={10} className="text-white" />
             </div>
           </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 bg-slate-50 group-hover:bg-primary-bg transition-colors">
+          <div className="w-full h-full flex items-center justify-center bg-slate-50 group-hover:bg-primary-bg transition-colors">
             <ImageIcon size={12} className="text-slate-400 group-hover:text-primary transition-colors" />
           </div>
         )}
       </button>
+
+      {/* Modal */}
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+
+          {/* Dialog */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 pointer-events-auto animate-fade-in-up">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-800 text-sm">Select Variant Image</h3>
+                <button type="button" onClick={() => setOpen(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                  <X size={14} />
+                </button>
+              </div>
+
+              {productImages.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <ImageIcon size={28} className="mx-auto mb-2 text-slate-200" />
+                  <p className="text-sm font-medium">No product images uploaded yet</p>
+                  <p className="text-xs mt-1">Upload images in the Product Images section first</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {productImages.map((img, i) => (
+                    <button key={i} type="button"
+                      onClick={() => { onChange(img); setOpen(false) }}
+                      className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${value === img ? 'border-primary shadow-md shadow-primary/25 scale-105' : 'border-transparent hover:border-slate-300'}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img} alt={`Image ${i + 1}`} className="w-full h-full object-cover" />
+                      {value === img && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                            <svg viewBox="0 0 10 8" className="w-3 h-3"><path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" fill="none"/></svg>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {value && (
+                <button type="button" onClick={() => { onChange(''); setOpen(false) }}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-100">
+                  <X size={12} /> Remove image
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
+
 }
 
 export interface VOption  { name: string; values: string[] }
@@ -64,8 +110,9 @@ export interface VVariant {
 interface Props {
   basePrice:       string
   baseSku:         string
+  productImages:   string[]
   onChange:        (options: VOption[], variants: VVariant[]) => void
-  initialOptions?: VOption[]   // populated by URL import
+  initialOptions?: VOption[]
 }
 
 const COMMON_OPTIONS = ['Size', 'Color', 'Material', 'Storage', 'Style', 'Length', 'Width']
@@ -187,7 +234,7 @@ function OptionRow({
 
 // ── Main VariantsEditor ─────────────────────────────────────────────────────
 
-export default function VariantsEditor({ basePrice, baseSku, onChange, initialOptions }: Props) {
+export default function VariantsEditor({ basePrice, baseSku, productImages, onChange, initialOptions }: Props) {
   const [enabled, setEnabled] = useState(false)
   const [options,  setOptions]  = useState<VOption[]>(initialOptions?.length ? initialOptions : [{ name: '', values: [] }])
 
@@ -199,6 +246,9 @@ export default function VariantsEditor({ basePrice, baseSku, onChange, initialOp
     }
   }, [initialOptions])
   const [variants, setVariants] = useState<VVariant[]>([])
+  // Ref so updateVariant/deleteVariant can read current variants without stale closure
+  const variantsRef = useRef<VVariant[]>([])
+  useEffect(() => { variantsRef.current = variants }, [variants])
 
   // Re-generate variant combinations whenever options change
   useEffect(() => {
@@ -211,14 +261,13 @@ export default function VariantsEditor({ basePrice, baseSku, onChange, initialOp
     const newVariants: VVariant[] = combos.map((combo, i) => {
       const title   = generateTitle(combo)
       const optMap  = Object.fromEntries(validOpts.map((o, j) => [o.name, combo[j]]))
-      // Preserve existing overrides if title matches
-      const existing = variants.find(v => v.title === title)
+      const existing = variantsRef.current.find(v => v.title === title)
       return existing ?? {
         title, options: optMap,
         sku:   generateSKU(baseSku, i),
         price: '',
         stock: '0',
-        image: '',
+        image: productImages[0] ?? '',  // auto-select first product image
       }
     })
 
@@ -227,13 +276,12 @@ export default function VariantsEditor({ basePrice, baseSku, onChange, initialOp
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, enabled, baseSku])
 
+  // Don't call onChange inside setState updater — compute next state directly
   const updateVariant = useCallback((index: number, patch: Partial<VVariant>) => {
-    setVariants(prev => {
-      const next = [...prev]
-      next[index] = { ...next[index], ...patch }
-      onChange(options.filter(o => o.name.trim() && o.values.length), next)
-      return next
-    })
+    const next = [...variantsRef.current]
+    next[index] = { ...next[index], ...patch }
+    setVariants(next)
+    onChange(options.filter(o => o.name.trim() && o.values.length), next)
   }, [options, onChange])
 
   function addOption() {
@@ -323,6 +371,7 @@ export default function VariantsEditor({ basePrice, baseSku, onChange, initialOp
                           <VariantImageCell
                             value={v.image}
                             onChange={url => updateVariant(i, { image: url })}
+                            productImages={productImages}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -353,11 +402,9 @@ export default function VariantsEditor({ basePrice, baseSku, onChange, initialOp
                         </td>
                         <td className="px-3 py-3">
                           <button type="button" onClick={() => {
-                            setVariants(prev => {
-                              const next = [...prev]; next.splice(i, 1)
-                              onChange(options.filter(o => o.name.trim() && o.values.length), next)
-                              return next
-                            })
+                            const next = [...variantsRef.current]; next.splice(i, 1)
+                            setVariants(next)
+                            onChange(options.filter(o => o.name.trim() && o.values.length), next)
                           }} className="text-slate-300 hover:text-red-500 transition-colors cursor-pointer">
                             <X size={14} />
                           </button>

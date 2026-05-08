@@ -115,9 +115,24 @@ export interface CreateParcelParams {
   parcelType?:     number
 }
 
+function mockCreateParcel(params: CreateParcelParams) {
+  const orderId  = params.externalRefId.slice(0, 7).toUpperCase()
+  const hashedId = `mock-${Math.random().toString(36).slice(2, 10)}`
+  return {
+    data: {
+      order_id:     orderId,
+      hashed_id:    hashedId,
+      charge:       1200,
+      payable_charge: 1200,
+      tracking_url: `https://pages.p-stageenv.xyz/receiver-tracking/${hashedId}`,
+    },
+  }
+}
+
 export async function createParcel(params: CreateParcelParams) {
   const cfg = await getPathaoConfig()
   if (!cfg.isActive) throw new Error('Pathao is disabled in logistics settings')
+  if (cfg.isMock)   return mockCreateParcel(params)
 
   const token = await getAccessToken()
   const res = await fetch(`${cfg.baseUrl}/api/v1/ondemand/parcels?lang=en`, {
@@ -147,5 +162,48 @@ export async function createParcel(params: CreateParcelParams) {
     }),
   })
   if (!res.ok) { const t = await res.text(); throw new Error(`Pathao create ${res.status}: ${t.slice(0, 200)}`) }
+  const json = await res.json()
+  // Normalise field names from the API response
+  const d = json.data ?? {}
+  return {
+    ...json,
+    data: {
+      ...d,
+      order_id:     d.order_id    ?? d.parcel_id ?? '',
+      hashed_id:    d.hashed_id   ?? d.parcel_hash ?? d.hash ?? '',
+      tracking_url: d.tracking_url ?? null,
+      charge:       d.charge       ?? d.payable_charge ?? 0,
+    },
+  }
+}
+
+// ── Cancel parcel ─────────────────────────────────────────────────────────────
+
+export async function cancelParcel(hashedId: string, reason = 'customer-cancelled-order') {
+  const cfg = await getPathaoConfig()
+  if (!cfg.isActive) throw new Error('Pathao is disabled')
+  if (cfg.isMock) return { parcel: { parcel_status: 'CANCELLED' } }
+
+  const token = await getAccessToken()
+  const res = await fetch(`${cfg.baseUrl}/api/v1/ondemand/parcels/${hashedId}/cancel`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'CANCELLED', cancellation_reason: { slug: reason, additional_text: '' } }),
+  })
+  if (!res.ok) { const t = await res.text(); throw new Error(`Pathao cancel ${res.status}: ${t.slice(0, 200)}`) }
+  return res.json()
+}
+
+// ── Get parcel details ────────────────────────────────────────────────────────
+
+export async function getParcel(hashedId: string) {
+  const cfg = await getPathaoConfig()
+  if (!cfg.isActive) throw new Error('Pathao is disabled')
+
+  const token = await getAccessToken()
+  const res = await fetch(`${cfg.baseUrl}/api/v1/ondemand/parcels/${hashedId}?user_type=user&localization=en`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) { const t = await res.text(); throw new Error(`Pathao get ${res.status}: ${t.slice(0, 200)}`) }
   return res.json()
 }

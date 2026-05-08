@@ -129,24 +129,54 @@ export interface CreatePndOrderParams {
   orderId: string
 }
 
-export async function createPndOrder(params: CreatePndOrderParams) {
+export interface PndOrderResult {
+  trackingId:  string   // display tracking number, e.g. "ORD-2026-0001"
+  trackingUrl: string   // e.g. https://app-t.pickndropnepal.com/track/ORD-2026-0001
+  charge:      number
+  raw:         unknown
+}
+
+export async function createPndOrder(params: CreatePndOrderParams): Promise<PndOrderResult> {
   const res = await fetch(`${BASE_URL}/api/method/logi360.api.create_order`, {
     method: 'POST',
     headers: { Authorization: AUTH, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      customer_name: params.customerName,
-      sender_name: params.senderName,
-      sender_phone: params.senderPhone,
-      receiver_name: params.receiverName,
-      receiver_phone: params.receiverPhone,
+      customer_name:    params.customerName,
+      sender_name:      params.senderName,
+      sender_phone:     params.senderPhone,
+      receiver_name:    params.receiverName,
+      receiver_phone:   params.receiverPhone,
       receiver_address: params.receiverAddress,
-      from_branch: params.fromBranch,
-      to_branch: params.toBranch,
-      item_value: params.itemValue,
-      cod_amount: params.codAmount ?? 0,
-      service_type: params.serviceType,
-      reference: params.orderId,
+      from_branch:      params.fromBranch,
+      to_branch:        params.toBranch,
+      item_value:       params.itemValue,
+      cod_amount:       params.codAmount ?? 0,
+      service_type:     params.serviceType,
+      reference:        params.orderId,
     }),
   })
-  return res.json()
+  if (!res.ok) { const t = await res.text(); throw new Error(`PnD create ${res.status}: ${t.slice(0, 200)}`) }
+  const json = await res.json()
+
+  // Frappe API wraps result in `message`. Handle both {message:{data:{}}} and {message:{name:""}}
+  const msg  = json?.message ?? json
+  const data = msg?.data ?? msg ?? {}
+  const trackingId  = data?.name ?? data?.tracking_number ?? data?.order_id ?? `PND-${params.orderId.slice(0,8)}`
+  const trackingUrl = data?.tracking_url ?? `${BASE_URL}/track/${trackingId}`
+  const charge      = data?.delivery_charge ?? data?.charge ?? 0
+
+  return { trackingId, trackingUrl, charge, raw: json }
+}
+
+// ── Get order status ──────────────────────────────────────────────────────────
+
+export async function getPndOrderStatus(trackingId: string) {
+  const res = await fetch(
+    `${BASE_URL}/api/method/logi360.api.get_order_status?name=${encodeURIComponent(trackingId)}`,
+    { headers: { Authorization: AUTH } },
+  )
+  if (!res.ok) return null
+  const json = await res.json()
+  const msg  = json?.message ?? json
+  return msg?.data ?? msg ?? null
 }

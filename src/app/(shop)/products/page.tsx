@@ -225,18 +225,18 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   return (
     <div
       className="min-h-screen"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 40%, #FFF0F9 70%, #F0FDF4 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 40%, #FFF0F9 70%, #F0FDF4 100%)', overflowX: 'clip' }}
     >
       {/* Blob accents */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <div className="blob absolute -top-20 -left-20 w-[420px] h-[420px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#8B5CF6', opacity: 0.25, animationDelay: '0s' }} />
+          style={{ background: '#8B5CF6', opacity: 0.08, animationDelay: '0s' }} />
         <div className="blob absolute top-1/3 -right-10 w-[360px] h-[360px] animate-blob-morph animate-blob-float-b"
-          style={{ background: '#06B6D4', opacity: 0.22, animationDelay: '2s' }} />
+          style={{ background: '#06B6D4', opacity: 0.07, animationDelay: '2s' }} />
         <div className="blob absolute bottom-20 left-1/4 w-[380px] h-[380px] animate-blob-morph animate-blob-float-c"
-          style={{ background: '#EC4899', opacity: 0.20, animationDelay: '1s' }} />
+          style={{ background: '#EC4899', opacity: 0.07, animationDelay: '1s' }} />
         <div className="blob absolute top-1/2 left-1/2 w-[280px] h-[280px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#10B981', opacity: 0.18, animationDelay: '3s' }} />
+          style={{ background: '#10B981', opacity: 0.06, animationDelay: '3s' }} />
       </div>
 
       {/* Page header */}
@@ -257,7 +257,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
       {/* Main layout */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex gap-7 items-start">
+        <div className="flex gap-7 items-stretch">
 
           {/* Sidebar */}
           <Suspense fallback={
@@ -283,8 +283,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 </Link>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                   {products.map((product, i) => (
                     <div key={product.id} className="animate-fade-in-up"
                       style={{ animationDelay: `${Math.min(i * 0.04, 0.32)}s` }}>
@@ -292,13 +291,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                     </div>
                   ))}
                 </div>
-
-                <Pagination page={page} totalPages={totalPages} params={params} />
-              </>
             )}
           </div>
 
         </div>
+
+        {/* Pagination outside flex — sidebar stops at product grid bottom */}
+        <Pagination page={page} totalPages={totalPages} params={params} />
       </div>
     </div>
   )

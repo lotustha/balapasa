@@ -11,7 +11,7 @@ import {
 
 interface StoreForm {
   STORE_NAME: string; STORE_EMAIL: string; STORE_PHONE: string; STORE_ADDRESS: string
-  FREE_DELIVERY_THRESHOLD: string
+  FREE_DELIVERY_THRESHOLD: string; STORE_LOGO_URL: string
 }
 interface NotifForm { ORDER_NOTIFICATION_EMAIL: string }
 interface AIForm    { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
@@ -85,7 +85,7 @@ export default function SettingsPage() {
   const [store, setStore] = useState<StoreForm>({
     STORE_NAME: 'Balapasa', STORE_EMAIL: 'hello@balapasa.com',
     STORE_PHONE: '+977 98XXXXXXXX', STORE_ADDRESS: 'Kathmandu, Nepal',
-    FREE_DELIVERY_THRESHOLD: '5000',
+    FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '',
   })
   const [notif, setNotif] = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
   const [ai, setAi]       = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
@@ -101,6 +101,7 @@ export default function SettingsPage() {
           STORE_PHONE:               settings.STORE_PHONE               ?? s.STORE_PHONE,
           STORE_ADDRESS:             settings.STORE_ADDRESS             ?? s.STORE_ADDRESS,
           FREE_DELIVERY_THRESHOLD:   settings.FREE_DELIVERY_THRESHOLD   ?? s.FREE_DELIVERY_THRESHOLD,
+          STORE_LOGO_URL:            settings.STORE_LOGO_URL            ?? s.STORE_LOGO_URL,
         }))
         setNotif(n => ({ ...n, ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? n.ORDER_NOTIFICATION_EMAIL }))
         setAi(a => ({ ...a,
@@ -188,10 +189,12 @@ export default function SettingsPage() {
         <Section icon={Store} title="Store Information" iconBg="bg-primary">
           <div className="grid sm:grid-cols-2 gap-4">
             {([
-              ['STORE_NAME',    'Store Name',     'Balapasa'],
-              ['STORE_EMAIL',   'Store Email',    'hello@balapasa.com'],
-              ['STORE_PHONE',   'Phone',          '+977 98XXXXXXXX'],
-              ['STORE_ADDRESS', 'Address',        'Kathmandu, Nepal'],
+              ['STORE_NAME',              'Store Name',              'Balapasa'],
+              ['STORE_EMAIL',             'Store Email',             'hello@balapasa.com'],
+              ['STORE_PHONE',             'Phone',                   '+977 98XXXXXXXX'],
+              ['STORE_ADDRESS',           'Address',                 'Kathmandu, Nepal'],
+              ['STORE_LOGO_URL',          'Logo URL (for receipts)', 'https://yourdomain.com/logo.png'],
+              ['FREE_DELIVERY_THRESHOLD', 'Free Delivery Above (NPR)', '5000'],
             ] as [keyof StoreForm, string, string][]).map(([key, label, ph]) => (
               <div key={key}>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>

@@ -31,50 +31,76 @@ export default function Hero() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 })
 
   // Trending product auto-rotate
-  const [trending, setTrending]     = useState<TrendingProduct[]>(FALLBACK_PRODUCTS)
+  const [trending, setTrending]     = useState<TrendingProduct[] | null>(null) // null = loading
   const [activeIdx, setActiveIdx]   = useState(0)
   const [visible,  setVisible]      = useState(true)
 
   // Real stats + categories from DB
   const [stats,      setStats]      = useState(FALLBACK_STATS)
-  const [categories, setCategories] = useState<{ slug: string; name: string; color: string; count: number }[]>([])
+  const [categories, setCategories] = useState<{ slug: string; name: string; color: string; count: number; icon?: string | null }[]>([])
+
+  const CACHE_KEY = 'balapasa_trending_v1'
+  const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   useEffect(() => {
-    // Trending products
+    let usedCache = false
+
+    // 1. Serve from cache immediately if fresh
+    try {
+      const raw = localStorage.getItem(CACHE_KEY)
+      if (raw) {
+        const { data, ts } = JSON.parse(raw) as { data: TrendingProduct[]; ts: number }
+        if (data?.length && Date.now() - ts < CACHE_TTL) {
+          setTrending(data)
+          usedCache = true
+          if (Date.now() - ts < 60_000) return // very fresh — skip network entirely
+        }
+      }
+    } catch { /* storage unavailable */ }
+
+    // 2. Fetch fresh data (always when cache is stale; background when cache was used)
     fetch('/api/products/trending')
       .then(r => r.json())
-      .then(d => { if (d.products?.length) setTrending(d.products) })
-      .catch(() => {})
+      .then(d => {
+        if (d.products?.length) {
+          setTrending(d.products)
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: d.products, ts: Date.now() })) } catch { /* storage full */ }
+        }
+      })
+      .catch(() => {
+        // Fetch failed and no cache — show fallback rather than empty skeleton
+        if (!usedCache) setTrending(FALLBACK_PRODUCTS)
+      })
 
-    // Top 3 categories by sales this week
+  }, [])
+
+  // Categories fetch is separate so the trending cache early-return never skips it
+  useEffect(() => {
     fetch('/api/categories?sort=sales&limit=3')
       .then(r => r.json())
       .then(d => {
-        const cats = (d.categories ?? []) as { slug: string; name: string; color: string; sales?: number }[]
-        if (cats.length) {
-          setCategories(cats.map(c => ({
-            slug:  c.slug,
-            name:  c.name,
-            color: c.color || '#6366F1',
-            count: c.sales ?? 0,
-          })))
-
-          // Real product count stat
-          const totalProducts = cats.reduce((s, c) => s + (c._count?.products ?? 0), 0)
-          setStats([
-            { val: totalProducts > 0 ? `${totalProducts}+` : '—', label: 'Products',  color: '#6366F1' },
-            { val: '—',                                             label: 'Customers', color: '#EC4899' },
-            { val: '4.9',                                           label: 'Rating',    color: '#F59E0B' },
-          ])
-        }
+        const cats = (d.categories ?? []) as { slug: string; name: string; color: string; icon?: string | null; sales?: number; _count?: { products: number } }[]
+        if (!cats.length) return
+        setCategories(cats.map(c => ({
+          slug:  c.slug,
+          name:  c.name,
+          color: c.color || '#6366F1',
+          icon:  c.icon ?? null,
+          count: c.sales ?? 0,
+        })))
+        const totalProducts = cats.reduce((s, c) => s + (c._count?.products ?? 0), 0)
+        setStats([
+          { val: totalProducts > 0 ? `${totalProducts}+` : '—', label: 'Products',  color: '#6366F1' },
+          { val: '—',                                             label: 'Customers', color: '#EC4899' },
+          { val: '4.9',                                           label: 'Rating',    color: '#F59E0B' },
+        ])
       })
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (trending.length < 2) return
+    if (!trending || trending.length < 2) return
     const id = setInterval(() => {
-      // Fade out → swap → fade in
       setVisible(false)
       setTimeout(() => {
         setActiveIdx(i => (i + 1) % trending.length)
@@ -82,10 +108,10 @@ export default function Hero() {
       }, 300)
     }, 4000)
     return () => clearInterval(id)
-  }, [trending.length])
+  }, [trending?.length])
 
-  const current = trending[activeIdx] ?? FALLBACK_PRODUCTS[0]
-  const effectivePrice = current.salePrice ?? current.price
+  const current = trending?.[activeIdx] ?? null
+  const effectivePrice = current ? (current.salePrice ?? current.price) : 0
 
   function handleMouseMove(e: React.MouseEvent) {
     if (!heroRef.current) return
@@ -177,77 +203,77 @@ export default function Hero() {
         >
           {/* Row 1: Featured product card + category chips */}
           <div className="flex gap-4">
-            {/* Featured product — auto-rotates through trending products */}
-            <Link
-              href={`/products/${current.slug}`}
-              className="flex-1 glass-card p-4 animate-fade-in-up delay-100 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
-            >
-              {/* Fading inner content — only the content transitions, not the card shell */}
-              <div
-                style={{
-                  opacity: visible ? 1 : 0,
-                  transition: 'opacity 0.28s ease',
-                }}
-              >
-                <div className="relative h-40 rounded-2xl overflow-hidden mb-3">
-                  <Image
-                    key={current.id}
-                    src={current.images[0]}
-                    alt={current.name}
-                    fill className="object-cover"
-                    sizes="220px"
-                  />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)' }} />
-                  <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-white text-[10px] font-bold rounded-xl"
-                    style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
-                    #{activeIdx + 1} Trending
-                  </span>
-                </div>
-
-                <p className="font-heading font-bold text-slate-800 text-sm leading-tight line-clamp-1">{current.name}</p>
+            {/* Featured product — skeleton while loading, real card after */}
+            {!current ? (
+              <div className="flex-1 glass-card p-4 animate-pulse">
+                <div className="h-40 rounded-2xl bg-slate-200/80 mb-3" />
+                <div className="h-3 bg-slate-200/80 rounded-full w-3/4 mb-2" />
                 <div className="flex items-center justify-between mt-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-primary font-extrabold text-base">
-                      NPR {effectivePrice.toLocaleString()}
-                    </span>
-                    {current.salePrice && (
-                      <span className="text-[10px] text-slate-400 line-through">
-                        {current.price.toLocaleString()}
-                      </span>
-                    )}
+                  <div className="h-4 bg-slate-200/80 rounded-full w-20" />
+                  <div className="flex gap-0.5">
+                    {[1,2,3,4,5].map(i => <div key={i} className="w-2.5 h-2.5 bg-slate-200/80 rounded-full" />)}
                   </div>
-                  <div className="flex items-center gap-0.5">
-                    {[1,2,3,4,5].map(i => (
-                      <Star key={i} size={10}
-                        className={i <= Math.round(current.rating) ? 'fill-gold-bright text-gold-bright' : 'text-slate-200'} />
+                </div>
+                <div className="flex gap-1 mt-3">
+                  {[1,2,3,4,5].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-200/80" />)}
+                </div>
+              </div>
+            ) : (
+              <Link
+                href={`/products/${current.slug}`}
+                className="flex-1 glass-card p-4 animate-fade-in-up delay-100 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+              >
+                <div style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.28s ease' }}>
+                  <div className="relative h-40 rounded-2xl overflow-hidden mb-3">
+                    <Image key={current.id} src={current.images[0]} alt={current.name}
+                      fill className="object-cover" sizes="220px" />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)' }} />
+                    <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-white text-[10px] font-bold rounded-xl"
+                      style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
+                      #{activeIdx + 1} Trending
+                    </span>
+                  </div>
+                  <p className="font-heading font-bold text-slate-800 text-sm leading-tight line-clamp-1">{current.name}</p>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-primary font-extrabold text-base">NPR {effectivePrice.toLocaleString()}</span>
+                      {current.salePrice && <span className="text-[10px] text-slate-400 line-through">{current.price.toLocaleString()}</span>}
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map(i => (
+                        <Star key={i} size={10} className={i <= Math.round(current.rating) ? 'fill-gold-bright text-gold-bright' : 'text-slate-200'} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 mt-2.5">
+                    {trending!.slice(0, 5).map((_, i) => (
+                      <div key={i} className={`rounded-full transition-all duration-300 ${i === activeIdx ? 'w-4 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-slate-200'}`} />
                     ))}
                   </div>
                 </div>
+              </Link>
+            )}
 
-                {/* Dot indicators */}
-                <div className="flex items-center gap-1 mt-2.5">
-                  {trending.slice(0, 5).map((_, i) => (
-                    <div key={i}
-                      className={`rounded-full transition-all duration-300 ${
-                        i === activeIdx ? 'w-4 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-slate-200'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </Link>
-
-            {/* Category chips */}
+            {/* Category chips — skeleton while loading */}
             <div className="w-36 flex flex-col gap-3">
-              {categories.map(({ slug, name, color, count }, i) => (
+              {categories.length === 0 && [1,2,3].map(i => (
+                <div key={i} className="glass-card p-3 flex items-center gap-2.5 animate-pulse">
+                  <div className="w-8 h-8 rounded-xl bg-slate-200/80 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-2.5 bg-slate-200/80 rounded-full w-full" />
+                    <div className="h-2 bg-slate-200/80 rounded-full w-2/3" />
+                  </div>
+                </div>
+              ))}
+              {categories.map(({ slug, name, color, count, icon }, i) => (
                 <Link
                   key={slug}
                   href={`/products?category=${slug}`}
                   className="glass-card p-3 flex items-center gap-2.5 hover:scale-105 transition-all duration-200 cursor-pointer animate-fade-in-up"
                   style={{ animationDelay: `${0.15 + i * 0.1}s` }}
                 >
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${color}20` }}>
-                    <Package size={15} style={{ color }} />
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-lg leading-none" style={{ background: `${color}20` }}>
+                    {icon ? icon : <Package size={15} style={{ color }} />}
                   </div>
                   <div>
                     <p className="font-semibold text-slate-800 text-xs leading-none">{name}</p>

@@ -22,20 +22,28 @@ export interface ProductData {
   id?: string
   name: string; slug: string; sku: string; description: string; images: string[]
   videoUrl: string
-  price: string; salePrice: string; costPrice: string; isTaxable: boolean
+  price: string; salePrice: string; salePriceExpiresAt: string; costPrice: string; isTaxable: boolean
   trackInventory: boolean; stock: string; lowStockThreshold: string
   barcode: string; weight: string
   categoryId: string; supplierId: string; brand: string; tags: string[]
   isActive: boolean; isFeatured: boolean; isNew: boolean
+  boughtTogetherIds: string[]
 }
 
 const EMPTY: ProductData = {
   name: '', slug: '', sku: '', description: '', images: [], videoUrl: '',
-  price: '', salePrice: '', costPrice: '', isTaxable: true,
+  price: '', salePrice: '', salePriceExpiresAt: '', costPrice: '', isTaxable: false,
   trackInventory: true, stock: '0', lowStockThreshold: '10',
   barcode: '', weight: '',
   categoryId: '', supplierId: '', brand: '', tags: [],
   isActive: true, isFeatured: false, isNew: true,
+  boughtTogetherIds: [],
+}
+
+function discountPct(price: string, salePrice: string) {
+  const p = Number(price), s = Number(salePrice)
+  if (!p || !s || s >= p) return 0
+  return Math.round(((p - s) / p) * 100)
 }
 
 function slugify(s: string) {
@@ -151,6 +159,368 @@ function Toggle({ label, desc, value, onChange }: { label: string; desc?: string
         className={`w-10 h-6 rounded-full transition-all duration-200 relative cursor-pointer shrink-0 ${value ? 'bg-primary' : 'bg-slate-200'}`}>
         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${value ? 'left-5' : 'left-1'}`} />
       </button>
+    </div>
+  )
+}
+
+// ── Sale Date-Time Picker ─────────────────────────────────────────────────
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const WEEK_DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa']
+
+function SaleDateTimePicker({ value, onChange, onClear }: {
+  value: string; onChange: (v: string) => void; onClear: () => void
+}) {
+  const [open, setOpen]   = useState(false)
+  const parsed = value ? new Date(value) : null
+  const [view, setView]   = useState(() => parsed ?? new Date())
+  const [sel,  setSel]    = useState<Date | null>(parsed)
+  const [hour, setHour]   = useState(parsed?.getHours() ?? 23)
+  const [min,  setMin]    = useState(parsed?.getMinutes() ?? 59)
+
+  const today    = new Date(); today.setHours(0,0,0,0)
+  const firstDay = new Date(view.getFullYear(), view.getMonth(), 1).getDay()
+  const daysInM  = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate()
+  const cells    = Array.from({ length: firstDay + daysInM }, (_, i) => i < firstDay ? null : i - firstDay + 1)
+
+  function pick(day: number) {
+    const d = new Date(view.getFullYear(), view.getMonth(), day)
+    if (d < today) return
+    setSel(d)
+  }
+
+  function apply() {
+    if (!sel) return
+    const d = new Date(sel); d.setHours(hour, min, 0, 0)
+    onChange(d.toISOString().slice(0, 16))
+    setOpen(false)
+  }
+
+  function applyPreset(d: Date) {
+    setSel(d); setHour(d.getHours()); setMin(d.getMinutes())
+  }
+
+  function makePreset(daysAhead: number) {
+    const d = new Date(); d.setDate(d.getDate() + daysAhead); d.setHours(23, 59, 0, 0); return d
+  }
+  const presets = [
+    { label: 'Tonight',  date: makePreset(0) },
+    { label: '+3 days',  date: makePreset(3) },
+    { label: '+7 days',  date: makePreset(7) },
+    { label: '+30 days', date: makePreset(30) },
+  ]
+
+  function fmt(d: Date) {
+    return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}  ${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`
+  }
+
+  return (
+    <>
+      {/* Trigger */}
+      <button type="button" onClick={() => setOpen(true)}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm border transition-all cursor-pointer ${value ? 'bg-amber-50 border-amber-200 text-amber-800 font-semibold' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>
+        <span>{value && sel ? fmt(sel) : 'Click to set expiry date & time'}</span>
+        <svg viewBox="0 0 20 20" className="w-4 h-4 shrink-0 text-current opacity-60" fill="currentColor">
+          <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
+        </svg>
+      </button>
+
+      {/* Modal */}
+      {open && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs pointer-events-auto animate-fade-in-up overflow-hidden">
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-primary text-white">
+                <button type="button" onClick={() => setView(v => new Date(v.getFullYear(), v.getMonth()-1, 1))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 fill-white"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                </button>
+                <span className="font-bold text-sm">{MONTHS[view.getMonth()]} {view.getFullYear()}</span>
+                <button type="button" onClick={() => setView(v => new Date(v.getFullYear(), v.getMonth()+1, 1))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 fill-white"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/></svg>
+                </button>
+              </div>
+
+              {/* Calendar */}
+              <div className="p-3">
+                <div className="grid grid-cols-7 mb-1">
+                  {WEEK_DAYS.map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>)}
+                </div>
+                <div className="grid grid-cols-7 gap-0.5">
+                  {cells.map((day, i) => {
+                    if (!day) return <div key={i} />
+                    const d = new Date(view.getFullYear(), view.getMonth(), day)
+                    const isPast    = d < today
+                    const isToday   = d.toDateString() === today.toDateString()
+                    const isSelected = sel?.toDateString() === d.toDateString()
+                    return (
+                      <button key={i} type="button" onClick={() => pick(day)} disabled={isPast}
+                        className={`w-8 h-8 mx-auto rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                          isSelected ? 'bg-primary text-white shadow-md shadow-primary/30' :
+                          isToday    ? 'border-2 border-primary text-primary' :
+                          isPast     ? 'text-slate-200 cursor-not-allowed' :
+                          'text-slate-700 hover:bg-primary-bg hover:text-primary'
+                        }`}>
+                        {day}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Time picker */}
+                <div className="mt-3 flex items-center justify-center gap-2 bg-slate-50 rounded-xl p-2.5">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 text-slate-400 shrink-0" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
+                  </svg>
+                  <select value={hour} onChange={e => setHour(Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-primary cursor-pointer">
+                    {Array.from({length:24},(_,i)=>(
+                      <option key={i} value={i}>{String(i).padStart(2,'0')}</option>
+                    ))}
+                  </select>
+                  <span className="font-extrabold text-slate-400">:</span>
+                  <select value={min} onChange={e => setMin(Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-primary cursor-pointer">
+                    {[0,15,30,45,59].map(m => (
+                      <option key={m} value={m}>{String(m).padStart(2,'0')}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Presets */}
+                <div className="flex gap-1.5 mt-2.5 flex-wrap">
+                  {presets.map(({ label, date }) => (
+                    <button key={label} type="button"
+                      onClick={() => { applyPreset(date); setView(date) }}
+                      className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-primary-bg hover:text-primary text-slate-600 rounded-lg transition-colors cursor-pointer">
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 mt-3">
+                  {value && (
+                    <button type="button" onClick={() => { onClear(); setOpen(false) }}
+                      className="flex-1 py-2 text-xs font-bold text-red-500 hover:bg-red-50 border border-red-100 rounded-xl transition-colors cursor-pointer">
+                      Clear
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setOpen(false)}
+                    className="flex-1 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={apply} disabled={!sel}
+                    className="flex-1 py-2 text-xs font-bold bg-primary hover:bg-primary-dark disabled:opacity-40 text-white rounded-xl transition-colors cursor-pointer">
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+// ── Bought Together Picker ────────────────────────────────────────────────
+
+interface SlimProduct { id: string; name: string; price: number; salePrice: number | null; images: string[] }
+
+function BoughtTogetherPicker({
+  currentId, selectedIds, onChange,
+}: { currentId?: string; selectedIds: string[]; onChange: (ids: string[]) => void }) {
+  const [query,    setQuery]    = useState('')
+  const [results,  setResults]  = useState<SlimProduct[]>([])
+  const [selected, setSelected] = useState<SlimProduct[]>([])
+  const [loading,  setLoading]  = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Load existing selected products on mount
+  useEffect(() => {
+    if (!selectedIds.length) return
+    fetch(`/api/products?limit=50`)
+      .then(r => r.json())
+      .then(d => {
+        const all: SlimProduct[] = d.products ?? []
+        setSelected(all.filter(p => selectedIds.includes(p.id)))
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!query.trim()) { setResults([]); return }
+    debounceRef.current = setTimeout(() => {
+      setLoading(true)
+      fetch(`/api/products?search=${encodeURIComponent(query)}&limit=8`)
+        .then(r => r.json())
+        .then(d => setResults((d.products ?? []).filter((p: SlimProduct) => p.id !== currentId && !selectedIds.includes(p.id))))
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    }, 300)
+  }, [query, currentId, selectedIds])
+
+  function add(p: SlimProduct) {
+    if (selected.length >= 4) return
+    const next = [...selected, p]
+    setSelected(next)
+    onChange(next.map(x => x.id))
+    setQuery(''); setResults([])
+  }
+
+  function remove(id: string) {
+    const next = selected.filter(p => p.id !== id)
+    setSelected(next)
+    onChange(next.map(x => x.id))
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-extrabold flex items-center justify-center">5</span>
+        <h2 className="font-heading font-bold text-slate-800 text-sm">Frequently Bought Together</h2>
+        <span className="text-[10px] text-slate-400 ml-auto">up to 4 products</span>
+      </div>
+
+      {/* Selected products */}
+      {selected.length > 0 && (
+        <div className="space-y-2">
+          {selected.map(p => (
+            <div key={p.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+              {p.images[0] && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 bg-slate-100" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">{p.name}</p>
+                <p className="text-xs text-slate-500">
+                  NPR {(p.salePrice ?? p.price).toLocaleString()}
+                  {p.salePrice && <span className="line-through text-slate-300 ml-1">NPR {p.price.toLocaleString()}</span>}
+                </p>
+              </div>
+              <button type="button" onClick={() => remove(p.id)}
+                className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 text-red-500 flex items-center justify-center cursor-pointer transition-colors shrink-0">
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Search */}
+      {selected.length < 4 && (
+        <div className="relative">
+          <input
+            value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Search products to bundle…"
+            className="w-full px-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all pr-8"
+          />
+          {loading && <Loader2 size={13} className="absolute right-3 top-3 text-slate-400 animate-spin" />}
+          {results.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto">
+              {results.map(p => (
+                <button key={p.id} type="button" onClick={() => add(p)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer text-left border-b border-slate-50 last:border-0">
+                  {p.images[0] && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 bg-slate-100" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{p.name}</p>
+                    <p className="text-xs text-slate-500">NPR {(p.salePrice ?? p.price).toLocaleString()}</p>
+                  </div>
+                  <Plus size={14} className="text-primary shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selected.length === 0 && (
+        <p className="text-xs text-slate-400 text-center py-2">
+          No products added — customers will see top-rated products instead
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Category hint banner (extracted to avoid conditional hook) ───────────
+
+function CategoryHintBanner({
+  hint, categories,
+  onDismiss,
+  onMapped,
+  onCreated,
+}: {
+  hint: string
+  categories: { id: string; name: string }[]
+  onDismiss: () => void
+  onMapped: (catId: string) => void
+  onCreated: (cat: { id: string; name: string }) => void
+}) {
+  const [saving, setSaving] = useState(false)
+
+  async function createAndMap() {
+    setSaving(true)
+    const res = await fetch('/api/admin/categories', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: hint }),
+    })
+    const cat = await res.json()
+    if (res.ok) {
+      onCreated(cat)
+      await fetch('/api/admin/category-mappings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'daraz', externalName: hint, categoryId: cat.id }),
+      })
+      onDismiss()
+    }
+    setSaving(false)
+  }
+
+  async function mapExisting(catId: string) {
+    if (!catId) return
+    onMapped(catId)
+    await fetch('/api/admin/category-mappings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'daraz', externalName: hint, categoryId: catId }),
+    })
+    onDismiss()
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+        <AlertCircle size={12} className="shrink-0" />
+        <span>Daraz category: <strong>{hint}</strong> — select a match or create new</span>
+        <button type="button" onClick={onDismiss} className="ml-auto text-amber-400 hover:text-amber-600 cursor-pointer"><X size={11} /></button>
+      </div>
+      <div className="flex gap-2">
+        <select
+          className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:border-primary"
+          defaultValue=""
+          onChange={e => e.target.value && mapExisting(e.target.value)}
+        >
+          <option value="">Map to existing category…</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <button type="button" onClick={createAndMap} disabled={saving}
+          className="flex items-center gap-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors whitespace-nowrap shrink-0">
+          {saving ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+          Create & Map
+        </button>
+      </div>
+      <p className="text-[10px] text-slate-400 px-1">Mapping is saved — future imports of &ldquo;{hint}&rdquo; will auto-select your chosen category.</p>
     </div>
   )
 }
@@ -535,7 +905,9 @@ export default function ProductForm({ initial, mode, productId }: Props) {
 
     const payload = {
       name: form.name, slug: form.slug, description: form.description, images: form.images,
-      price: Number(form.price), salePrice: form.salePrice ? Number(form.salePrice) : null,
+      price: Number(form.price),
+      salePrice: form.salePrice ? Number(form.salePrice) : null,
+      salePriceExpiresAt: form.salePrice && form.salePriceExpiresAt ? new Date(form.salePriceExpiresAt).toISOString() : null,
       costPrice: form.costPrice ? Number(form.costPrice) : null,
       isTaxable: form.isTaxable, stock: Number(form.stock),
       lowStockThreshold: Number(form.lowStockThreshold),
@@ -546,6 +918,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       videoUrl: form.videoUrl || null,
       sku: form.sku || null, isActive: form.isActive,
       isFeatured: form.isFeatured, isNew: form.isNew,
+      boughtTogetherIds: form.boughtTogetherIds,
       variantOptions: variantOptions.length ? variantOptions : undefined,
       variants: variants.length ? variants.map(v => ({
         title: v.title, options: v.options,
@@ -677,21 +1050,57 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                 <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-extrabold flex items-center justify-center">2</span>
                 Pricing
               </h2>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Price (NPR)', key: 'price' as const, required: true, hint: '' },
-                  { label: 'Sale Price',  key: 'salePrice' as const, required: false, hint: 'Leave blank if no discount' },
-                  { label: 'Cost Price',  key: 'costPrice' as const, required: false, hint: 'Internal only' },
-                ].map(({ label, key, required, hint }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      {label} {required && <span className="text-red-400">*</span>}
-                    </label>
-                    <input type="number" min="0" step="0.01" required={required}
-                      value={form[key]} onChange={e => set(key, e.target.value)} placeholder="0" className={inputCls} />
-                    {hint && <p className="text-[10px] text-slate-400 mt-1">{hint}</p>}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Price */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Price (NPR) <span className="text-red-400">*</span>
+                  </label>
+                  <input type="number" min="0" step="0.01" required
+                    value={form.price} onChange={e => set('price', e.target.value)} placeholder="0" className={inputCls} />
+                </div>
+                {/* Cost Price */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Cost Price</label>
+                  <input type="number" min="0" step="0.01"
+                    value={form.costPrice} onChange={e => set('costPrice', e.target.value)} placeholder="0" className={inputCls} />
+                  <p className="text-[10px] text-slate-400 mt-1">Internal only</p>
+                </div>
+              </div>
+
+              {/* Sale Price + Expiry */}
+              <div className="rounded-2xl border border-dashed border-slate-200 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sale Price</label>
+                  {form.salePrice && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      {discountPct(form.price, form.salePrice)}% OFF
+                    </span>
+                  )}
+                </div>
+                <input type="number" min="0" step="0.01"
+                  value={form.salePrice} onChange={e => set('salePrice', e.target.value)}
+                  placeholder="Leave blank for no discount"
+                  className={inputCls} />
+
+                {/* Expiry — only shown when sale price is set */}
+                {form.salePrice && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-500">Sale ends</label>
+                      <button type="button"
+                        onClick={() => set('salePriceExpiresAt', '')}
+                        className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${!form.salePriceExpiresAt ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                        ∞ Never expires
+                      </button>
+                    </div>
+                    <SaleDateTimePicker
+                      value={form.salePriceExpiresAt}
+                      onChange={v => set('salePriceExpiresAt', v)}
+                      onClear={() => set('salePriceExpiresAt', '')}
+                    />
                   </div>
-                ))}
+                )}
               </div>
               {form.price && form.costPrice && (() => {
                 const sell = Number(form.salePrice || form.price), cost = Number(form.costPrice)
@@ -743,8 +1152,15 @@ export default function ProductForm({ initial, mode, productId }: Props) {
               key={importVariantKey}
               basePrice={form.price}
               baseSku={form.sku}
+              productImages={form.images}
               initialOptions={importedVariantOpts}
               onChange={(opts, vars) => { setVariantOptions(opts); setVariants(vars) }}
+            />
+
+            <BoughtTogetherPicker
+              currentId={form.id}
+              selectedIds={form.boughtTogetherIds}
+              onChange={ids => set('boughtTogetherIds', ids)}
             />
           </div>
 
@@ -762,67 +1178,18 @@ export default function ProductForm({ initial, mode, productId }: Props) {
             <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
               <h2 className="font-heading font-bold text-slate-800 text-sm">Organization</h2>
 
-              {categoryHint && !form.categoryId && (() => {
-                // After selecting a category from the dropdown, offer to remember the mapping
-                const [saving, setSaving] = useState(false)
-
-                async function createAndMap() {
-                  setSaving(true)
-                  const res = await fetch('/api/admin/categories', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: categoryHint }),
-                  })
-                  const cat = await res.json()
-                  if (res.ok) {
+              {categoryHint && !form.categoryId && (
+                <CategoryHintBanner
+                  hint={categoryHint}
+                  categories={categories}
+                  onDismiss={() => setCategoryHint('')}
+                  onMapped={catId => set('categoryId', catId)}
+                  onCreated={cat => {
                     setCategories(prev => [...prev, cat])
                     set('categoryId', cat.id)
-                    // Save mapping so next import auto-selects
-                    await fetch('/api/admin/category-mappings', {
-                      method: 'POST', headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ source: 'daraz', externalName: categoryHint, categoryId: cat.id }),
-                    })
-                    setCategoryHint('')
-                  }
-                  setSaving(false)
-                }
-
-                async function mapExisting(catId: string) {
-                  if (!catId) return
-                  set('categoryId', catId)
-                  // Save mapping for future imports
-                  await fetch('/api/admin/category-mappings', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ source: 'daraz', externalName: categoryHint, categoryId: catId }),
-                  })
-                  setCategoryHint('')
-                }
-
-                return (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-                      <AlertCircle size={12} className="shrink-0" />
-                      <span>Daraz category: <strong>{categoryHint}</strong> — select a match or create new</span>
-                      <button type="button" onClick={() => setCategoryHint('')} className="ml-auto text-amber-400 hover:text-amber-600 cursor-pointer"><X size={11} /></button>
-                    </div>
-                    <div className="flex gap-2">
-                      <select
-                        className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:border-primary"
-                        defaultValue=""
-                        onChange={e => e.target.value && mapExisting(e.target.value)}
-                      >
-                        <option value="">Map to existing category…</option>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      <button type="button" onClick={createAndMap} disabled={saving}
-                        className="flex items-center gap-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors whitespace-nowrap shrink-0">
-                        {saving ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
-                        Create & Map
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400 px-1">Mapping is saved — future imports of &ldquo;{categoryHint}&rdquo; will auto-select your chosen category.</p>
-                  </div>
-                )
-              })()}
+                  }}
+                />
+              )}
 
               <CreatableSelect
                 label="Category"

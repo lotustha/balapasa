@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       name, slug, description, price, salePrice, costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory,
-      brand, sku, barcode, weight,
+      brand, sku, barcode, weight, boughtTogetherIds,
     } = body
 
     const data: Record<string, unknown> = {}
@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     if (sku               !== undefined) data.sku               = sku     || null
     if (barcode           !== undefined) data.barcode           = barcode || null
     if (weight            !== undefined) data.weight            = weight  ? Number(weight) : null
+    if (boughtTogetherIds !== undefined) data.boughtTogetherIds = Array.isArray(boughtTogetherIds) ? boughtTogetherIds : []
 
     const product = await prisma.product.update({ where: { id }, data })
     return Response.json(product)

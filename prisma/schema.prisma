@@ -9,6 +9,7 @@ datasource db {
 model Profile {
   id        String   @id @default(uuid())
   email     String   @unique
+  password  String?  @db.Text
   name      String?
   phone     String?
   avatar    String?
@@ -58,7 +59,8 @@ model Product {
   slug              String   @unique
   description       String   @db.Text
   price             Float
-  salePrice         Float?   @map("sale_price")
+  salePrice           Float?    @map("sale_price")
+  salePriceExpiresAt DateTime? @map("sale_price_expires_at")
   costPrice         Float?   @map("cost_price")
   stock             Int      @default(0)
   lowStockThreshold Int      @default(10) @map("low_stock_threshold")
@@ -76,6 +78,8 @@ model Product {
   barcode           String?
   weight            Float?
   videoUrl          String?  @map("video_url")
+  boughtTogetherIds String[] @default([]) @map("bought_together_ids")
+  viewCount         Int      @default(0) @map("view_count")
   rating            Float    @default(0)
   reviewCount       Int      @default(0) @map("review_count")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -162,10 +166,14 @@ model Order {
   paymentMethod  PaymentMethod @map("payment_method")
   paymentStatus  PaymentStatus @default(UNPAID) @map("payment_status")
   transactionId  String?       @map("transaction_id")
+  advancePaid    Float?        @map("advance_paid")
+  codAmount      Float?        @map("cod_amount")
+  advanceMethod  String?       @map("advance_method")    // 'ESEWA' | 'KHALTI'
   pathaoOrderId  String?       @map("pathao_order_id")
   pathaoHash     String?       @map("pathao_hash")
   trackingUrl    String?       @map("tracking_url")
-  shippingOption String?       @map("shipping_option")
+  shippingOption   String?  @map("shipping_option")
+  shippingProvider String?  @map("shipping_provider")
   notes          String?
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
@@ -304,6 +312,7 @@ enum OrderStatus {
 
 enum PaymentMethod {
   COD
+  PARTIAL_COD
   ESEWA
   KHALTI
 }

@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Settings, BarChart3, Truck, LogOut, Warehouse, Upload,
+  Tag, Settings, BarChart3, Truck, LogOut, Upload,
 } from 'lucide-react'
 
 // minRole: the minimum role required to see this nav item
@@ -15,7 +15,6 @@ const NAV = [
   { href: '/admin',            icon: LayoutDashboard, label: 'Dashboard',  minRole: 'STAFF'   },
   { href: '/admin/orders',     icon: ShoppingBag,     label: 'Orders',     minRole: 'STAFF'   },
   { href: '/admin/products',   icon: Package,         label: 'Products',   minRole: 'MANAGER' },
-  { href: '/admin/inventory',  icon: Warehouse,       label: 'Inventory',  minRole: 'MANAGER' },
   { href: '/admin/import',     icon: Upload,          label: 'Import',     minRole: 'MANAGER' },
   { href: '/admin/customers',  icon: Users,           label: 'Customers',  minRole: 'MANAGER' },
   { href: '/admin/categories', icon: Tag,             label: 'Categories', minRole: 'MANAGER' },

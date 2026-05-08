@@ -239,7 +239,7 @@ export default function ImportPage() {
 
         if (res.ok) {
           setResults(prev => {
-            const next = [...prev]; next[i] = { ...next[i], status: 'done', uploaded: uploadedUrls.filter(u => u.includes('supabase')).length }
+            const next = [...prev]; next[i] = { ...next[i], status: 'done', uploaded: uploadedUrls.filter(u => u.startsWith('/uploads')).length }
             return next
           })
         } else {
@@ -274,7 +274,7 @@ export default function ImportPage() {
           <Upload size={22} className="text-primary" /> Daraz Product Import
         </h1>
         <p className="text-slate-500 text-sm mt-1">
-          Upload your Daraz seller export → images are fetched from your browser and uploaded to Supabase
+          Upload your Daraz seller export → images are fetched from your browser and saved to local storage
         </p>
       </div>
 
@@ -469,7 +469,7 @@ export default function ImportPage() {
                       <p className="text-[10px] text-primary">Uploading images {r.uploaded}/{r.images}…</p>
                     )}
                     {r.status === 'saving' && <p className="text-[10px] text-violet-600">Saving to database…</p>}
-                    {r.status === 'done'   && <p className="text-[10px] text-green-600">{r.uploaded} images in Supabase</p>}
+                    {r.status === 'done'   && <p className="text-[10px] text-green-600">{r.uploaded} images saved locally</p>}
                     {r.status === 'failed' && <p className="text-[10px] text-red-500 truncate">{r.error}</p>}
                     {r.status === 'pending' && <p className="text-[10px] text-slate-400">Waiting…</p>}
                   </div>

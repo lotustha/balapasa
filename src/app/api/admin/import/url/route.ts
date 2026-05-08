@@ -1,39 +1,22 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { saveFile } from '@/lib/upload'
 
-const IMAGE_BUCKET = 'product-images'
-
-async function reuploadImage(sourceUrl: string, admin: ReturnType<typeof createClient>): Promise<string> {
-  // Fetch the image from the external source
+async function reuploadImage(sourceUrl: string): Promise<string> {
   const res = await fetch(sourceUrl, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
     signal: AbortSignal.timeout(15000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
   const contentType = res.headers.get('content-type') ?? 'image/jpeg'
-  const ext         = contentType.includes('png')  ? 'png'
-                    : contentType.includes('webp') ? 'webp'
-                    : contentType.includes('gif')  ? 'gif'
-                    : 'jpg'
-  const buf  = await res.arrayBuffer()
-  const path = `imports/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-
-  const { error } = await admin.storage.from(IMAGE_BUCKET).upload(path, buf, {
-    contentType,
-    upsert: false,
-  })
-  if (error) throw new Error(error.message)
-
-  const { data: { publicUrl } } = admin.storage.from(IMAGE_BUCKET).getPublicUrl(path)
-  return publicUrl
+  const buf = await res.arrayBuffer()
+  return saveFile(buf, contentType)
 }
 
-async function reuploadImages(urls: string[], admin: ReturnType<typeof createClient>): Promise<string[]> {
-  const results = await Promise.allSettled(urls.map(u => reuploadImage(u, admin)))
+async function reuploadImages(urls: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(urls.map(u => reuploadImage(u)))
   return results
-    .map((r, i) => r.status === 'fulfilled' ? r.value : urls[i])  // fallback to original on failure
+    .map((r, i) => r.status === 'fulfilled' ? r.value : urls[i])
     .filter(Boolean)
 }
 
@@ -263,21 +246,11 @@ export async function POST(req: NextRequest) {
 
   // Re-upload images to Supabase Storage
   let images = partial.images ?? []
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
   let uploadedCount = 0
 
-  if (images.length && supabaseUrl && serviceKey && serviceKey !== 'your-service-role-key') {
-    const admin = createClient(supabaseUrl, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-    // Ensure bucket exists
-    const { data: buckets } = await admin.storage.listBuckets()
-    if (!buckets?.find(b => b.name === IMAGE_BUCKET)) {
-      await admin.storage.createBucket(IMAGE_BUCKET, { public: true, fileSizeLimit: 10 * 1024 * 1024 })
-    }
-    const reuploaded = await reuploadImages(images, admin)
-    uploadedCount    = reuploaded.filter(u => u.includes('supabase')).length
+  if (images.length) {
+    const reuploaded = await reuploadImages(images)
+    uploadedCount    = reuploaded.filter(u => u.startsWith('/uploads')).length
     images           = reuploaded
   }
 
@@ -311,7 +284,7 @@ export async function POST(req: NextRequest) {
     product,
     source:               host,
     total_images:         product.images.length,
-    uploaded_to_supabase: uploadedCount,
+    uploaded_locally: uploadedCount,
     mappedCategoryId,     // pre-selected category if mapping exists
   })
 }

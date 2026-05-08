@@ -1,18 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
-import { prisma } from '@/lib/prisma'
+import { cookies } from 'next/headers'
+import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
 
 export async function GET() {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ role: null })
+  const cookieStore = await cookies()
+  const token = cookieStore.get(AUTH_COOKIE)?.value
+  if (!token) return Response.json({ role: null })
 
-    const profile = await prisma.profile.findUnique({
-      where: { email: user.email! },
-      select: { role: true, name: true },
-    })
-    return Response.json({ role: profile?.role ?? 'CUSTOMER', name: profile?.name })
-  } catch {
-    return Response.json({ role: 'CUSTOMER' })
-  }
+  const payload = await verifyToken(token)
+  if (!payload) return Response.json({ role: null })
+
+  return Response.json({ role: payload.role, name: payload.name })
 }

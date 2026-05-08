@@ -3,15 +3,15 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Mail, Lock, User, Phone, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { Mail, Lock, User, Phone, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
 
   function setField(key: string, value: string) {
     setForm(f => ({ ...f, [key]: value }))
@@ -21,34 +21,22 @@ export default function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const supabase = createClient()
-    const { error: err } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: { data: { name: form.name, phone: form.phone } },
+
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
     })
-    if (err) {
-      setError(err.message)
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error ?? 'Registration failed')
       setLoading(false)
       return
     }
-    setSuccess(true)
-    setLoading(false)
-  }
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
-        <div className="text-center max-w-md bg-white rounded-3xl shadow-xl p-10 animate-bounce-in">
-          <CheckCircle size={48} className="text-primary mx-auto mb-4" />
-          <h2 className="font-heading font-extrabold text-2xl text-gray-900 mb-2">Check your inbox!</h2>
-          <p className="text-gray-500 text-sm mb-6">We&apos;ve sent a confirmation link to <strong>{form.email}</strong></p>
-          <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-colors cursor-pointer">
-            Back to Sign In
-          </Link>
-        </div>
-      </div>
-    )
+    router.push('/account')
+    router.refresh()
   }
 
   const FIELDS = [

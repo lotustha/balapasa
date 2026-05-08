@@ -16,7 +16,7 @@ import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/N
 import WeatherWidget, { type WeatherData } from '@/components/checkout/WeatherWidget'
 import type { CoverageOption } from '@/app/api/shipping/coverage/route'
 
-type PaymentMethod = 'COD' | 'ESEWA' | 'KHALTI'
+type PaymentMethod = 'COD' | 'PARTIAL_COD' | 'ESEWA' | 'KHALTI'
 
 const EMPTY_ADDRESS: NepalAddress = {
   province: '', district: '', municipality: '', ward: '', street: '', tole: '',
@@ -37,11 +37,78 @@ const PROVIDER_META: Record<string, {
   COURIER:      { icon: <Truck size={14} />,     badge: 'Courier',        badgeCls: 'bg-amber-100 text-amber-700'  },
 }
 
-function etaLabel(s: number) {
-  if (s === 0) return 'Pickup anytime'
-  if (s < 3600) return `~${Math.round(s / 60)} min`
-  if (s < 86400) return `~${Math.round(s / 3600)} hr`
-  return `${Math.round(s / 86400)}–${Math.round(s / 86400) + 1} days`
+// ── Nepal-aware ETA — starts AFTER store confirms ─────────────────────────
+// Chain: Confirm → Pack (~20 min) → Rider transit + Nepal-specific delays
+
+const PACK_SECS = 20 * 60
+
+type WeatherD = import('@/components/checkout/WeatherWidget').WeatherData | null
+
+function weatherDelaySecs(w: WeatherD): number {
+  if (!w) return 0
+  const id    = w.weather[0]?.id ?? 800
+  const wind  = w.wind?.speed ?? 0            // m/s — KTM valley gets strong winds
+  let delay = 0
+  if (id >= 200 && id < 300) delay = 60 * 60  // thunderstorm — significant
+  else if (id >= 300 && id < 400) delay = 5 * 60   // drizzle
+  else if (id >= 500 && id < 600) delay = 30 * 60  // rain — roads flood in KTM
+  else if (id >= 600 && id < 700) delay = 90 * 60  // snow / hail
+  else if (id >= 700 && id < 800) delay = 20 * 60  // fog / mist — common in winter KTM
+  if (wind > 8) delay += 10 * 60              // strong wind slows riders
+  return delay
+}
+
+function nepalTrafficDelaySecs(): number {
+  const now   = new Date()
+  const hour  = now.getHours()
+  const month = now.getMonth()   // 0-indexed
+
+  // KTM valley rush hours (worse than generic "rush hour")
+  if (hour >= 8  && hour < 10)  return 25 * 60  // morning office rush
+  if (hour >= 12 && hour < 13)  return 10 * 60  // lunch hour — many close briefly
+  if (hour >= 17 && hour < 20)  return 30 * 60  // evening peak — worst in KTM
+
+  // Monsoon season (Jun–Sep): flooding, road damage, slower riders
+  const isMonsoon = month >= 5 && month <= 8
+  if (isMonsoon) return 15 * 60
+
+  // Festival pre-season surge: pre-Dashain (Sep–Oct) & pre-Tihar (Oct–Nov)
+  const isFestivalRush = month === 8 || month === 9 || month === 10
+  if (isFestivalRush) return 10 * 60
+
+  return 0
+}
+
+function lateNightNote(): string | null {
+  const h = new Date().getHours()
+  if (h >= 21 || h < 7) return 'Limited riders after 9 PM — confirm availability'
+  return null
+}
+
+function etaAfterConfirm(
+  transitSecs: number,
+  destWeather: WeatherD,
+): {
+  secs:         number
+  packMins:     number
+  weatherMins:  number
+  trafficMins:  number
+  lateNote:     string | null
+} {
+  const packMins    = PACK_SECS / 60
+  const weatherMins = Math.round(weatherDelaySecs(destWeather) / 60)
+  const trafficMins = Math.round(nepalTrafficDelaySecs() / 60)
+  const secs        = transitSecs + PACK_SECS + weatherDelaySecs(destWeather) + nepalTrafficDelaySecs()
+  return { secs, packMins, weatherMins, trafficMins, lateNote: lateNightNote() }
+}
+
+function etaRangeLabel(secs: number): string {
+  if (secs === 0) return 'Anytime'
+  const mins = Math.round(secs / 60)
+  const lo   = Math.max(mins - 5, 15)
+  const hi   = mins + 20           // wider range — Nepal traffic unpredictable
+  if (secs < 3600) return `${lo}–${hi} min`
+  return `${Math.floor(secs / 3600)}–${Math.ceil(secs / 3600) + 1} hr`
 }
 
 export default function CheckoutPage() {
@@ -108,6 +175,9 @@ export default function CheckoutPage() {
   }
 
   const [payment, setPayment]         = useState<PaymentMethod>('COD')
+  const [partialCod, setPartialCod]   = useState(false)
+  const [advancePct, setAdvancePct]   = useState(30)   // % to pay now
+  const [advanceMethod, setAdvanceMethod] = useState<'ESEWA'|'KHALTI'>('ESEWA')
   const [placing, setPlacing]         = useState(false)
   const [success, setSuccess]         = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
@@ -141,7 +211,13 @@ export default function CheckoutPage() {
   }
   function removeCoupon() { setCoupon(''); setCouponApplied(false); setCouponDiscount(0); setCouponError('') }
 
-  const FREE_DELIVERY_THRESHOLD = 5000
+  const [freeThreshold, setFreeThreshold] = useState(5000)
+  useEffect(() => {
+    fetch('/api/store-config').then(r => r.json())
+      .then(d => setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000))
+      .catch(() => {})
+  }, [])
+  const FREE_DELIVERY_THRESHOLD = freeThreshold
   const freeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD
   // If order qualifies for free delivery, store absorbs the delivery cost
   const deliveryCharge = freeDelivery ? 0 : (selectedOption?.charge ?? 0)
@@ -227,7 +303,10 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items, subtotal, deliveryCharge, total,
-          paymentMethod: payment,
+          paymentMethod: (payment === 'COD' && partialCod) ? 'PARTIAL_COD' : payment,
+          advancePaid:   (payment === 'COD' && partialCod) ? Math.round(total * advancePct / 100) : undefined,
+          codAmount:     (payment === 'COD' && partialCod) ? Math.round(total * (100 - advancePct) / 100) : undefined,
+          advanceMethod: (payment === 'COD' && partialCod) ? advanceMethod : undefined,
           shippingOption: selectedOption.name,
           shippingProvider: selectedOption.provider,
           shippingMeta: selectedOption.meta,
@@ -235,6 +314,10 @@ export default function CheckoutPage() {
           address: fullAddress, city: address.municipality,
           house: address.ward ? `Ward ${address.ward}` : '',
           road: address.street,
+          lat: typeof (selectedOption?.meta as Record<string,unknown>)?.receiverLat === 'number'
+            ? (selectedOption!.meta as Record<string,unknown>).receiverLat : undefined,
+          lng: typeof (selectedOption?.meta as Record<string,unknown>)?.receiverLng === 'number'
+            ? (selectedOption!.meta as Record<string,unknown>).receiverLng : undefined,
         }),
       })
       const data = await res.json()
@@ -702,13 +785,29 @@ export default function CheckoutPage() {
                                   </span>
                                 ))}
                               </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="flex items-center gap-1 text-xs text-slate-400">
-                                  <Clock size={10} /> {etaLabel(opt.dropoff_eta)}
-                                </span>
-                                {opt.meta?.note && (
-                                  <span className="text-xs text-slate-400">· {String(opt.meta.note)}</span>
-                                )}
+                              {opt.dropoff_eta > 0 && (() => {
+                                const { secs, packMins, weatherMins, trafficMins, lateNote } = etaAfterConfirm(opt.dropoff_eta, weatherData?.destination ?? null)
+                                const extras = [
+                                  packMins    > 0 ? `${packMins} min packing` : '',
+                                  trafficMins > 0 ? `${trafficMins} min traffic` : '',
+                                  weatherMins > 0 ? `${weatherMins} min weather` : '',
+                                ].filter(Boolean).join(' · ')
+                                return (
+                                  <div className="flex flex-col gap-0.5 mt-1">
+                                    <span className="flex items-center gap-1 text-xs font-semibold text-slate-700">
+                                      <Clock size={10} />
+                                      <span>{etaRangeLabel(secs)}</span>
+                                      <span className="text-[10px] text-slate-400 font-normal">after store confirms</span>
+                                    </span>
+                                    {extras && (
+                                      <span className="text-[10px] text-slate-400">incl. {extras}</span>
+                                    )}
+                                    {lateNote && (
+                                      <span className="text-[10px] text-amber-600 font-semibold">{lateNote}</span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                               </div>
                             </div>
 
@@ -801,7 +900,67 @@ export default function CheckoutPage() {
                 </div>
                 {payment === 'ESEWA'  && <p className="mt-3 text-xs text-slate-500 bg-green-50 rounded-xl px-4 py-2.5">You&apos;ll be redirected to eSewa after placing your order.</p>}
                 {payment === 'KHALTI' && <p className="mt-3 text-xs text-slate-500 bg-purple-50 rounded-xl px-4 py-2.5">You&apos;ll be redirected to Khalti after placing your order.</p>}
-                {payment === 'COD'    && <p className="mt-3 text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-2.5">Pay in cash when your delivery arrives at your door.</p>}
+                {payment === 'COD' && (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-2.5">Pay in cash when your delivery arrives at your door.</p>
+
+                    {/* Partial payment toggle */}
+                    <label className="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
+                      <div>
+                        <p className="text-sm font-bold text-amber-800">Pay advance now</p>
+                        <p className="text-[11px] text-amber-600 mt-0.5">Secure your order with a partial payment, rest on delivery</p>
+                      </div>
+                      <button type="button" onClick={() => setPartialCod(p => !p)}
+                        className={`w-11 h-6 rounded-full transition-colors duration-200 relative shrink-0 ml-3 cursor-pointer ${partialCod ? 'bg-amber-500' : 'bg-slate-200'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${partialCod ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </button>
+                    </label>
+
+                    {partialCod && (
+                      <div className="px-4 py-4 bg-white border border-amber-200 rounded-xl space-y-4">
+                        {/* Advance percentage selector */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-bold text-slate-600">Advance amount</label>
+                            <span className="text-sm font-extrabold text-amber-700">NPR {Math.round(total * advancePct / 100).toLocaleString()}</span>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {[20, 30, 50].map(pct => (
+                              <button key={pct} type="button" onClick={() => setAdvancePct(pct)}
+                                className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${advancePct === pct ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-amber-300'}`}>
+                                {pct}% — NPR {Math.round(total * pct / 100).toLocaleString()}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-2">
+                            Pay <strong>NPR {Math.round(total * advancePct / 100).toLocaleString()}</strong> now +{' '}
+                            <strong>NPR {Math.round(total * (100 - advancePct) / 100).toLocaleString()}</strong> on delivery
+                          </p>
+                        </div>
+
+                        {/* Advance payment method */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 mb-2 block">Pay advance via</label>
+                          <div className="flex gap-2">
+                            {(['ESEWA', 'KHALTI'] as const).map(m => (
+                              <label key={m} className={`flex-1 flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${advanceMethod === m ? (m==='ESEWA'?'border-green-400 bg-green-50':'border-purple-400 bg-purple-50') : 'border-slate-200 hover:border-slate-300'}`}>
+                                <input type="radio" name="advanceMethod" value={m} checked={advanceMethod === m} onChange={() => setAdvanceMethod(m)} className="sr-only" />
+                                <div className="relative" style={{ width: m==='ESEWA'?70:60, height:28 }}>
+                                  <Image src={m==='ESEWA'?'/esewa.png':'/khalti.png'} alt={m} fill className="object-contain" sizes="70px" />
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl">
+                          <svg viewBox="0 0 20 20" className="w-4 h-4 fill-amber-500 shrink-0"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
+                          <p className="text-[11px] text-amber-800">You&apos;ll be redirected to {advanceMethod === 'ESEWA' ? 'eSewa' : 'Khalti'} to complete the advance payment.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

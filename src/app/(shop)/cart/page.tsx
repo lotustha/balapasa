@@ -11,7 +11,6 @@ import {
   Plus,
   Minus,
   ArrowRight,
-  Tag,
   ShieldCheck,
   RotateCcw,
   BadgeCheck,
@@ -22,7 +21,6 @@ import {
   Zap,
 } from "lucide-react";
 
-const FREE_DELIVERY_THRESHOLD = 5000;
 const BASE_DELIVERY = 150;
 const VAT_RATE = 0.13; // 13% — Nepal standard VAT; all prices are VAT-inclusive
 
@@ -72,30 +70,22 @@ const SUGGESTED = [
 
 export default function CartPage() {
   const { items, subtotal, removeItem, updateQty, clearCart } = useCart();
-  const [coupon, setCoupon] = useState("");
-  const [couponMsg, setCouponMsg] = useState("");
   const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [freeThreshold, setFreeThreshold] = useState(5000);
 
-  const deliveryFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : BASE_DELIVERY;
-  const total = subtotal + deliveryFee;
-  const toFreeDelivery = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal);
-  const deliveryPct = Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100);
+  useEffect(() => {
+    fetch('/api/store-config').then(r => r.json())
+      .then(d => setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000))
+      .catch(() => {})
+  }, [])
+
+  const toFreeDelivery = Math.max(0, freeThreshold - subtotal);
+  const deliveryPct = Math.min(100, (subtotal / freeThreshold) * 100);
   const totalSavings = items.reduce(
     (s, i) => (i.salePrice ? s + (i.price - i.salePrice) * i.quantity : s),
     0,
   );
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
-  const hasCodWarning = items.some((i) => i.codAvailable === false);
-
-  function applyCode() {
-    if (!coupon.trim()) return;
-    setCouponMsg(
-      coupon.toUpperCase() === "BALAPASA10"
-        ? "10% discount applied!"
-        : "Invalid or expired code.",
-    );
-    setTimeout(() => setCouponMsg(""), 3000);
-  }
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   if (items.length === 0) {
@@ -243,7 +233,7 @@ export default function CartPage() {
               Free delivery unlocked!
             </p>
             <span className="text-xs text-slate-400 ml-auto">
-              Orders over {formatPrice(FREE_DELIVERY_THRESHOLD)}
+              Orders over {formatPrice(freeThreshold)}
             </span>
           </div>
         )}
@@ -372,46 +362,6 @@ export default function CartPage() {
               );
             })}
 
-            {/* Promo code */}
-            <div className="glass-panel p-5 animate-fade-in-up">
-              <div className="flex items-center gap-2 mb-3">
-                <Tag size={15} className="text-primary" />
-                <span className="font-bold text-sm text-slate-800">
-                  Promo Code
-                </span>
-                <span className="ml-auto text-[10px] text-slate-400 font-semibold">
-                  Try: BALAPASA10
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={coupon}
-                  onChange={(e) => setCoupon(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && applyCode()}
-                  placeholder="Enter coupon code"
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none text-slate-800"
-                  style={{
-                    background: "rgba(255,255,255,0.65)",
-                    border: "1px solid rgba(255,255,255,0.80)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                />
-                <button
-                  onClick={applyCode}
-                  className="px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-sm shadow-primary/20"
-                >
-                  Apply
-                </button>
-              </div>
-              {couponMsg && (
-                <p
-                  className={`text-xs font-semibold mt-2 ${couponMsg.includes("Invalid") ? "text-red-500" : "text-green-600"}`}
-                >
-                  {couponMsg}
-                </p>
-              )}
-            </div>
           </div>
 
           {/* ── Order Summary ─────────────────────────────────────────── */}
@@ -433,10 +383,8 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Delivery</span>
-                  <span
-                    className={`font-semibold ${deliveryFee === 0 ? "text-green-600" : "text-slate-900"}`}
-                  >
-                    {deliveryFee === 0 ? "FREE" : formatPrice(deliveryFee)}
+                  <span className="text-xs font-semibold text-slate-400 italic">
+                    Calculated at checkout
                   </span>
                 </div>
                 {totalSavings > 0 && (
@@ -449,12 +397,9 @@ export default function CartPage() {
                     </span>
                   </div>
                 )}
-                {/* VAT line — estimate from total, prices are inclusive */}
                 <div className="flex justify-between text-slate-400 text-xs pt-1">
                   <span>VAT ({Math.round(VAT_RATE * 100)}%) incl.</span>
-                  <span>
-                    {formatPrice(Math.round(total - total / (1 + VAT_RATE)))}
-                  </span>
+                  <span>{formatPrice(Math.round(subtotal - subtotal / (1 + VAT_RATE)))}</span>
                 </div>
               </div>
 
@@ -467,7 +412,7 @@ export default function CartPage() {
                   Total
                 </span>
                 <span className="font-heading font-extrabold text-xl text-primary">
-                  {formatPrice(total)}
+                  {formatPrice(subtotal)}
                 </span>
               </div>
 
