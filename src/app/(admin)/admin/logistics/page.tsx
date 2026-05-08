@@ -1,285 +1,283 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
-  Truck, Package, Save, RotateCcw, CheckCircle,
-  Eye, EyeOff, AlertCircle, Loader2, Power,
+  Truck, Package, MapPin, Phone, CheckCircle2, Clock,
+  ExternalLink, Loader2, RefreshCw, Search, ChevronRight,
+  AlertTriangle, Copy, CheckCircle,
 } from 'lucide-react'
 
-interface ProviderSettings {
-  id?: string
-  provider: string
-  isActive: boolean
-  isMock: boolean
-  clientId?: string
-  clientSecret?: string
-  apiKey?: string
-  apiSecret?: string
-  storeId?: string
-  storeName?: string
-  storePhone?: string
-  storeAddress?: string
-  storeLat?: number | null
-  storeLng?: number | null
-  baseUrl?: string
-  notes?: string
+interface ShipmentOrder {
+  id: string
+  status: string
+  name: string
+  phone: string
+  address: string
+  city: string
+  shippingOption: string | null
+  shippingProvider: string | null
+  pathaoOrderId: string | null
+  trackingUrl: string | null
+  total: number
+  createdAt: string
+  updatedAt: string
+  items: { name: string; quantity: number }[]
 }
 
-const DEFAULTS: Record<string, Partial<ProviderSettings>> = {
-  PATHAO: {
-    provider: 'PATHAO', isActive: true, isMock: true,
-    clientId: 'dev_5e5612b011f438ca5b30a2d6',
-    clientSecret: 'F62z4qB1IazJzzgMYhKyBpdRWWRoAiikbQdR-SDrYdI',
-    storeId: 'MROQI3O9', storeName: 'Balapasa Store',
-    storePhone: '01772793058',
-    storeAddress: 'Concord Silvy Height, 73/A, Gulshan 1',
-    storeLat: 23.784519208568934, storeLng: 90.4169082847168,
-    baseUrl: 'https://enterprise-api.pathao.com',
-  },
-  PICKNDROP: {
-    provider: 'PICKNDROP', isActive: true, isMock: false,
-    apiKey: 'bf1a7ce75dacf51', apiSecret: '63b8931e70aee27',
-    baseUrl: 'https://app-t.pickndropnepal.com',
-  },
+const STATUS_CONFIG: Record<string, { label: string; cls: string; dot: string }> = {
+  PENDING:    { label: 'Pending',    cls: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400' },
+  CONFIRMED:  { label: 'Confirmed',  cls: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-400'   },
+  PROCESSING: { label: 'Processing', cls: 'bg-purple-100 text-purple-700', dot: 'bg-purple-400' },
+  SHIPPED:    { label: 'Shipped',    cls: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-400' },
+  DELIVERED:  { label: 'Delivered',  cls: 'bg-green-100 text-green-700',   dot: 'bg-green-500'  },
+  CANCELLED:  { label: 'Cancelled',  cls: 'bg-red-100 text-red-600',       dot: 'bg-red-400'    },
 }
 
-function SecretField({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string
-}) {
-  const [show, setShow] = useState(false)
+const PROVIDER_LABELS: Record<string, string> = {
+  PATHAO:       'Pathao',
+  PICKNDROP:    'Pick & Drop',
+  STORE_PICKUP: 'Store Pickup',
+}
+
+export default function LogisticsPage() {
+  const [orders,  setOrders]  = useState<ShipmentOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter,  setFilter]  = useState<'active' | 'all'>('active')
+  const [search,  setSearch]  = useState('')
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [copied,  setCopied]  = useState<string | null>(null)
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res  = await fetch('/api/admin/orders?limit=200&sort=newest')
+      const data = await res.json()
+      setOrders(data.orders ?? [])
+    } catch {}
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  async function updateStatus(orderId: string, status: string) {
+    setUpdatingId(orderId)
+    await fetch(`/api/admin/orders/${orderId}/status`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o))
+    setUpdatingId(null)
+  }
+
+  function copyText(text: string, key: string) {
+    navigator.clipboard?.writeText(text)
+    setCopied(key); setTimeout(() => setCopied(null), 2000)
+  }
+
+  // Filter orders
+  const activeStatuses = new Set(['CONFIRMED', 'PROCESSING', 'SHIPPED'])
+  const filtered = orders.filter(o => {
+    if (filter === 'active' && !activeStatuses.has(o.status)) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return o.name.toLowerCase().includes(q) ||
+        o.id.toLowerCase().includes(q) ||
+        (o.pathaoOrderId?.toLowerCase().includes(q) ?? false) ||
+        o.phone.includes(q)
+    }
+    return true
+  })
+
+  const stats = {
+    confirmed:  orders.filter(o => o.status === 'CONFIRMED').length,
+    processing: orders.filter(o => o.status === 'PROCESSING').length,
+    shipped:    orders.filter(o => o.status === 'SHIPPED').length,
+    delivered:  orders.filter(o => o.status === 'DELIVERED').length,
+  }
+
   return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{label}</label>
-      <div className="relative">
-        <input
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder ?? '••••••••'}
-          className="w-full pl-4 pr-10 py-2.5 rounded-xl text-sm border border-gray-200 bg-white text-gray-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-        />
-        <button type="button" onClick={() => setShow(s => !s)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 cursor-pointer">
-          {show ? <EyeOff size={14} /> : <Eye size={14} />}
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2">
+            <Truck size={20} className="text-primary" /> Logistics
+          </h1>
+          <p className="text-slate-500 text-sm mt-0.5">Active shipments and delivery status</p>
+        </div>
+        <button onClick={load} disabled={loading}
+          className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-600 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
-    </div>
-  )
-}
 
-function Field({ label, value, onChange, placeholder, type = 'text' }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{label}</label>
-      <input
-        type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-4 py-2.5 rounded-xl text-sm border border-gray-200 bg-white text-gray-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-      />
-    </div>
-  )
-}
-
-function ProviderCard({
-  provider, icon: Icon, label, accent,
-}: {
-  provider: string; icon: typeof Truck; label: string; accent: string
-}) {
-  const [data, setData]   = useState<ProviderSettings>(DEFAULTS[provider] as ProviderSettings)
-  const [loading, setLoading] = useState(true)
-  const [saving,  setSaving]  = useState(false)
-  const [saved,   setSaved]   = useState(false)
-  const [error,   setError]   = useState('')
-
-  useEffect(() => {
-    fetch('/api/admin/logistics')
-      .then(r => r.json())
-      .then(j => {
-        const row = j.settings?.find((s: ProviderSettings) => s.provider === provider)
-        if (row) setData({ ...DEFAULTS[provider], ...row })
-      })
-      .catch(() => setError('Could not load settings'))
-      .finally(() => setLoading(false))
-  }, [provider])
-
-  function set(k: keyof ProviderSettings, v: unknown) {
-    setData(d => ({ ...d, [k]: v }))
-  }
-
-  async function save() {
-    setSaving(true); setError(''); setSaved(false)
-    try {
-      const res = await fetch('/api/admin/logistics', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error(await res.text())
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch (e) {
-      setError(String(e))
-    }
-    setSaving(false)
-  }
-
-  if (loading) return <div className="bg-white rounded-2xl border border-gray-100 p-8 animate-pulse h-48" />
-
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${accent}15` }}>
-            <Icon size={18} style={{ color: accent }} />
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900">{label}</h3>
-            <p className="text-xs text-gray-400">{data.baseUrl}</p>
-          </div>
-        </div>
-
-        {/* Active toggle */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => set('isActive', !data.isActive)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              data.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            <Power size={12} /> {data.isActive ? 'Active' : 'Disabled'}
-          </button>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-5">
-        {/* Mock mode (Pathao only) */}
-        {provider === 'PATHAO' && (
-          <div className="flex items-start justify-between p-4 rounded-2xl bg-amber-50 border border-amber-100">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Confirmed',  value: stats.confirmed,  color: 'text-blue-600',   bg: 'bg-blue-50',   icon: Clock       },
+          { label: 'Processing', value: stats.processing, color: 'text-purple-600', bg: 'bg-purple-50', icon: Package     },
+          { label: 'Shipped',    value: stats.shipped,    color: 'text-indigo-600', bg: 'bg-indigo-50', icon: Truck       },
+          { label: 'Delivered',  value: stats.delivered,  color: 'text-green-600',  bg: 'bg-green-50',  icon: CheckCircle2 },
+        ].map(({ label, value, color, bg, icon: Icon }) => (
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+              <Icon size={18} className={color} />
+            </div>
             <div>
-              <p className="font-bold text-sm text-amber-800">Mock / Test Mode</p>
-              <p className="text-xs text-amber-600 mt-0.5 max-w-xs">
-                When ON, returns simulated delivery options without calling the live Pathao API.
-                Turn OFF once you have a live Pathao Enterprise account.
-              </p>
+              <p className={`font-extrabold text-2xl leading-none ${color}`}>{value}</p>
+              <p className="text-xs font-bold text-slate-400 mt-0.5">{label}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => set('isMock', !data.isMock)}
-              className={`shrink-0 ml-4 w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer relative ${
-                data.isMock ? 'bg-amber-500' : 'bg-green-500'
-              }`}
-            >
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                data.isMock ? 'translate-x-0.5' : 'translate-x-5'
-              }`} />
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search order ID, name, phone…"
+            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
+        </div>
+        <div className="flex gap-1 bg-white border border-slate-100 rounded-xl p-1">
+          {[['active', 'Active Shipments'], ['all', 'All Orders']].map(([v, l]) => (
+            <button key={v} onClick={() => setFilter(v as 'active' | 'all')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${filter === v ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+              {l}
             </button>
-          </div>
-        )}
-
-        {/* Credentials */}
-        <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Credentials</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {provider === 'PATHAO' ? (
-              <>
-                <Field label="Client ID" value={data.clientId ?? ''} onChange={v => set('clientId', v)} placeholder="dev_..." />
-                <SecretField label="Client Secret" value={data.clientSecret ?? ''} onChange={v => set('clientSecret', v)} />
-              </>
-            ) : (
-              <>
-                <Field label="API Key"    value={data.apiKey    ?? ''} onChange={v => set('apiKey', v)} />
-                <SecretField label="API Secret" value={data.apiSecret ?? ''} onChange={v => set('apiSecret', v)} />
-              </>
-            )}
-            <Field label="Base URL" value={data.baseUrl ?? ''} onChange={v => set('baseUrl', v)} />
-            {provider === 'PATHAO' && (
-              <Field label="Store / External Store ID" value={data.storeId ?? ''} onChange={v => set('storeId', v)} placeholder="MROQI3O9" />
-            )}
-          </div>
-        </div>
-
-        {/* Store / Pickup details (Pathao only) */}
-        {provider === 'PATHAO' && (
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Pickup / Store Details</p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Store Name" value={data.storeName ?? ''} onChange={v => set('storeName', v)} placeholder="Balapasa Store" />
-              <Field label="Store Phone" value={data.storePhone ?? ''} onChange={v => set('storePhone', v)} placeholder="01XXXXXXXXX" />
-              <div className="sm:col-span-2">
-                <Field label="Store Address" value={data.storeAddress ?? ''} onChange={v => set('storeAddress', v)} placeholder="Full pickup address" />
-              </div>
-              <Field label="Latitude" value={String(data.storeLat ?? '')} onChange={v => set('storeLat', parseFloat(v))} placeholder="23.784519..." type="number" />
-              <Field label="Longitude" value={String(data.storeLng ?? '')} onChange={v => set('storeLng', parseFloat(v))} placeholder="90.416908..." type="number" />
-            </div>
-          </div>
-        )}
-
-        {/* Notes */}
-        <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Notes</label>
-          <textarea
-            value={data.notes ?? ''}
-            onChange={e => set('notes', e.target.value)}
-            rows={2}
-            placeholder="Internal notes about this provider..."
-            className="w-full px-4 py-2.5 rounded-xl text-sm border border-gray-200 bg-white text-gray-800 outline-none focus:border-primary resize-none"
-          />
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl text-sm text-red-600 border border-red-100">
-            <AlertCircle size={14} /> {error}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 pt-2 border-t border-gray-50">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark disabled:bg-gray-300 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer"
-          >
-            {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
-              : saved  ? <><CheckCircle size={14} /> Saved!</>
-              : <><Save size={14} /> Save Changes</>}
-          </button>
-          <button
-            onClick={() => setData(DEFAULTS[provider] as ProviderSettings)}
-            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 font-semibold text-sm rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-          >
-            <RotateCcw size={13} /> Reset defaults
-          </button>
+          ))}
         </div>
       </div>
-    </div>
-  )
-}
 
-export default function LogisticsSettingsPage() {
-  return (
-    <div className="p-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="font-heading font-extrabold text-3xl text-gray-900">Logistics Settings</h1>
-        <p className="text-gray-500 mt-1">
-          Manage delivery provider credentials and configuration. Changes take effect immediately without restarting the server.
-        </p>
+      {/* Shipments table */}
+      <div className="bg-white rounded-2xl border border-slate-100">
+        {loading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-primary" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+            <Truck size={36} className="mb-3" />
+            <p className="text-sm font-medium text-slate-400">
+              {filter === 'active' ? 'No active shipments right now' : 'No orders found'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {filtered.map(order => {
+              const sc    = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.PENDING
+              const items = order.items?.slice(0, 2) ?? []
+              const more  = (order.items?.length ?? 0) - 2
+              return (
+                <div key={order.id} className="p-5 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    {/* Left: order info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap mb-2">
+                        <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold ${sc.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                          {sc.label}
+                        </span>
+                        {order.shippingProvider && (
+                          <span className="px-2 py-1 bg-slate-100 text-slate-600 text-[11px] font-bold rounded-lg">
+                            {PROVIDER_LABELS[order.shippingProvider] ?? order.shippingProvider}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-400 font-mono">
+                          #{order.id.slice(-8).toUpperCase()}
+                        </span>
+                        {order.pathaoOrderId && (
+                          <button onClick={() => copyText(order.pathaoOrderId!, order.id + '-pid')}
+                            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                            <span className="font-mono">Pathao: {order.pathaoOrderId.slice(0, 12)}</span>
+                            {copied === order.id + '-pid' ? <CheckCircle size={11} className="text-green-500" /> : <Copy size={11} />}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-start gap-5 flex-wrap">
+                        {/* Customer */}
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{order.name}</p>
+                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                            <Phone size={10} /> {order.phone}
+                          </p>
+                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                            <MapPin size={10} /> {order.city}
+                          </p>
+                        </div>
+
+                        {/* Items */}
+                        <div className="text-xs text-slate-500">
+                          <p className="font-semibold text-slate-700 mb-0.5">Items</p>
+                          {items.map((item, i) => (
+                            <p key={i}>× {item.quantity} {item.name}</p>
+                          ))}
+                          {more > 0 && <p className="text-slate-400">+{more} more</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: actions */}
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <p className="text-sm font-bold text-slate-800">NPR {order.total.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {new Date(order.createdAt).toLocaleDateString('en-NP', { day: 'numeric', month: 'short' })}
+                      </p>
+
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end mt-1">
+                        {/* Tracking link */}
+                        {order.trackingUrl && (
+                          <a href={order.trackingUrl} target="_blank" rel="noopener"
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-[11px] font-bold rounded-lg transition-colors cursor-pointer">
+                            <ExternalLink size={11} /> Track
+                          </a>
+                        )}
+                        {/* Mark shipped */}
+                        {order.status === 'PROCESSING' && (
+                          <button onClick={() => updateStatus(order.id, 'SHIPPED')}
+                            disabled={updatingId === order.id}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-[11px] font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+                            {updatingId === order.id ? <Loader2 size={11} className="animate-spin" /> : <Truck size={11} />}
+                            Mark Shipped
+                          </button>
+                        )}
+                        {/* Mark delivered */}
+                        {order.status === 'SHIPPED' && (
+                          <button onClick={() => updateStatus(order.id, 'DELIVERED')}
+                            disabled={updatingId === order.id}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+                            {updatingId === order.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                            Mark Delivered
+                          </button>
+                        )}
+                        {/* View full order */}
+                        <Link href={`/admin/orders/${order.id}`}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[11px] font-bold rounded-lg transition-colors cursor-pointer">
+                          Details <ChevronRight size={11} />
+                        </Link>
+                      </div>
+
+                      {/* Alert if confirmed but no shipping assigned */}
+                      {order.status === 'CONFIRMED' && !order.pathaoOrderId && order.shippingProvider === 'PATHAO' && (
+                        <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-1">
+                          <AlertTriangle size={10} /> No Pathao assignment yet
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      <div className="space-y-6">
-        <ProviderCard provider="PATHAO"    icon={Truck}   label="Pathao Delivery"  accent="#F97316" />
-        <ProviderCard provider="PICKNDROP" icon={Package} label="Pick & Drop Nepal" accent="#0EA5E9" />
-      </div>
-
-      <div className="mt-8 p-4 bg-blue-50 rounded-2xl border border-blue-100 text-sm text-blue-700">
-        <strong>How it works:</strong> Settings are stored in the database and take precedence over environment variables.
-        The config is cached in memory for 30 seconds per server process.
-        Saving a new credential immediately invalidates the cache and any cached auth tokens.
-      </div>
+      {/* Info note */}
+      <p className="text-xs text-slate-400 text-center mt-6">
+        Delivery provider credentials are configured in{' '}
+        <Link href="/admin/settings" className="text-primary font-semibold hover:underline cursor-pointer">
+          Settings → Delivery
+        </Link>
+      </p>
     </div>
   )
 }

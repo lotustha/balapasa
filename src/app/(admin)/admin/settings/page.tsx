@@ -103,6 +103,171 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'danger',        icon: Shield,     label: 'Danger Zone',   desc: 'Destructive actions'       },
 ]
 
+// ── Delivery settings panel (embedded logistics config) ───────────────────
+
+interface ProviderRow {
+  provider: string; isActive: boolean; isMock: boolean
+  clientId?: string; clientSecret?: string; apiKey?: string; apiSecret?: string
+  storeId?: string; storeName?: string; storePhone?: string; storeAddress?: string
+  storeLat?: number | null; storeLng?: number | null; baseUrl?: string; notes?: string
+}
+
+const PATHAO_DEFAULTS: ProviderRow = {
+  provider: 'PATHAO', isActive: true, isMock: true,
+  clientId: 'dev_5e5612b011f438ca5b30a2d6', clientSecret: 'F62z4qB1IazJzzgMYhKyBpdRWWRoAiikbQdR-SDrYdI',
+  storeId: 'MROQI3O9', storeName: '', storePhone: '',
+  storeAddress: '', baseUrl: 'https://enterprise-api.pathao.com',
+}
+const PND_DEFAULTS: ProviderRow = {
+  provider: 'PICKNDROP', isActive: true, isMock: false,
+  apiKey: '', apiSecret: '', baseUrl: 'https://app-t.pickndropnepal.com',
+}
+
+function DeliverySettingsPanel() {
+  const [pathao,  setPathao]  = useState<ProviderRow>(PATHAO_DEFAULTS)
+  const [pnd,     setPnd]     = useState<ProviderRow>(PND_DEFAULTS)
+  const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState<string | null>(null)
+  const [saved,   setSaved]   = useState<string | null>(null)
+  const [err,     setErr]     = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/logistics').then(r => r.json()).then(j => {
+      const rows: ProviderRow[] = j.settings ?? []
+      const p = rows.find(r => r.provider === 'PATHAO')
+      const d = rows.find(r => r.provider === 'PICKNDROP')
+      if (p) setPathao({ ...PATHAO_DEFAULTS, ...p })
+      if (d) setPnd({ ...PND_DEFAULTS, ...d })
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  async function saveProvider(data: ProviderRow) {
+    setSaving(data.provider); setErr('')
+    try {
+      const res = await fetch('/api/admin/logistics', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setSaved(data.provider); setTimeout(() => setSaved(null), 3000)
+    } catch (e) { setErr(String(e)) }
+    setSaving(null)
+  }
+
+  if (loading) return <div className="bg-white rounded-2xl border border-slate-100 h-48 animate-pulse" />
+
+  const fieldCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+
+  function ProviderSaveBtn({ provider }: { provider: string }) {
+    return (
+      <button onClick={() => saveProvider(provider === 'PATHAO' ? pathao : pnd)}
+        disabled={saving === provider}
+        className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer shadow-md shadow-primary/15">
+        {saving === provider ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
+          : saved === provider ? <><CheckCircle2 size={14} /> Saved!</>
+          : <><Save size={14} /> Save</>}
+      </button>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {err && <p className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{err}</p>}
+
+      {/* Pathao */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Truck size={16} className="text-orange-500" />
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">Pathao Enterprise</p>
+              <p className="text-[10px] text-slate-400">{pathao.baseUrl}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPathao(p => ({ ...p, isActive: !p.isActive }))}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${pathao.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+              {pathao.isActive ? 'Active' : 'Disabled'}
+            </button>
+          </div>
+        </div>
+        <div className="p-6 space-y-5">
+          {/* Mock toggle */}
+          <div className="flex items-start justify-between p-4 rounded-xl bg-amber-50 border border-amber-100">
+            <div>
+              <p className="text-sm font-bold text-amber-800">Mock / Test Mode</p>
+              <p className="text-xs text-amber-600 mt-0.5">Returns simulated delivery options without calling live Pathao API.</p>
+            </div>
+            <button onClick={() => setPathao(p => ({ ...p, isMock: !p.isMock }))}
+              className={`shrink-0 ml-4 w-11 h-6 rounded-full transition-colors cursor-pointer relative ${pathao.isMock ? 'bg-amber-400' : 'bg-green-500'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pathao.isMock ? 'translate-x-0.5' : 'translate-x-5'}`} />
+            </button>
+          </div>
+
+          <SectionTitle>Credentials</SectionTitle>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Client ID</Label>
+              <input value={pathao.clientId ?? ''} onChange={e => setPathao(p => ({ ...p, clientId: e.target.value }))} className={fieldCls} placeholder="dev_..." />
+            </div>
+            <div>
+              <Label>Client Secret</Label>
+              <input type="password" value={pathao.clientSecret ?? ''} onChange={e => setPathao(p => ({ ...p, clientSecret: e.target.value }))} className={fieldCls} />
+            </div>
+            <div>
+              <Label>Store ID</Label>
+              <input value={pathao.storeId ?? ''} onChange={e => setPathao(p => ({ ...p, storeId: e.target.value }))} className={fieldCls} placeholder="MROQI3O9" />
+            </div>
+            <div>
+              <Label>Base URL</Label>
+              <input value={pathao.baseUrl ?? ''} onChange={e => setPathao(p => ({ ...p, baseUrl: e.target.value }))} className={fieldCls} />
+            </div>
+          </div>
+
+          <SectionTitle>Pickup Details</SectionTitle>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div><Label>Store Name</Label><input value={pathao.storeName ?? ''} onChange={e => setPathao(p => ({ ...p, storeName: e.target.value }))} className={fieldCls} /></div>
+            <div><Label>Store Phone</Label><input value={pathao.storePhone ?? ''} onChange={e => setPathao(p => ({ ...p, storePhone: e.target.value }))} className={fieldCls} /></div>
+            <div className="sm:col-span-2"><Label>Store Address</Label><input value={pathao.storeAddress ?? ''} onChange={e => setPathao(p => ({ ...p, storeAddress: e.target.value }))} className={fieldCls} /></div>
+            <div><Label>Latitude</Label><input type="number" value={pathao.storeLat ?? ''} onChange={e => setPathao(p => ({ ...p, storeLat: parseFloat(e.target.value) }))} className={fieldCls} /></div>
+            <div><Label>Longitude</Label><input type="number" value={pathao.storeLng ?? ''} onChange={e => setPathao(p => ({ ...p, storeLng: parseFloat(e.target.value) }))} className={fieldCls} /></div>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-slate-50"><ProviderSaveBtn provider="PATHAO" /></div>
+        </div>
+      </div>
+
+      {/* Pick & Drop */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Bell size={16} className="text-blue-500" />
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">Pick &amp; Drop Nepal</p>
+              <p className="text-[10px] text-slate-400">{pnd.baseUrl}</p>
+            </div>
+          </div>
+          <button onClick={() => setPnd(p => ({ ...p, isActive: !p.isActive }))}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${pnd.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+            {pnd.isActive ? 'Active' : 'Disabled'}
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div><Label>API Key</Label><input value={pnd.apiKey ?? ''} onChange={e => setPnd(p => ({ ...p, apiKey: e.target.value }))} className={fieldCls} /></div>
+            <div><Label>API Secret</Label><input type="password" value={pnd.apiSecret ?? ''} onChange={e => setPnd(p => ({ ...p, apiSecret: e.target.value }))} className={fieldCls} /></div>
+            <div className="sm:col-span-2"><Label>Base URL</Label><input value={pnd.baseUrl ?? ''} onChange={e => setPnd(p => ({ ...p, baseUrl: e.target.value }))} className={fieldCls} /></div>
+          </div>
+          <div className="flex justify-end pt-2 border-t border-slate-50"><ProviderSaveBtn provider="PICKNDROP" /></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -378,23 +543,7 @@ export default function SettingsPage() {
 
           {/* ── Delivery tab ──────────────────────────────────────── */}
           {tab === 'delivery' && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-6">
-              <SectionTitle>Pathao Delivery</SectionTitle>
-              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-                Pathao API credentials, pickup location, zone configuration, and mock mode are managed in the dedicated Logistics page.
-                Changes take effect immediately without a server restart.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Link href="/admin/logistics"
-                  className="flex items-center justify-center gap-2 px-5 py-3 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-md shadow-primary/15">
-                  Open Logistics Settings <ExternalLink size={14} />
-                </Link>
-                <a href="https://merchant.pathao.com" target="_blank" rel="noopener"
-                  className="flex items-center justify-center gap-2 px-5 py-3 border border-slate-200 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
-                  Pathao Merchant Portal <ExternalLink size={14} />
-                </a>
-              </div>
-            </div>
+            <DeliverySettingsPanel />
           )}
 
           {/* ── AI tab ────────────────────────────────────────────── */}
