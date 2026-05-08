@@ -40,9 +40,16 @@ export default function ProductCard({ product: p }: { product: Product }) {
 
   return (
     <Link href={`/products/${p.slug}`} className="group block cursor-pointer">
-      <div className="relative rounded-3xl overflow-hidden bg-white border border-slate-100 card-hover shadow-sm">
+      <div className="relative rounded-3xl overflow-hidden card-hover"
+        style={{
+          background: 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(16px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+          border: '1px solid rgba(255,255,255,0.90)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        }}>
         {/* Image */}
-        <div className="relative aspect-square overflow-hidden bg-white/50">
+        <div className="relative aspect-square overflow-hidden" style={{ background: 'rgba(255,255,255,0.35)' }}>
           <Image
             src={p.images[0] ?? '/placeholder.jpg'}
             alt={p.name}
@@ -74,7 +81,8 @@ export default function ProductCard({ product: p }: { product: Product }) {
           <button
             onClick={e => { e.preventDefault(); setWished(w => !w) }}
             aria-label="Wishlist"
-            className="absolute top-3 right-3 w-8 h-8 bg-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 cursor-pointer shadow-md"
+            className="absolute top-3 right-3 w-8 h-8 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 cursor-pointer shadow-md"
+            style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(8px)' }}
           >
             <Heart size={14} className={wished ? 'fill-pink-500 text-pink-500' : 'text-slate-500'} />
           </button>
@@ -89,8 +97,9 @@ export default function ProductCard({ product: p }: { product: Product }) {
                   ? 'bg-primary text-white'
                   : p.stock === 0
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-white shadow-sm text-slate-800 hover:bg-primary hover:text-white'
+                  : 'text-slate-800 hover:bg-primary hover:text-white'
               }`}
+              style={!added && p.stock > 0 ? { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)' } : {}}
             >
               {added ? <><Zap size={13} /> Added!</> : <><ShoppingCart size={13} /> Add to Cart</>}
             </button>
@@ -98,7 +107,7 @@ export default function ProductCard({ product: p }: { product: Product }) {
         </div>
 
         {/* Info */}
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.45)' }}>
           {p.brand && (
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{p.brand}</p>
           )}
