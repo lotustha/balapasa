@@ -132,7 +132,8 @@ export async function POST(req: NextRequest) {
         where: { id: order.id },
         data: { transactionId: khalti.pidx },
       })
-      return Response.json({ orderId: order.id, paymentUrl: khalti.payment_url })
+      // Return both paymentUrl (web redirect) and pidx (mobile SDK v3 needs this)
+      return Response.json({ orderId: order.id, paymentUrl: khalti.payment_url, pidx: khalti.pidx })
     }
 
     return Response.json({ orderId: order.id, status: 'success' }, { status: 201 })
