@@ -13,9 +13,10 @@ const pool    = new pg.Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma  = new PrismaClient({ adapter })
 
-const EMAIL    = 'allthemyth@gmail.com'
-const PASSWORD = 'asdf1234'
-const NAME     = 'Admin'
+const [argEmail, argPassword, argName] = process.argv.slice(2)
+const EMAIL    = argEmail    || process.env.ADMIN_EMAIL    || 'allthemyth@gmail.com'
+const PASSWORD = argPassword || process.env.ADMIN_PASSWORD || 'asdf1234'
+const NAME     = argName     || process.env.ADMIN_NAME     || 'Admin'
 
 async function main() {
   const hash = await bcrypt.hash(PASSWORD, 12)
