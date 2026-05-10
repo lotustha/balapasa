@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const ext      = file.name.split('.').pop()?.toLowerCase() ?? (isVideo ? 'mp4' : 'jpg')
   const folder   = isVideo ? 'videos' : 'images'
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-  const uploadDir = join(process.cwd(), 'public', 'uploads', folder)
+  const uploadDir = join(process.cwd(), 'uploads', folder)
 
   await mkdir(uploadDir, { recursive: true })
   await writeFile(join(uploadDir, filename), Buffer.from(await file.arrayBuffer()))
