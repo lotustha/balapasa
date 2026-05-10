@@ -29,6 +29,5 @@ export async function POST(req: Request) {
   await mkdir(uploadDir, { recursive: true })
   await writeFile(join(uploadDir, filename), Buffer.from(await file.arrayBuffer()))
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  return Response.json({ url: `${baseUrl}/uploads/${folder}/${filename}`, type: isVideo ? 'video' : 'image' })
+  return Response.json({ url: `/uploads/${folder}/${filename}`, type: isVideo ? 'video' : 'image' })
 }
