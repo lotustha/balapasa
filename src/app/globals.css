@@ -244,6 +244,10 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }
 }
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
 
 /* Classes */
 .animate-blob-morph    { animation: blob-morph 9s ease-in-out infinite; }
@@ -254,6 +258,7 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 .animate-fade-in-up    { animation: fadeInUp 0.55s ease-out both; }
 .animate-fade-in       { animation: fadeIn 0.4s ease-out both; }
 .animate-slide-right   { animation: slideInRight 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-slide-up      { animation: slideUp 0.28s cubic-bezier(0.16,1,0.3,1) both; }
 .animate-float         { animation: float-y 4s ease-in-out infinite; }
 .animate-float-3d      { animation: float-3d 6s ease-in-out infinite; }
 .animate-pulse-glow    { animation: pulse-glow 3s ease-in-out infinite; }

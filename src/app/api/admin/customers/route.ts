@@ -1,8 +1,12 @@
 import { prisma } from '@/lib/prisma'
+import { requireRole } from '@/lib/auth'
 
 export async function GET() {
+  const auth = await requireRole('STAFF')
+  if ('error' in auth) return auth.error
   try {
     const profiles = await prisma.profile.findMany({
+      where:   { role: 'CUSTOMER' },
       orderBy: { createdAt: 'desc' },
       take: 500,
     })

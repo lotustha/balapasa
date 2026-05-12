@@ -4,16 +4,18 @@ import BottomNav from '@/components/layout/BottomNav'
 import ScrollReset from '@/components/layout/ScrollReset'
 import ThemeApplicator from '@/components/layout/ThemeApplicator'
 import FacebookPixel from '@/components/layout/FacebookPixel'
-import MessengerWidget from '@/components/layout/MessengerWidget'
+import WhatsAppButton from '@/components/layout/WhatsAppButton'
+import { ProductContextProvider } from '@/context/ProductContext'
+import { getSiteSettings } from '@/lib/site-settings'
 
-export default function ShopLayout({ children }: { children: React.ReactNode }) {
+export default async function ShopLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getSiteSettings()
   return (
-    <>
+    <ProductContextProvider>
       <ThemeApplicator />
       <FacebookPixel />
-      <MessengerWidget />
       <ScrollReset />
-      <Navbar />
+      <Navbar siteName={settings.siteName} logoUrl={settings.logoUrl} />
       {/* pt-20 clears floating navbar; pb-20 clears bottom nav on mobile */}
       <main className="flex-1 pt-20 pb-20 md:pb-0">
         {children}
@@ -21,6 +23,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       {/* Footer hidden on mobile — bottom nav replaces it */}
       <div className="hidden md:block"><Footer /></div>
       <BottomNav />
-    </>
+      <WhatsAppButton />
+    </ProductContextProvider>
   )
 }

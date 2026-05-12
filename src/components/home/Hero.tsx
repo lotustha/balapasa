@@ -4,6 +4,13 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, ShieldCheck, Truck, Star, Zap, Cpu, Sparkles, Package, Clock } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type { HeroSettings } from '@/lib/site-settings-shared'
+import { HERO_DEFAULTS } from '@/lib/site-settings-shared'
+
+const BADGE_ICONS: Record<string, LucideIcon> = {
+  ShieldCheck, Truck, Star, Zap, Sparkles, Cpu, Package, Clock,
+}
 
 const FALLBACK_STATS = [
   { val: '—',  label: 'Products',  color: '#6366F1' },
@@ -26,7 +33,9 @@ const FALLBACK_PRODUCTS: TrendingProduct[] = [
   { id: '5', name: 'RGB Mechanical Keyboard', slug: 'rgb-keyboard',    price: 4500, salePrice: 3800, images: ['https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=400&h=280&fit=crop'], rating: 4.4, reviewCount: 91,  brand: 'KeyMaster' },
 ]
 
-export default function Hero() {
+interface HeroProps { hero?: HeroSettings }
+
+export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
   const heroRef = useRef<HTMLDivElement>(null)
   const [mouse, setMouse] = useState({ x: 0, y: 0 })
 
@@ -144,46 +153,48 @@ export default function Hero() {
         <div className="animate-fade-in-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 glass-card rounded-full mb-8 cursor-default">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" style={{ animationDuration: '2s' }} />
-            <span className="text-xs font-semibold text-slate-700 tracking-wide">New arrivals every week</span>
+            <span className="text-xs font-semibold text-slate-700 tracking-wide">{hero.badgeText}</span>
           </div>
 
           <h1 className="font-heading font-extrabold leading-[1.07] text-slate-900">
-            <span className="block text-5xl sm:text-6xl lg:text-[4.25rem]">Where Tech</span>
+            <span className="block text-5xl sm:text-6xl lg:text-[4.25rem]">{hero.headline1}</span>
             <span className="block text-5xl sm:text-6xl lg:text-[4.25rem]">
-              Meets <span className="gradient-text-warm">Beauty</span>
+              {hero.headline2} <span className="gradient-text-warm">{hero.accentWord}</span>
             </span>
-            <span className="block text-3xl sm:text-4xl lg:text-[2.6rem] mt-2 text-slate-400 font-medium">
-              All in one place.
-            </span>
+            {hero.tagline && (
+              <span className="block text-3xl sm:text-4xl lg:text-[2.6rem] mt-2 text-slate-400 font-medium">
+                {hero.tagline}
+              </span>
+            )}
           </h1>
 
           <p className="mt-6 text-base sm:text-lg text-slate-500 max-w-md leading-relaxed">
-            Premium electronics, cutting-edge gadgets, and luxe beauty — curated for you,
-            delivered fast across Nepal.
+            {hero.subhead}
           </p>
 
           <div className="flex flex-wrap gap-3 mt-10">
-            <Link href="/products"
+            <Link href={hero.ctaPrimaryUrl}
               className="group inline-flex items-center gap-2 px-7 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/25 cursor-pointer">
-              Shop Now
+              {hero.ctaPrimaryLabel}
               <ArrowRight size={17} className="group-hover:translate-x-1 transition-transform duration-200" />
             </Link>
-            <Link href="/products?featured=true"
-              className="inline-flex items-center gap-2 px-7 py-4 glass-card text-slate-700 font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:bg-white/90 cursor-pointer">
-              <Zap size={15} className="text-gold-bright" /> Featured Picks
-            </Link>
+            {hero.ctaSecondaryLabel && (
+              <Link href={hero.ctaSecondaryUrl}
+                className="inline-flex items-center gap-2 px-7 py-4 glass-card text-slate-700 font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:bg-white/90 cursor-pointer">
+                <Zap size={15} className="text-gold-bright" /> {hero.ctaSecondaryLabel}
+              </Link>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-5 mt-8">
-            {[
-              { icon: ShieldCheck, text: 'Authentic Products' },
-              { icon: Truck,       text: 'Same-day Delivery' },
-              { icon: Star,        text: '4.9/5 Rated' },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-1.5 text-sm text-slate-500">
-                <Icon size={14} className="text-primary" /> {text}
-              </div>
-            ))}
+            {hero.badges.filter(b => b.text.trim()).map(({ icon, text }) => {
+              const Icon = BADGE_ICONS[icon] ?? ShieldCheck
+              return (
+                <div key={text} className="flex items-center gap-1.5 text-sm text-slate-500">
+                  <Icon size={14} className="text-primary" /> {text}
+                </div>
+              )
+            })}
           </div>
 
           <div className="flex items-center gap-2 mt-4">

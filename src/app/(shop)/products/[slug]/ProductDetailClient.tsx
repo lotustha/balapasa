@@ -10,6 +10,7 @@ import {
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
+import { useRegisterProduct } from '@/context/ProductContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
 
@@ -111,6 +112,9 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   const router = useRouter()
   const p = initialProduct
 
+  // Register product so the floating WhatsApp button can show it as context
+  useRegisterProduct(p?.name ?? null, p ? (p.salePrice ?? p.price) : null, p?.slug ?? null)
+
   // ── Active image ────────────────────────────────────────────────────────
   const images = p?.images.length ? p.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&h=700&fit=crop']
   const [activeImg,  setActiveImg]  = useState(0)
@@ -190,7 +194,13 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   )
   const effectivePrice = activeVariant?.price ?? (saleActive ? p?.salePrice : null) ?? p?.price ?? 0
   const originalPrice  = p?.price ?? 0
-  const variantStock   = activeVariant ? activeVariant.stock : (p?.stock ?? 0)
+  // If product has variants but the admin never set per-variant stock (sum is 0)
+  // while the parent product has stock > 0, treat variants as inheriting product stock.
+  const totalVariantStock = variants.reduce((s, v) => s + (v.stock ?? 0), 0)
+  const useVariantStock   = variants.length > 0 && totalVariantStock > 0
+  const variantStock      = useVariantStock
+    ? (activeVariant?.stock ?? 0)
+    : (p?.stock ?? 0)
   const discount       = originalPrice > effectivePrice ? discountPercent(originalPrice, effectivePrice) : 0
 
   // ── Cart ────────────────────────────────────────────────────────────────

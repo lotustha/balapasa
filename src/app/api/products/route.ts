@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
         price:             Number(price),
         salePrice:         salePrice  ? Number(salePrice)  : null,
         costPrice:         costPrice  ? Number(costPrice)  : null,
-        stock:             Number(stock ?? 0),
+        stock:             Number(stock ?? 10),
         lowStockThreshold: Number(lowStockThreshold ?? 10),
         images:            Array.isArray(images) ? images : [],
         categoryId,

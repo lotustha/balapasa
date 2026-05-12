@@ -7,10 +7,11 @@ import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, Upload, Palette,
-  MessageCircle,
+  MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
+import { HERO_DEFAULTS, type HeroBadge } from '@/lib/site-settings-shared'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHA
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
 
-type TabId = 'store' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
+type TabId = 'store' | 'homepage' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -99,7 +100,8 @@ function InfoBanner({ icon: Icon, color, children }: { icon: typeof Sparkles; co
 // ── Tabs config ────────────────────────────────────────────────────────────
 
 const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] = [
-  { id: 'store',         icon: Store,      label: 'Store',         desc: 'Name, contact & delivery' },
+  { id: 'store',         icon: Store,           label: 'Store',         desc: 'Name, contact & delivery' },
+  { id: 'homepage',      icon: LayoutTemplate,  label: 'Homepage',      desc: 'Hero, headline & CTAs'    },
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
   { id: 'ai',            icon: Sparkles,   label: 'AI',            desc: 'Anthropic & Gemini'        },
@@ -200,6 +202,7 @@ function FaviconUploader({ url, onChange }: { url: string; onChange: (url: strin
 function MessagingSettingsPanel({
   saving, saved, onSave,
 }: { saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void }) {
+  const [chat, setChat] = useState({ WHATSAPP_NUMBER: '' })
   const [wa, setWa] = useState({
     WHATSAPP_PHONE_NUMBER_ID: '', WHATSAPP_ACCESS_TOKEN: '',
     WHATSAPP_BUSINESS_ACCOUNT_ID: '', WHATSAPP_WEBHOOK_VERIFY_TOKEN: '',
@@ -212,6 +215,7 @@ function MessagingSettingsPanel({
   useEffect(() => {
     fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
       if (!s) return
+      setChat(v => ({ WHATSAPP_NUMBER: s.WHATSAPP_NUMBER ?? v.WHATSAPP_NUMBER }))
       setWa(v => ({
         WHATSAPP_PHONE_NUMBER_ID:     s.WHATSAPP_PHONE_NUMBER_ID     ?? v.WHATSAPP_PHONE_NUMBER_ID,
         WHATSAPP_ACCESS_TOKEN:        s.WHATSAPP_ACCESS_TOKEN        ?? v.WHATSAPP_ACCESS_TOKEN,
@@ -228,6 +232,32 @@ function MessagingSettingsPanel({
 
   return (
     <div className="space-y-6">
+      {/* Chat (public-facing) */}
+      <form onSubmit={e => { e.preventDefault(); onSave('chat', chat) }}
+        className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <MessageCircle size={15} className="text-emerald-600" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-800">Customer chat (WhatsApp button)</p>
+            <p className="text-[10px] text-slate-400">Floating chat button shown on every page of the storefront</p>
+          </div>
+        </div>
+        <div>
+          <Label>Public WhatsApp number</Label>
+          <input type="tel" inputMode="numeric"
+            value={chat.WHATSAPP_NUMBER}
+            onChange={e => setChat({ WHATSAPP_NUMBER: e.target.value })}
+            placeholder="977 98XXXXXXXX (with country code, no +)"
+            className={fieldCls} />
+          <Hint>Used by the floating chat button. Include country code (e.g. 977 for Nepal). Spaces and dashes are stripped automatically.</Hint>
+        </div>
+        <div className="flex justify-end pt-2 border-t border-slate-50">
+          <SaveBtn section="chat" saving={saving} saved={saved} />
+        </div>
+      </form>
+
       {/* WhatsApp */}
       <form onSubmit={e => { e.preventDefault(); onSave('whatsapp', wa as unknown as Record<string, string>) }}
         className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
@@ -466,6 +496,296 @@ function DeliverySettingsPanel() {
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Homepage settings panel ───────────────────────────────────────────────
+
+interface HeroForm {
+  HERO_BADGE_TEXT: string
+  HERO_HEADLINE_1: string
+  HERO_HEADLINE_2: string
+  HERO_ACCENT_WORD: string
+  HERO_TAGLINE: string
+  HERO_SUBHEAD: string
+  HERO_CTA_PRIMARY_LABEL: string
+  HERO_CTA_PRIMARY_URL: string
+  HERO_CTA_SECONDARY_LABEL: string
+  HERO_CTA_SECONDARY_URL: string
+  HERO_BADGES_JSON: string
+}
+
+const ICON_CHOICES = [
+  { name: 'ShieldCheck', Icon: ShieldCheck },
+  { name: 'Truck',       Icon: Truck },
+  { name: 'Star',        Icon: Star },
+  { name: 'Zap',         Icon: Zap },
+  { name: 'Sparkles',    Icon: Sparkles },
+] as const
+
+interface HeroPreviewData {
+  badgeText: string
+  headline1: string
+  headline2: string
+  accentWord: string
+  tagline: string
+  subhead: string
+  ctaPrimaryLabel: string
+  ctaSecondaryLabel: string
+  badges: HeroBadge[]
+}
+
+function HeroPreview({ hero }: { hero: HeroPreviewData }) {
+  return (
+    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-6">
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/80 backdrop-blur rounded-full mb-4 border border-white shadow-sm">
+        <span className="w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
+        <span className="text-[10px] font-semibold text-slate-700">{hero.badgeText || '—'}</span>
+      </div>
+      <h2 className="font-heading font-extrabold leading-tight text-slate-900">
+        <span className="block text-2xl">{hero.headline1 || '—'}</span>
+        <span className="block text-2xl">
+          {hero.headline2 || '—'}{' '}
+          <span className="bg-gradient-to-r from-amber-500 to-pink-500 bg-clip-text text-transparent">{hero.accentWord || '—'}</span>
+        </span>
+        {hero.tagline && (
+          <span className="block text-base mt-1 text-slate-400 font-medium">{hero.tagline}</span>
+        )}
+      </h2>
+      <p className="mt-3 text-xs text-slate-500 max-w-md leading-relaxed line-clamp-3">{hero.subhead || '—'}</p>
+      <div className="flex flex-wrap gap-2 mt-4">
+        <span className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-violet-600 text-white font-bold text-xs rounded-xl">
+          {hero.ctaPrimaryLabel || '—'}
+        </span>
+        {hero.ctaSecondaryLabel && (
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/80 backdrop-blur text-slate-700 font-bold text-xs rounded-xl border border-white">
+            {hero.ctaSecondaryLabel}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mt-4">
+        {hero.badges.filter(b => b.text.trim()).map((b, i) => {
+          const found = ICON_CHOICES.find(c => c.name === b.icon)
+          const Icon = found?.Icon ?? ShieldCheck
+          return (
+            <div key={i} className="flex items-center gap-1 text-[10px] text-slate-500">
+              <Icon size={11} className="text-violet-600" /> {b.text}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function HomepageSettingsPanel({ saving, saved, onSave }: {
+  saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void
+}) {
+  const [form, setForm] = useState<HeroForm>({
+    HERO_BADGE_TEXT:          HERO_DEFAULTS.badgeText,
+    HERO_HEADLINE_1:          HERO_DEFAULTS.headline1,
+    HERO_HEADLINE_2:          HERO_DEFAULTS.headline2,
+    HERO_ACCENT_WORD:         HERO_DEFAULTS.accentWord,
+    HERO_TAGLINE:             HERO_DEFAULTS.tagline,
+    HERO_SUBHEAD:             HERO_DEFAULTS.subhead,
+    HERO_CTA_PRIMARY_LABEL:   HERO_DEFAULTS.ctaPrimaryLabel,
+    HERO_CTA_PRIMARY_URL:     HERO_DEFAULTS.ctaPrimaryUrl,
+    HERO_CTA_SECONDARY_LABEL: HERO_DEFAULTS.ctaSecondaryLabel,
+    HERO_CTA_SECONDARY_URL:   HERO_DEFAULTS.ctaSecondaryUrl,
+    HERO_BADGES_JSON:         JSON.stringify(HERO_DEFAULTS.badges),
+  })
+  const [badges, setBadges] = useState<HeroBadge[]>(HERO_DEFAULTS.badges)
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (!s) return
+      setForm(v => ({
+        HERO_BADGE_TEXT:          s.HERO_BADGE_TEXT          ?? v.HERO_BADGE_TEXT,
+        HERO_HEADLINE_1:          s.HERO_HEADLINE_1          ?? v.HERO_HEADLINE_1,
+        HERO_HEADLINE_2:          s.HERO_HEADLINE_2          ?? v.HERO_HEADLINE_2,
+        HERO_ACCENT_WORD:         s.HERO_ACCENT_WORD         ?? v.HERO_ACCENT_WORD,
+        HERO_TAGLINE:             s.HERO_TAGLINE             ?? v.HERO_TAGLINE,
+        HERO_SUBHEAD:             s.HERO_SUBHEAD             ?? v.HERO_SUBHEAD,
+        HERO_CTA_PRIMARY_LABEL:   s.HERO_CTA_PRIMARY_LABEL   ?? v.HERO_CTA_PRIMARY_LABEL,
+        HERO_CTA_PRIMARY_URL:     s.HERO_CTA_PRIMARY_URL     ?? v.HERO_CTA_PRIMARY_URL,
+        HERO_CTA_SECONDARY_LABEL: s.HERO_CTA_SECONDARY_LABEL ?? v.HERO_CTA_SECONDARY_LABEL,
+        HERO_CTA_SECONDARY_URL:   s.HERO_CTA_SECONDARY_URL   ?? v.HERO_CTA_SECONDARY_URL,
+        HERO_BADGES_JSON:         s.HERO_BADGES_JSON         ?? v.HERO_BADGES_JSON,
+      }))
+      if (s.HERO_BADGES_JSON) {
+        try {
+          const parsed = JSON.parse(s.HERO_BADGES_JSON)
+          if (Array.isArray(parsed)) setBadges(parsed.slice(0, 3).map(b => ({ text: String(b.text ?? ''), icon: String(b.icon ?? 'ShieldCheck') })))
+        } catch {}
+      }
+    }).catch(() => {})
+  }, [])
+
+  function updateBadge(i: number, patch: Partial<HeroBadge>) {
+    setBadges(prev => prev.map((b, idx) => idx === i ? { ...b, ...patch } : b))
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const cleanBadges = badges
+      .filter(b => b.text.trim())
+      .slice(0, 3)
+      .map(b => ({ text: b.text.trim(), icon: b.icon }))
+    onSave('homepage', { ...form, HERO_BADGES_JSON: JSON.stringify(cleanBadges) })
+  }
+
+  // Pad to 3 slots for editing
+  const editBadges = [...badges, ...Array(Math.max(0, 3 - badges.length)).fill({ text: '', icon: 'ShieldCheck' })].slice(0, 3)
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-6">
+        <InfoBanner icon={LayoutTemplate} color="bg-violet-50 border border-violet-100 text-violet-700">
+          Edit the public homepage hero section. Changes take effect immediately for new visitors.
+        </InfoBanner>
+
+        {/* Badge */}
+        <div>
+          <SectionTitle>Hero Badge</SectionTitle>
+          <Label>Pill text (above the headline)</Label>
+          <input value={form.HERO_BADGE_TEXT} onChange={e => setForm(s => ({ ...s, HERO_BADGE_TEXT: e.target.value }))}
+            placeholder="New arrivals every week" className={inputCls} maxLength={60} />
+        </div>
+
+        {/* Headline */}
+        <div className="border-t border-slate-50 pt-5">
+          <SectionTitle>Headline</SectionTitle>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Line 1</Label>
+              <input value={form.HERO_HEADLINE_1} onChange={e => setForm(s => ({ ...s, HERO_HEADLINE_1: e.target.value }))}
+                placeholder="Where Tech" className={inputCls} maxLength={40} />
+            </div>
+            <div>
+              <Label>Line 2</Label>
+              <input value={form.HERO_HEADLINE_2} onChange={e => setForm(s => ({ ...s, HERO_HEADLINE_2: e.target.value }))}
+                placeholder="Meets" className={inputCls} maxLength={40} />
+            </div>
+            <div>
+              <Label>Accent word (gradient highlight)</Label>
+              <input value={form.HERO_ACCENT_WORD} onChange={e => setForm(s => ({ ...s, HERO_ACCENT_WORD: e.target.value }))}
+                placeholder="Beauty" className={inputCls} maxLength={20} />
+              <Hint>Renders next to Line 2 with the warm gradient effect.</Hint>
+            </div>
+            <div>
+              <Label>Tagline (smaller, optional)</Label>
+              <input value={form.HERO_TAGLINE} onChange={e => setForm(s => ({ ...s, HERO_TAGLINE: e.target.value }))}
+                placeholder="All in one place." className={inputCls} maxLength={50} />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <Label>Subhead (paragraph below headline)</Label>
+            <textarea value={form.HERO_SUBHEAD} onChange={e => setForm(s => ({ ...s, HERO_SUBHEAD: e.target.value }))}
+              rows={3} maxLength={300}
+              className={inputCls + ' resize-y'}
+              placeholder="Premium electronics, cutting-edge gadgets, and luxe beauty…" />
+            <Hint>{form.HERO_SUBHEAD.length}/300 characters</Hint>
+          </div>
+        </div>
+
+        {/* CTAs */}
+        <div className="border-t border-slate-50 pt-5">
+          <SectionTitle>Call to Action Buttons</SectionTitle>
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div className="space-y-3 p-4 rounded-xl bg-violet-50/40 border border-violet-100">
+              <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider">Primary (filled)</p>
+              <div>
+                <Label>Button label</Label>
+                <input value={form.HERO_CTA_PRIMARY_LABEL} onChange={e => setForm(s => ({ ...s, HERO_CTA_PRIMARY_LABEL: e.target.value }))}
+                  placeholder="Shop Now" className={inputCls} maxLength={20} />
+              </div>
+              <div>
+                <Label>Link URL</Label>
+                <input value={form.HERO_CTA_PRIMARY_URL} onChange={e => setForm(s => ({ ...s, HERO_CTA_PRIMARY_URL: e.target.value }))}
+                  placeholder="/products" className={inputCls + ' font-mono text-xs'} />
+              </div>
+            </div>
+
+            <div className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Secondary (outline) — optional</p>
+              <div>
+                <Label>Button label</Label>
+                <input value={form.HERO_CTA_SECONDARY_LABEL} onChange={e => setForm(s => ({ ...s, HERO_CTA_SECONDARY_LABEL: e.target.value }))}
+                  placeholder="Featured Picks" className={inputCls} maxLength={20} />
+                <Hint>Leave empty to hide the secondary button.</Hint>
+              </div>
+              <div>
+                <Label>Link URL</Label>
+                <input value={form.HERO_CTA_SECONDARY_URL} onChange={e => setForm(s => ({ ...s, HERO_CTA_SECONDARY_URL: e.target.value }))}
+                  placeholder="/products?featured=true" className={inputCls + ' font-mono text-xs'} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Trust badges */}
+        <div className="border-t border-slate-50 pt-5">
+          <SectionTitle>Trust Badges</SectionTitle>
+          <Hint>Up to 3 small badges below the CTAs. Leave a row empty to hide it.</Hint>
+          <div className="space-y-2 mt-3">
+            {editBadges.map((b, i) => (
+              <div key={i} className="flex items-center gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50/40">
+                <span className="text-[10px] font-bold text-slate-400 w-4 shrink-0">#{i + 1}</span>
+                <input value={b.text}
+                  onChange={e => {
+                    const arr = [...editBadges]
+                    arr[i] = { ...arr[i], text: e.target.value }
+                    setBadges(arr)
+                  }}
+                  placeholder="Badge text…"
+                  className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:border-primary"
+                  maxLength={30} />
+                <select value={b.icon}
+                  onChange={e => {
+                    const arr = [...editBadges]
+                    arr[i] = { ...arr[i], icon: e.target.value }
+                    setBadges(arr)
+                  }}
+                  className="px-2 py-2 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:border-primary cursor-pointer">
+                  {ICON_CHOICES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                  {(() => {
+                    const found = ICON_CHOICES.find(c => c.name === b.icon)
+                    const Icon = found?.Icon ?? ShieldCheck
+                    return <Icon size={13} className="text-primary" />
+                  })()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div className="border-t border-slate-50 pt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-0.5 h-4 rounded-full bg-primary" />
+            <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">Live Preview</h3>
+          </div>
+          <HeroPreview hero={{
+            badgeText: form.HERO_BADGE_TEXT,
+            headline1: form.HERO_HEADLINE_1,
+            headline2: form.HERO_HEADLINE_2,
+            accentWord: form.HERO_ACCENT_WORD,
+            tagline: form.HERO_TAGLINE,
+            subhead: form.HERO_SUBHEAD,
+            ctaPrimaryLabel: form.HERO_CTA_PRIMARY_LABEL,
+            ctaSecondaryLabel: form.HERO_CTA_SECONDARY_LABEL,
+            badges: editBadges,
+          }} />
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-slate-50">
+          <SaveBtn section="homepage" saving={saving} saved={saved} />
+        </div>
+      </div>
+    </form>
   )
 }
 
@@ -712,6 +1032,11 @@ export default function SettingsPage() {
                 </div>
               </div>
             </form>
+          )}
+
+          {/* ── Homepage tab ──────────────────────────────────────── */}
+          {tab === 'homepage' && (
+            <HomepageSettingsPanel saving={saving} saved={saved} onSave={save} />
           )}
 
           {/* ── Payments tab ──────────────────────────────────────── */}

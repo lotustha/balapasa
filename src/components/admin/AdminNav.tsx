@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, LogOut, Upload, Ticket, Zap, MessageCircle, DollarSign, Monitor,
+  ShieldCheck,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 
@@ -17,6 +18,7 @@ const NAV = [
   { href: '/admin/orders',     icon: ShoppingBag,     label: 'Orders',     minRole: 'STAFF'   },
   { href: '/admin/products',   icon: Package,         label: 'Products',   minRole: 'MANAGER' },
   { href: '/admin/customers',  icon: Users,           label: 'Customers',  minRole: 'MANAGER' },
+  { href: '/admin/team',       icon: ShieldCheck,     label: 'Team',       minRole: 'ADMIN'   },
   { href: '/admin/categories', icon: Tag,             label: 'Categories', minRole: 'MANAGER' },
   { href: '/admin/coupons',     icon: Ticket,          label: 'Coupons',     minRole: 'MANAGER' },
   { href: '/admin/promotions',  icon: Zap,             label: 'Promotions',  minRole: 'MANAGER' },
@@ -49,7 +51,7 @@ export default function AdminNav() {
   const visibleNav = NAV.filter(item => canAccess(role, item.minRole))
 
   return (
-    <aside className="w-64 shrink-0 flex flex-col min-h-screen"
+    <aside className="w-64 shrink-0 hidden md:flex flex-col min-h-screen"
       style={{ background: '#0F172A' }}>
 
       {/* Brand */}

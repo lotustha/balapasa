@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, Search, Mail, Phone, ShoppingBag, TrendingUp, Loader2 } from 'lucide-react'
+import { Users, Search, Mail, Phone, ShoppingBag, TrendingUp, Loader2, ShieldCheck } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import TeamMemberDialog from '@/components/admin/TeamMemberDialog'
 
 interface Customer {
   id: string; name: string | null; email: string; phone: string | null
@@ -13,14 +14,18 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading,   setLoading]   = useState(true)
   const [search,    setSearch]    = useState('')
+  const [promote,   setPromote]   = useState<Customer | null>(null)
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/admin/customers').then(r => r.json()),
-    ]).then(([d]) => setCustomers(d.customers ?? []))
+  function load() {
+    setLoading(true)
+    fetch('/api/admin/customers')
+      .then(r => r.json())
+      .then(d => setCustomers(d.customers ?? []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   const filtered = customers.filter(c =>
     !search || [c.name, c.email, c.phone].some(v => v?.toLowerCase().includes(search.toLowerCase()))
@@ -79,11 +84,12 @@ export default function CustomersPage() {
                 <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Orders</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Total Spent</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Joined</th>
+                <th className="text-right px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-16">
+                <tr><td colSpan={6} className="text-center py-16">
                   <Users size={36} className="text-slate-200 mx-auto mb-3" />
                   <p className="text-slate-400 text-sm">{search ? 'No customers match' : 'No customers yet'}</p>
                 </td></tr>
@@ -117,12 +123,29 @@ export default function CustomersPage() {
                   <td className="px-4 py-4 text-xs text-slate-400">
                     {new Date(c.createdAt).toLocaleDateString('en-NP', {day:'numeric',month:'short',year:'numeric'})}
                   </td>
+                  <td className="px-4 py-4 text-right">
+                    <button
+                      onClick={() => setPromote(c)}
+                      title="Promote to team"
+                      className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck size={14} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      <TeamMemberDialog
+        open={!!promote}
+        onClose={() => { setPromote(null); load() }}
+        promoteFromId={promote?.id}
+        promoteEmail={promote?.email}
+        promoteName={promote?.name ?? undefined}
+      />
     </div>
   )
 }

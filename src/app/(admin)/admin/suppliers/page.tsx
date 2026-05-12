@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { Building2, Plus, Edit2, Mail, Phone, Package } from 'lucide-react'
+import { Building2, Mail, Phone, Package } from 'lucide-react'
 import Link from 'next/link'
+import SupplierCreateButton from '@/components/admin/SupplierCreateButton'
+import SupplierEditButton from '@/components/admin/SupplierEditButton'
 
 async function getSuppliers() {
   try {
@@ -24,9 +26,7 @@ export default async function SuppliersPage() {
           <h1 className="font-heading font-extrabold text-2xl text-slate-900">Suppliers</h1>
           <p className="text-slate-500 text-sm mt-0.5">{suppliers.length} supplier{suppliers.length !== 1 ? 's' : ''}</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-md shadow-primary/20">
-          <Plus size={15} /> Add Supplier
-        </button>
+        <SupplierCreateButton />
       </div>
 
       {suppliers.length === 0 ? (
@@ -52,9 +52,17 @@ export default async function SuppliersPage() {
                     {s.contactName && <p className="text-xs text-slate-400">{s.contactName}</p>}
                   </div>
                 </div>
-                <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
-                  <Edit2 size={13} />
-                </button>
+                <SupplierEditButton supplier={{
+                  id:           s.id,
+                  name:         s.name,
+                  contactName:  s.contactName,
+                  email:        s.email,
+                  phone:        s.phone,
+                  address:      s.address,
+                  notes:        s.notes,
+                  isActive:     s.isActive,
+                  productCount: s._count.products,
+                }} />
               </div>
 
               <div className="space-y-1.5">

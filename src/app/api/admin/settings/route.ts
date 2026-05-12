@@ -1,10 +1,20 @@
 import { NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { prisma }     from '@/lib/prisma'
 
 const SECRET_KEYS = new Set([
   'ANTHROPIC_API_KEY', 'GEMINI_API_KEY',
   'ESEWA_SECRET_KEY', 'KHALTI_SECRET_KEY',
   'WHATSAPP_ACCESS_TOKEN', 'FACEBOOK_PAGE_ACCESS_TOKEN',
+])
+
+const PUBLIC_SITE_KEYS = new Set([
+  'STORE_NAME', 'STORE_LOGO_URL', 'STORE_FAVICON_URL', 'WHATSAPP_NUMBER',
+  'HERO_BADGE_TEXT', 'HERO_HEADLINE_1', 'HERO_HEADLINE_2', 'HERO_ACCENT_WORD',
+  'HERO_TAGLINE', 'HERO_SUBHEAD',
+  'HERO_CTA_PRIMARY_LABEL', 'HERO_CTA_PRIMARY_URL',
+  'HERO_CTA_SECONDARY_LABEL', 'HERO_CTA_SECONDARY_URL',
+  'HERO_BADGES_JSON',
 ])
 
 function mask(key: string, value: string) {
@@ -45,6 +55,10 @@ export async function POST(req: NextRequest) {
         VALUES (${key}, ${value}, NOW())
         ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = NOW()
       `
+    }
+
+    if (entries.some(([k]) => PUBLIC_SITE_KEYS.has(k))) {
+      revalidatePath('/', 'layout')
     }
 
     return Response.json({ success: true, saved: entries.length })

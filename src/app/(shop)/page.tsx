@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { STORE_NAME, STORE_URL } from '@/lib/config'
+import { STORE_URL } from '@/lib/config'
 import Hero from '@/components/home/Hero'
 import CategorySection from '@/components/home/CategorySection'
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import DealsSection from '@/components/home/DealsSection'
 import Newsletter from '@/components/home/Newsletter'
 import { ShieldCheck, Truck, RefreshCcw, Headphones } from 'lucide-react'
+import { getSiteSettings } from '@/lib/site-settings'
 
 export const metadata: Metadata = {
   title: 'Balapasa — Tech & Beauty Hub Nepal',
@@ -34,16 +35,18 @@ const TRUST = [
   { icon: Headphones,  title: '24/7 Support',   desc: "We're here whenever you need us" },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const settings = await getSiteSettings()
+  const logoAbsolute = settings.logoUrl.startsWith('http') ? settings.logoUrl : `${STORE_URL}${settings.logoUrl}`
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'OnlineStore',
-        name: STORE_NAME,
+        name: settings.siteName,
         description: 'Premium electronics, gadgets & beauty products. Fast delivery across Nepal.',
         url: STORE_URL,
-        logo: `${STORE_URL}/logo.png`,
+        logo: logoAbsolute,
         areaServed: { '@type': 'Country', name: 'Nepal' },
         priceRange: '$$',
         currenciesAccepted: 'NPR',
@@ -53,7 +56,7 @@ export default function HomePage() {
           name: 'Electronics, Gadgets & Beauty',
         },
       }) }} />
-      <Hero />
+      <Hero hero={settings.hero} />
       <CategorySection />
       <FeaturedProducts />
       <DealsSection />

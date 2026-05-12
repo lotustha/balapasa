@@ -33,7 +33,7 @@ export interface ProductData {
 const EMPTY: ProductData = {
   name: '', slug: '', sku: '', description: '', images: [], videoUrl: '',
   price: '', salePrice: '', salePriceExpiresAt: '', costPrice: '', isTaxable: false,
-  trackInventory: true, stock: '0', lowStockThreshold: '10',
+  trackInventory: true, stock: '10', lowStockThreshold: '10',
   barcode: '', weight: '',
   categoryId: '', supplierId: '', brand: '', tags: [],
   isActive: true, isFeatured: false, isNew: true,

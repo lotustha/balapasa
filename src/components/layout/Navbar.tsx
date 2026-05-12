@@ -11,7 +11,6 @@ import {
   Truck, ArrowRight, Star, Loader2,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
-import { STORE_NAME } from '@/lib/config'
 
 interface SearchResult {
   id: string; name: string; slug: string; price: number;
@@ -196,7 +195,12 @@ function InlineSearch() {
 
 // ── Navbar ───────────────────────────────────────────────────────────────────
 
-export default function Navbar() {
+interface NavbarProps {
+  siteName: string
+  logoUrl:  string
+}
+
+export default function Navbar({ siteName, logoUrl }: NavbarProps) {
   const { count, openCart } = useCart()
   const router = useRouter()
   const [scrolled,    setScrolled]    = useState(false)
@@ -236,9 +240,9 @@ export default function Navbar() {
           <div className="flex items-center px-4 sm:px-5 h-14 gap-3">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 shrink-0 cursor-pointer">
-              <Image src="/logo.png" alt={STORE_NAME} width={34} height={34} className="rounded-xl" />
+              <Image src={logoUrl} alt={siteName} width={34} height={34} className="rounded-xl" unoptimized />
               <span className="font-heading font-bold text-lg text-slate-800 hidden sm:block">
-                {STORE_NAME}
+                {siteName}
               </span>
             </Link>
 

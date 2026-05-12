@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
+import { cookies } from 'next/headers'
 
 export const AUTH_COOKIE = 'auth-token'
 const MAX_AGE = 7 * 24 * 60 * 60
@@ -40,4 +41,24 @@ export function cookieOptions(token: string) {
     path: '/',
     maxAge: MAX_AGE,
   }
+}
+
+// Read the current request's auth payload (or null if unauthenticated).
+export async function getCurrentUser(): Promise<AuthPayload | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(AUTH_COOKIE)?.value
+  if (!token) return null
+  return verifyToken(token)
+}
+
+// Throws (returns 401/403) if the request isn't authenticated or lacks the required role.
+const ROLE_RANK: Record<string, number> = { CUSTOMER: 0, STAFF: 1, MANAGER: 2, ADMIN: 3 }
+
+export async function requireRole(minRole: 'STAFF' | 'MANAGER' | 'ADMIN'): Promise<{ user: AuthPayload } | { error: Response }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: Response.json({ error: 'Not authenticated' }, { status: 401 }) }
+  if ((ROLE_RANK[user.role] ?? -1) < ROLE_RANK[minRole]) {
+    return { error: Response.json({ error: 'Forbidden' }, { status: 403 }) }
+  }
+  return { user }
 }
