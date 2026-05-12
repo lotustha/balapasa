@@ -7,7 +7,7 @@ import {
   Package, Plus, Search, Filter, Edit2, Trash2, Eye,
   Download, Upload, Loader2, CheckCircle2, AlertTriangle, X,
   Building2, TrendingUp, TrendingDown, RefreshCw, RotateCcw,
-  Minus, History, Warehouse, ImageOff,
+  Minus, History, Warehouse, ImageOff, CheckSquare, Square,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
@@ -130,6 +130,43 @@ export default function ProductsPage() {
   const [deleteNoImageOpen,  setDeleteNoImageOpen]  = useState(false)
   const [deletingNoImage,    setDeletingNoImage]    = useState(false)
   const [noImageCount,       setNoImageCount]       = useState<number | null>(null)
+
+  // Bulk select
+  const [selected,          setSelected]          = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen,    setBulkDeleteOpen]    = useState(false)
+  const [bulkDeleting,      setBulkDeleting]      = useState(false)
+
+  const allOnPageSelected = products.length > 0 && products.every(p => selected.has(p.id))
+  const someOnPageSelected = !allOnPageSelected && products.some(p => selected.has(p.id))
+
+  function toggleSelected(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  function toggleSelectAllOnPage() {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (allOnPageSelected) { products.forEach(p => next.delete(p.id)) }
+      else                   { products.forEach(p => next.add(p.id)) }
+      return next
+    })
+  }
+  function clearSelection() { setSelected(new Set()) }
+
+  async function confirmBulkDelete() {
+    setBulkDeleting(true)
+    const ids = Array.from(selected)
+    const res = await fetch('/api/admin/products/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    if (res.ok) { clearSelection(); setBulkDeleteOpen(false); void load() }
+    setBulkDeleting(false)
+  }
 
   // Import / Export
   const [importing,    setImporting]    = useState(false)
@@ -486,7 +523,17 @@ export default function ProductsPage() {
             <table className="w-full">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-slate-100 bg-white/95 backdrop-blur-sm shadow-sm">
-                  <th className="text-left px-6 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Product</th>
+                  <th className="w-10 pl-6 py-3.5">
+                    <button onClick={toggleSelectAllOnPage} title={allOnPageSelected ? 'Clear selection on this page' : 'Select all on this page'}
+                      className="text-slate-400 hover:text-primary transition-colors cursor-pointer flex items-center">
+                      {allOnPageSelected
+                        ? <CheckSquare size={16} className="text-primary" />
+                        : someOnPageSelected
+                          ? <CheckSquare size={16} className="text-primary opacity-60" />
+                          : <Square size={16} />}
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Product</th>
                   <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Category</th>
                   <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Supplier</th>
                   <th className="text-left px-4 py-3.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Price / Cost</th>
@@ -498,7 +545,7 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-slate-50">
                 {products.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16">
+                    <td colSpan={8} className="text-center py-16">
                       <Package size={36} className="text-slate-200 mx-auto mb-3" />
                       <p className="text-slate-400 text-sm font-medium">{search ? 'No products match your search' : 'No products yet'}</p>
                     </td>
@@ -509,9 +556,16 @@ export default function ProductsPage() {
                     const mgn   = margin(p)
                     const isOut = p.stock === 0
                     const isLow = !isOut && p.trackInventory && p.stock <= p.lowStockThreshold
+                    const isSel = selected.has(p.id)
                     return (
-                      <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${isOut ? 'bg-red-50/20' : isLow ? 'bg-amber-50/20' : ''}`}>
-                        <td className="px-6 py-4">
+                      <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${isSel ? 'bg-primary-bg/40' : isOut ? 'bg-red-50/20' : isLow ? 'bg-amber-50/20' : ''}`}>
+                        <td className="w-10 pl-6 py-4">
+                          <button onClick={() => toggleSelected(p.id)}
+                            className="text-slate-400 hover:text-primary transition-colors cursor-pointer flex items-center">
+                            {isSel ? <CheckSquare size={16} className="text-primary" /> : <Square size={16} />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-slate-100 shrink-0">
                               {p.images[0]
@@ -628,6 +682,24 @@ export default function ProductsPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Floating bulk-action bar — appears when products are selected */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-fade-in-up">
+          <div className="flex items-center gap-3 bg-slate-900 text-white pl-5 pr-2 py-2 rounded-2xl shadow-2xl shadow-slate-900/30 border border-slate-800">
+            <span className="text-sm font-bold">{selected.size} selected</span>
+            <span className="w-px h-5 bg-slate-700" />
+            <button onClick={clearSelection}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer">
+              Clear
+            </button>
+            <button onClick={() => setBulkDeleteOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 transition-colors cursor-pointer">
+              <Trash2 size={13} /> Delete {selected.size}
+            </button>
+          </div>
         </div>
       )}
 
@@ -795,6 +867,27 @@ export default function ProductsPage() {
               <button onClick={confirmDeleteAll} disabled={deletingAll}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white font-bold text-sm rounded-xl cursor-pointer">
                 {deletingAll ? <><Loader2 size={14} className="animate-spin" /> Deleting…</> : <><Trash2 size={14} /> Delete All</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete modal */}
+      {bulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-fade-in-up">
+            <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={22} className="text-red-500" /></div>
+            <h3 className="font-heading font-bold text-slate-900 text-lg text-center mb-1">Delete {selected.size} product{selected.size !== 1 ? 's' : ''}?</h3>
+            <p className="text-slate-500 text-sm text-center mb-5 leading-relaxed">
+              Permanently remove <strong className="text-slate-800">{selected.size}</strong> product{selected.size !== 1 ? 's' : ''}, their variants, options, inventory logs, reviews, and wishlist entries. Order history is preserved.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleting}
+                className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
+              <button onClick={confirmBulkDelete} disabled={bulkDeleting}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white font-bold text-sm rounded-xl cursor-pointer">
+                {bulkDeleting ? <><Loader2 size={14} className="animate-spin" /> Deleting…</> : <><Trash2 size={14} /> Delete {selected.size}</>}
               </button>
             </div>
           </div>

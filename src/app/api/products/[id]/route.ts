@@ -65,10 +65,20 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
 export async function DELETE(_req: NextRequest, ctx: RouteContext<'/api/products/[id]'>) {
   const { id } = await ctx.params
   try {
-    // Soft delete so order history references stay intact
-    await prisma.product.update({ where: { id }, data: { isActive: false } })
+    // Hard delete — OrderItem.productId has no FK constraint and snapshots name/image,
+    // so order history survives. Cascade child rows that have RESTRICT FKs.
+    await prisma.$transaction([
+      prisma.review.deleteMany({         where: { productId: id } }),
+      prisma.wishlistItem.deleteMany({   where: { productId: id } }),
+      prisma.inventoryLog.deleteMany({   where: { productId: id } }),
+      prisma.productVariant.deleteMany({ where: { productId: id } }),
+      prisma.productOption.deleteMany({  where: { productId: id } }),
+      prisma.product.delete({            where: { id } }),
+    ])
+    // Image files on disk are kept so historical order receipts continue to render.
     return Response.json({ success: true })
-  } catch {
-    return Response.json({ error: 'Failed to delete product' }, { status: 500 })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return Response.json({ error: msg }, { status: 500 })
   }
 }

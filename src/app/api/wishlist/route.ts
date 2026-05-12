@@ -15,12 +15,11 @@ export async function GET(req: NextRequest) {
   const userId = await getUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // WishlistItem has no Prisma relation to Product (intentional — productId column,
+  // no FK), so we fetch wishlist rows then join products manually below.
   const items = await prisma.wishlistItem.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    include: {
-      // We can't use Prisma relation without defining it — do a manual join
-    },
   }).catch(() => [])
 
   // Fetch products for the wishlist items

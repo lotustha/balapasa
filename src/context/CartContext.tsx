@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 
 export interface CartItem {
   id: string
@@ -35,19 +35,26 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null)
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  // Items start empty on both server and client to avoid SSR/CSR hydration
+  // mismatch (server has no localStorage, so a lazy initializer would diverge).
+  // We hydrate from localStorage in an effect once on mount. The lint rule
+  // about setState-in-effect doesn't apply here — this is the canonical pattern
+  // for SSR-safe persistent storage hydration.
   const [items,      setItems]      = useState<CartItem[]>([])
   const [isOpen,     setIsOpen]     = useState(false)
   const [buyNowItem, setBuyNowItem] = useState<CartItem | null>(null)
+  const hydratedRef = useRef(false)
 
-  // Persist regular cart to localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('balapasa_cart')
-      if (stored) setItems(JSON.parse(stored))
+      if (stored) setItems(JSON.parse(stored))  // eslint-disable-line react-hooks/set-state-in-effect
     } catch {}
+    hydratedRef.current = true
   }, [])
   useEffect(() => {
-    localStorage.setItem('balapasa_cart', JSON.stringify(items))
+    if (!hydratedRef.current) return
+    try { localStorage.setItem('balapasa_cart', JSON.stringify(items)) } catch {}
   }, [items])
 
   // ── Regular cart actions ─────────────────────────────────────────────────────

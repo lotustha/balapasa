@@ -15,6 +15,7 @@ import {
 import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/NepalAddressSelector'
 import WeatherWidget, { type WeatherData } from '@/components/checkout/WeatherWidget'
 import type { CoverageOption } from '@/app/api/shipping/coverage/route'
+import { ENABLED_PAYMENT_METHODS } from '@/lib/features'
 
 type PaymentMethod = 'COD' | 'PARTIAL_COD' | 'ESEWA' | 'KHALTI'
 
@@ -22,11 +23,15 @@ const EMPTY_ADDRESS: NepalAddress = {
   province: '', district: '', municipality: '', ward: '', street: '', tole: '',
 }
 
-const PAYMENT_OPTS: { value: PaymentMethod; label: string; sub: string; borderCls: string; bgCls: string }[] = [
+const ALL_PAYMENT_OPTS: { value: PaymentMethod; label: string; sub: string; borderCls: string; bgCls: string }[] = [
   { value: 'COD',    label: 'Cash on Delivery', sub: 'Pay when delivered',      borderCls: 'border-slate-300',   bgCls: 'bg-slate-50'   },
   { value: 'ESEWA',  label: 'eSewa',            sub: 'Instant digital wallet',  borderCls: 'border-green-400',  bgCls: 'bg-green-50'  },
   { value: 'KHALTI', label: 'Khalti',           sub: 'Fast & secure wallet',    borderCls: 'border-purple-400', bgCls: 'bg-purple-50' },
 ]
+const PAYMENT_OPTS = ALL_PAYMENT_OPTS.filter(o => ENABLED_PAYMENT_METHODS.includes(o.value))
+// PARTIAL_COD requires an enabled wallet for the advance leg
+const PARTIAL_COD_ENABLED = ENABLED_PAYMENT_METHODS.includes('PARTIAL_COD') &&
+  (ENABLED_PAYMENT_METHODS.includes('ESEWA') || ENABLED_PAYMENT_METHODS.includes('KHALTI'))
 
 const PROVIDER_META: Record<string, {
   icon: React.ReactNode; badge: string; badgeCls: string; logo?: string
@@ -929,7 +934,8 @@ export default function CheckoutPage() {
                   <div className="mt-3 space-y-3">
                     <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-2.5">Pay in cash when your delivery arrives at your door.</p>
 
-                    {/* Partial payment toggle */}
+                    {/* Partial payment toggle — feature-flagged off when wallets disabled */}
+                    {PARTIAL_COD_ENABLED && (
                     <label className="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
                       <div>
                         <p className="text-sm font-bold text-amber-800">Pay advance now</p>
@@ -940,8 +946,9 @@ export default function CheckoutPage() {
                         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${partialCod ? 'translate-x-5' : 'translate-x-1'}`} />
                       </button>
                     </label>
+                    )}
 
-                    {partialCod && (
+                    {PARTIAL_COD_ENABLED && partialCod && (
                       <div className="px-4 py-4 bg-white border border-amber-200 rounded-xl space-y-4">
                         {/* Advance percentage selector */}
                         <div>

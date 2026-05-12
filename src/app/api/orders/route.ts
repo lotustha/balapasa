@@ -3,6 +3,14 @@ import { prisma } from '@/lib/prisma'
 import { esewaFormData, ESEWA_PAYMENT_URL, khaltiInitiate } from '@/lib/payment'
 import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
 import { pushOrderEvent } from '@/lib/push'
+import { validateCoupon } from '@/lib/coupons'
+import { ENABLED_PAYMENT_METHODS } from '@/lib/features'
+
+// Tag used to distinguish coupon-race aborts from generic Prisma errors so we
+// can surface a 409 to the client instead of a 500.
+class CouponRaceError extends Error {
+  readonly _coupon = true
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,46 +26,105 @@ export async function POST(req: NextRequest) {
     } catch { /* guest checkout */ }
 
     const body = await req.json()
-    const { items, subtotal, deliveryCharge, total, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod, couponCode, couponDiscount, autoDiscount } = body
+    const { items, subtotal, deliveryCharge, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod, couponCode: rawCouponCode, autoDiscount } = body
 
-    const order = await prisma.order.create({
-      data: {
-        userId,
-        subtotal,
-        deliveryCharge,
-        total,
-        paymentMethod,
-        shippingOption,
-        shippingProvider: shippingProvider ?? null,
-        name,
-        phone,
-        email: email || userEmail || null,
-        address,
-        house,
-        road,
-        city,
-        lat:          lat          ? Number(lat)          : null,
-        lng:          lng          ? Number(lng)          : null,
-        advancePaid:    advancePaid    ? Number(advancePaid)    : null,
-        codAmount:      codAmount      ? Number(codAmount)      : null,
-        advanceMethod:  advanceMethod  || null,
-        couponCode:     couponCode     || null,
-        couponDiscount: couponDiscount ? Number(couponDiscount) : null,
-        autoDiscount:   autoDiscount   ? Number(autoDiscount)   : null,
-        items: {
-          create: items.map((item: {
-            id: string; name: string; price: number; salePrice?: number | null;
-            image: string; quantity: number;
-          }) => ({
-            productId: item.id,
-            name: item.name,
-            price: item.salePrice ?? item.price,
-            quantity: item.quantity,
-            image: item.image,
-          })),
+    // Reject payment methods that are feature-flagged off for this release.
+    // Keeps eSewa/Khalti integration code dormant but live for post-launch flip.
+    if (!ENABLED_PAYMENT_METHODS.includes(paymentMethod)) {
+      return Response.json(
+        { error: `Payment method "${paymentMethod}" is temporarily unavailable. Please use Cash on Delivery.` },
+        { status: 400 },
+      )
+    }
+
+    // ── Server-side coupon validation ──────────────────────────────────
+    // Don't trust client-supplied couponDiscount or total. Re-validate from code + cart,
+    // and recompute the discount + total on the server. This prevents tampering and
+    // catches state changes between the validate call and order creation (expiry, etc.)
+    const couponCode = rawCouponCode ? String(rawCouponCode).toUpperCase().trim() : null
+    let serverCouponDiscount: number | null = null
+    if (couponCode) {
+      const result = await validateCoupon({
+        code:     couponCode,
+        subtotal: Number(subtotal),
+        items: (items as { id: string; price: number; salePrice?: number | null; quantity: number }[]).map(i => ({
+          productId: i.id,
+          price:     Number(i.salePrice ?? i.price),
+          quantity:  Number(i.quantity),
+        })),
+      })
+      if (!result.valid) {
+        return Response.json({ error: result.error }, { status: result.status })
+      }
+      serverCouponDiscount = result.discount
+    }
+
+    // Recompute total from server values — never trust client `total`
+    const safeAutoDiscount = autoDiscount ? Math.max(0, Number(autoDiscount)) : 0
+    const serverTotal = Math.max(
+      0,
+      Number(subtotal) + Number(deliveryCharge) - (serverCouponDiscount ?? 0) - safeAutoDiscount,
+    )
+
+    // ── Atomic transaction: coupon usage check-and-increment + order create ─
+    // The raw UPDATE with WHERE used_count < max_uses is race-safe at the DB level.
+    // If the coupon was exhausted between validate and now (concurrent checkout),
+    // the update affects 0 rows and we abort the transaction.
+    const order = await prisma.$transaction(async tx => {
+      if (couponCode) {
+        const updated = await tx.$executeRaw`
+          UPDATE coupons
+          SET used_count = used_count + 1, updated_at = NOW()
+          WHERE code = ${couponCode}
+            AND is_active = true
+            AND (max_uses   IS NULL OR used_count <  max_uses)
+            AND (expires_at IS NULL OR expires_at >  NOW())
+        `
+        if (updated === 0) {
+          throw new CouponRaceError('Coupon usage limit reached or coupon no longer valid. Please remove it and try again.')
+        }
+      }
+      return tx.order.create({
+        data: {
+          userId,
+          subtotal:        Number(subtotal),
+          deliveryCharge:  Number(deliveryCharge),
+          total:           serverTotal,
+          paymentMethod,
+          shippingOption,
+          shippingProvider: shippingProvider ?? null,
+          name,
+          phone,
+          email: email || userEmail || null,
+          address,
+          house,
+          road,
+          city,
+          lat:          lat          ? Number(lat)          : null,
+          lng:          lng          ? Number(lng)          : null,
+          advancePaid:    advancePaid    ? Number(advancePaid)    : null,
+          codAmount:      codAmount      ? Number(codAmount)      : null,
+          advanceMethod:  advanceMethod  || null,
+          couponCode:     couponCode,
+          couponDiscount: serverCouponDiscount,
+          autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
+          items: {
+            create: (items as {
+              id: string; name: string; price: number; salePrice?: number | null;
+              image: string; quantity: number;
+            }[]).map(item => ({
+              productId: item.id,
+              name: item.name,
+              price: item.salePrice ?? item.price,
+              quantity: item.quantity,
+              image: item.image,
+            })),
+          },
         },
-      },
+      })
     })
+
+    const total = serverTotal
 
     // WhatsApp order confirmation (fire-and-forget)
     import('@/lib/notifications').then(({ sendOrderConfirmation }) =>
@@ -72,13 +139,7 @@ export async function POST(req: NextRequest) {
       body:    `Your order of Rs. ${Math.round(total).toLocaleString('en-IN')} is confirmed. We'll notify you when it ships.`,
     }).catch(() => {})
 
-    // Increment coupon usedCount (fire-and-forget — non-critical)
-    if (couponCode) {
-      prisma.coupon.update({
-        where: { code: couponCode },
-        data: { usedCount: { increment: 1 } },
-      }).catch(() => {})
-    }
+    // Note: coupon usedCount was already incremented atomically inside the transaction above.
 
     try {
       for (const item of items as { id: string; quantity: number }[]) {
@@ -138,6 +199,9 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ orderId: order.id, status: 'success' }, { status: 201 })
   } catch (e) {
+    if (e instanceof CouponRaceError) {
+      return Response.json({ error: e.message }, { status: 409 })
+    }
     console.error('[orders] create failed:', e)
     const msg = e instanceof Error ? e.message : String(e)
     return Response.json(

@@ -385,7 +385,18 @@ export default function OrderDetailPage() {
 
   async function syncAddressToDelivery() {
     if (!order) return
-    await patch({ address:customerDraft.address, house:customerDraft.house||null, road:customerDraft.road||null, city:customerDraft.city, lat:Number(customerDraft.lat)||null, lng:Number(customerDraft.lng)||null })
+    // Recompose the Nepal-format addressDraft into the order's flat schema fields
+    // and push them via PATCH so the delivery integration sees the latest address.
+    const composed = [addressDraft.tole, addressDraft.street, addressDraft.municipality, addressDraft.district, addressDraft.province]
+      .map(s => s?.trim()).filter(Boolean).join(', ')
+    await patch({
+      address: composed || order.address,
+      house:   addressDraft.ward     || null,
+      road:    addressDraft.street   || null,
+      city:    addressDraft.municipality || order.city,
+      lat:     customerDraft.lat ? Number(customerDraft.lat) : null,
+      lng:     customerDraft.lng ? Number(customerDraft.lng) : null,
+    })
     showToast('Address synced to delivery')
   }
 
@@ -1349,12 +1360,13 @@ export default function OrderDetailPage() {
                 { type:'packing',  label:'Packing Slip',   requiresDelivery: false },
                 { type:'all',      label:'All Documents',  requiresDelivery: true  },
               ].map(d => {
+                const orderId = order!.id
                 const blocked = d.requiresDelivery && !hasDelivery
 
                 async function fetchHtml() {
                   const res = await fetch('/api/admin/orders/print', {
                     method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ ids:[order.id], type:d.type }),
+                    body: JSON.stringify({ ids:[orderId], type:d.type }),
                   })
                   return res.text()
                 }
@@ -1371,7 +1383,7 @@ export default function OrderDetailPage() {
                   const url  = URL.createObjectURL(blob)
                   const a    = document.createElement('a')
                   a.href     = url
-                  a.download = `${d.type}-${order.id.slice(0,8).toUpperCase()}.html`
+                  a.download = `${d.type}-${orderId.slice(0,8).toUpperCase()}.html`
                   a.click()
                   URL.revokeObjectURL(url)
                 }

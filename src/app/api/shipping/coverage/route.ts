@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { estimateDelivery } from '@/lib/pathao'
-import { calculatePndRates, PND_DISTRICTS } from '@/lib/pickndrop'
+import { calculatePndRates } from '@/lib/pickndrop'
 
 export interface CoverageOption {
   id: string
