@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans, Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
 import { prisma } from '@/lib/prisma'
@@ -16,6 +16,13 @@ const inter = Inter({
   subsets: ['latin'],
   variable: '--font-body',
   weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+})
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
 })
 
@@ -66,7 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } catch { /* DB unavailable — defaults from globals.css apply */ }
 
   return (
-    <html lang="en" className={`${jakartaSans.variable} ${inter.variable}`}>
+    <html lang="en" className={`${jakartaSans.variable} ${inter.variable} ${playfair.variable}`}>
       <body className="min-h-screen flex flex-col font-body antialiased" style={{ background: '#F4F6FF' }}>
         {/* Blocking script sets CSS vars before first paint — no hydration mismatch */}
         {themeScript && (

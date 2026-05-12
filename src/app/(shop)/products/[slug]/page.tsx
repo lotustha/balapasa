@@ -48,20 +48,20 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const [similar, shopsChoice, boughtTogether, rawReviews] = await Promise.all([
     product ? prisma.product.findMany({
       where: { categoryId: product.categoryId, id: { not: product.id }, isActive: true },
-      select: { id: true, name: true, slug: true, price: true, salePrice: true, rating: true, reviewCount: true, images: true },
+      select: { id: true, name: true, slug: true, price: true, salePrice: true, rating: true, reviewCount: true, images: true, brand: true },
       orderBy: { reviewCount: 'desc' }, take: 6,
     }).catch(() => []) : Promise.resolve([]),
 
     prisma.product.findMany({
       where: { isFeatured: true, isActive: true },
-      select: { id: true, name: true, slug: true, price: true, salePrice: true, rating: true, reviewCount: true, images: true },
+      select: { id: true, name: true, slug: true, price: true, salePrice: true, rating: true, reviewCount: true, images: true, brand: true },
       take: 2,
     }).catch(() => []),
 
     product?.boughtTogetherIds?.length
       ? prisma.product.findMany({
           where: { id: { in: product.boughtTogetherIds }, isActive: true },
-          select: { id: true, name: true, slug: true, price: true, salePrice: true, images: true, rating: true, reviewCount: true },
+          select: { id: true, name: true, slug: true, price: true, salePrice: true, images: true, rating: true, reviewCount: true, brand: true },
         }).catch(() => [])
       : Promise.resolve([]),
 
@@ -80,7 +80,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     images: product.images, brand: product.brand, sku: product.sku,
     rating: product.rating, reviewCount: product.reviewCount,
     isNew: product.isNew, isTaxable: product.isTaxable,
-    videoUrl: product.videoUrl,
+    videoUrl: product.videoUrl, weight: product.weight,
     salePriceExpiresAt: product.salePriceExpiresAt ? product.salePriceExpiresAt.toISOString() : null,
     tags: product.tags,
     category: { id: product.category.id, name: product.category.name, slug: product.category.slug, color: product.category.color, icon: product.category.icon, image: product.category.image },

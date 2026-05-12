@@ -15,9 +15,30 @@ export async function GET(req: NextRequest) {
   const limit      = parseInt(searchParams.get('limit') ?? '24', 10)
   const page       = parseInt(searchParams.get('page') ?? '1', 10)
   const skip       = (page - 1) * limit
+  const slugsParam = searchParams.get('slugs')
 
   try {
     const where: Record<string, unknown> = {}
+
+    // Slug lookup (used by Recently Viewed) — bypass other filters
+    if (slugsParam) {
+      const slugs = slugsParam.split(',').filter(Boolean).slice(0, 12)
+      const products = await prisma.product.findMany({
+        where: { slug: { in: slugs }, isActive: true },
+        select: {
+          id: true, name: true, slug: true,
+          price: true, salePrice: true, salePriceExpiresAt: true,
+          images: true, rating: true, reviewCount: true, brand: true,
+        },
+      })
+      const now = new Date()
+      const normalized = products.map(p =>
+        p.salePriceExpiresAt && p.salePriceExpiresAt <= now
+          ? { ...p, salePrice: null, salePriceExpiresAt: null }
+          : p
+      )
+      return Response.json({ products: normalized })
+    }
 
     // Shop always sees only active; admin can filter by status
     if (admin) {

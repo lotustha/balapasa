@@ -360,6 +360,38 @@ model CartAbandonment {
   @@map("cart_abandonments")
 }
 
+// Customer-asked questions on a product
+model ProductQuestion {
+  id         String   @id @default(cuid())
+  productId  String   @map("product_id")
+  userId     String?  @map("user_id")           // null = guest
+  authorName String   @map("author_name")
+  body       String   @db.Text
+  isApproved Boolean  @default(true) @map("is_approved")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  answers ProductAnswer[]
+
+  @@index([productId, createdAt])
+  @@map("product_questions")
+}
+
+// Answers to a product question — usually from staff, sometimes other customers
+model ProductAnswer {
+  id         String   @id @default(cuid())
+  questionId String   @map("question_id")
+  userId     String?  @map("user_id")           // null = system/anonymous
+  authorName String   @map("author_name")
+  body       String   @db.Text
+  isOfficial Boolean  @default(false) @map("is_official")  // true = answered by store
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  question ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, createdAt])
+  @@map("product_answers")
+}
+
 // Customer wishlist
 model WishlistItem {
   id        String   @id @default(cuid())

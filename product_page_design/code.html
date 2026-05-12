@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>3 In 1 Screen Cleaning Kit - Balapasa</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Inter:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#40484b",
+                        "surface-container": "#eceef0",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "secondary": "#006a62",
+                        "primary": "#003441",
+                        "surface-bright": "#f7f9fb",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "tertiary-fixed-dim": "#ffb3b0",
+                        "on-primary-fixed-variant": "#114d5d",
+                        "background": "#f7f9fb",
+                        "on-tertiary": "#ffffff",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-tertiary-container": "#ff9693",
+                        "primary-container": "#0f4c5c",
+                        "on-tertiary-fixed-variant": "#93001a",
+                        "primary-fixed-dim": "#9acee1",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "secondary-container": "#70f8e8",
+                        "on-primary-container": "#87bbce",
+                        "surface-dim": "#d8dadc",
+                        "secondary-fixed": "#70f8e8",
+                        "on-secondary-fixed": "#00201d",
+                        "tertiary-container": "#90001a",
+                        "inverse-primary": "#9acee1",
+                        "on-primary-fixed": "#001f28",
+                        "inverse-surface": "#2d3133",
+                        "on-error-container": "#93000a",
+                        "surface-tint": "#306576",
+                        "outline": "#70787c",
+                        "outline-variant": "#c0c8cb",
+                        "on-surface": "#191c1e",
+                        "primary-fixed": "#b6ebfe",
+                        "surface-container-low": "#f2f4f6",
+                        "surface": "#f7f9fb",
+                        "on-secondary-fixed-variant": "#005049",
+                        "on-tertiary-fixed": "#410006",
+                        "secondary-fixed-dim": "#4fdbcc",
+                        "surface-container-highest": "#e0e3e5",
+                        "tertiary": "#66000f",
+                        "surface-variant": "#e0e3e5",
+                        "tertiary-fixed": "#ffdad8",
+                        "on-secondary-container": "#007168"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "4px",
+                        "base": "8px",
+                        "stack-md": "12px",
+                        "gutter": "24px",
+                        "container-max": "1280px",
+                        "stack-lg": "24px",
+                        "margin-desktop": "48px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Hanken Grotesk"],
+                        "price-display": ["Hanken Grotesk"],
+                        "display-lg-mobile": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "price-display": ["22px", { "lineHeight": "24px", "fontWeight": "700" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #F8FAFC; }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar Component -->
+<nav class="bg-surface shadow-sm docked full-width top-0 z-50">
+<div class="flex justify-between items-center w-full px-margin-desktop py-4 max-w-container-max mx-auto">
+<div class="flex items-center gap-stack-lg">
+<a class="font-headline-md text-headline-md font-bold text-primary" href="#">Balapasa</a>
+<div class="hidden md:flex gap-stack-lg ml-stack-lg">
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 px-3 py-2 rounded-DEFAULT font-label-caps text-label-caps" href="#">Computers</a>
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 px-3 py-2 rounded-DEFAULT font-label-caps text-label-caps" href="#">Mobiles</a>
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 px-3 py-2 rounded-DEFAULT font-label-caps text-label-caps" href="#">Laptops</a>
+<a class="text-primary border-b-2 border-primary pb-1 font-label-caps text-label-caps" href="#">Accessories</a>
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 px-3 py-2 rounded-DEFAULT font-label-caps text-label-caps" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<div class="relative hidden sm:block">
+<input class="border border-outline-variant bg-surface-container-lowest rounded-full py-2 px-4 pl-10 text-body-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Search..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-sm">search</span>
+</div>
+<button class="p-2 text-primary hover:bg-surface-container-low rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined">person</span>
+</button>
+<button class="p-2 text-primary hover:bg-surface-container-low rounded-full transition-colors duration-200 relative">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="absolute top-1 right-1 bg-tertiary text-on-tertiary text-[10px] w-4 h-4 rounded-full flex items-center justify-center">2</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg md:py-16">
+<!-- Breadcrumbs -->
+<nav aria-label="Breadcrumb" class="mb-stack-lg">
+<ol class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface-variant">
+<li><a class="hover:text-primary" href="#">Home</a></li>
+<li><span class="material-symbols-outlined text-[16px]">chevron_right</span></li>
+<li><a class="hover:text-primary" href="#">Accessories</a></li>
+<li><span class="material-symbols-outlined text-[16px]">chevron_right</span></li>
+<li aria-current="page" class="text-on-surface">Cleaning Kits</li>
+</ol>
+</nav>
+<!-- Product Hero Section (Bento-ish layout) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-20">
+<!-- Image Gallery Column -->
+<div class="lg:col-span-7 flex flex-col gap-stack-md">
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant aspect-[4/3] relative">
+<img alt="Premium 3-in-1 screen cleaning kit featuring a spray bottle, microfiber cloth, and detailing brush arranged neatly on a clean white surface with soft studio lighting." class="w-full h-full object-cover" data-alt="A professional studio product shot of a premium 3-in-1 screen cleaning kit. The composition features a sleek, modern spray bottle, a high-quality textured microfiber cloth, and a fine-bristled detailing brush arranged cleanly on a pristine white surface. Soft, high-key studio lighting casts subtle shadows, highlighting the premium quality of the materials. The overall aesthetic is clean, clinical, and high-end tech, utilizing a color palette of pure whites, soft grays, and deep teal accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZPk11D1gnkagyvVztZo3jwFoj7aBJQeydTHMrviHpGh3qY7QaMLn4hgui_3VY63qrMDNKrzAJcxM77kkYQESzG-7SWwL9wYge381QH-Gk9ghm7Un7F05Tayuhp3KadHjV89npZQu3DkFTFbICEKHD5A0jpo0r_u3bkpIzhPkbowVb5pO9NH3iKuxANcTL9Ui50T5b-aSYvn0t1PDK7Y-V6msjoHkDLkO4PFKR5hLyjNCv1bYImfWCKQK2-d1QptzXCTo8Fy1nVas"/>
+<div class="absolute top-4 left-4 flex gap-2">
+<span class="bg-secondary text-on-secondary font-label-caps text-label-caps px-2 py-1 rounded-full uppercase">New</span>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-stack-md">
+<div class="bg-surface-container-lowest rounded-lg overflow-hidden border-2 border-primary cursor-pointer aspect-square">
+<img alt="Thumbnail 1" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHhmHLRxyaTIJkwgQY3r1l7mDNETnWfhmbIhgcm2jiWVRNRnnzUPds5vAfQUJxNjIvBl3W4BEGMPi9IgKufoiUiAPwfBURSNbhR-OVQ9Y0ycRer234yvrSZLJJP3AmkQe5yKcVCEm7zKt8_-MoPggNba064_OpEl6Fls_5z-8AGOay08aykuOeVHoY2lUT0ibuotVvc2PDnravQB-BE1JNOMDx1Fj5DuG6-9mubPgeayHjuRBQ_RZOhPoWAfabsMGAxkhN3kDuURc"/>
+</div>
+<div class="bg-surface-container-lowest rounded-lg overflow-hidden border border-outline-variant hover:border-outline cursor-pointer aspect-square">
+<img alt="Thumbnail 2" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDc9HdVEbVRx0RLP4GlBD43tJ7V5Z7qPSWVHxCWXpJAQDWdJoqetRDtCINqCSsZQx-xMCRQcGe0xqvoCar54OohNCJZA43YdPaUBAWcSE7wVkKbBjn4lnbOJ6qjL9VdCZElpviqW2hw9qaRSSFmOBf6C1gdsFgONIZ_cjCRPxrO17KWic9dugQWruM_4d09U6OMjra-iHxPgx7tptXhtdpklSuzcEsNkP02Z13GR4K7twYSL01xBSRMHwRoAlu_1Zcwm3ej8C8tQ2o"/>
+</div>
+<div class="bg-surface-container-lowest rounded-lg overflow-hidden border border-outline-variant hover:border-outline cursor-pointer aspect-square flex items-center justify-center bg-surface-container">
+<span class="material-symbols-outlined text-outline text-3xl">play_circle</span>
+</div>
+</div>
+</div>
+<!-- Product Info Column -->
+<div class="lg:col-span-5 flex flex-col gap-stack-lg">
+<div>
+<h1 class="font-headline-md text-headline-md lg:font-display-lg-mobile lg:text-display-lg-mobile text-on-surface mb-stack-sm">3 In 1 Screen Cleaning Kit with Microfiber Cloth &amp; Brush</h1>
+<div class="flex items-center gap-2 mb-stack-md">
+<div class="flex text-[#F59E0B]">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[18px]">star_half</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">(128 Reviews)</span>
+</div>
+<div class="flex items-end gap-3 mb-stack-sm">
+<span class="font-price-display text-price-display text-primary">NPR 750</span>
+<span class="font-body-md text-body-md text-outline line-through mb-1">NPR 900</span>
+<span class="font-label-caps text-label-caps text-error bg-error-container px-2 py-1 rounded-full mb-1">-16% OFF</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Tax included. Shipping calculated at checkout.</p>
+</div>
+<hr class="border-outline-variant"/>
+<!-- Variant Selector -->
+<div>
+<h3 class="font-body-sm text-body-sm font-bold text-on-surface mb-stack-sm">Pack Size</h3>
+<div class="flex gap-stack-md">
+<button class="border-2 border-primary bg-surface-container-lowest text-primary font-body-sm text-body-sm px-4 py-2 rounded-lg font-bold">Single Pack</button>
+<button class="border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline font-body-sm text-body-sm px-4 py-2 rounded-lg">Duo Pack (+NPR 600)</button>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-stack-md mt-4">
+<div class="flex gap-stack-md">
+<!-- Quantity -->
+<div class="flex items-center border border-outline-variant rounded-lg bg-surface-container-lowest h-12">
+<button class="px-4 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">remove</span></button>
+<span class="font-body-md text-body-md font-bold w-8 text-center">1</span>
+<button class="px-4 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">add</span></button>
+</div>
+<!-- Add to Cart -->
+<button class="flex-grow bg-primary-container text-on-primary font-headline-sm text-headline-sm rounded-lg h-12 flex items-center justify-center gap-2 hover:bg-primary transition-colors shadow-[0_4px_12px_rgba(15,76,92,0.12)]">
+<span class="material-symbols-outlined text-[20px]">shopping_cart</span>
+                            Add to Cart
+                        </button>
+</div>
+<button class="w-full border border-primary text-primary font-headline-sm text-headline-sm rounded-lg h-12 hover:bg-surface-container-low transition-colors">
+                        Buy it Now
+                    </button>
+</div>
+<!-- Key Features Snippet -->
+<ul class="font-body-sm text-body-sm text-on-surface-variant space-y-2 mt-2">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-[18px]">check_circle</span> Anti-static, non-streak cleaning formula.</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-[18px]">check_circle</span> Safe for all LED, LCD, and OLED screens.</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-[18px]">check_circle</span> Premium microfiber cloth included.</li>
+</ul>
+</div>
+</div>
+<!-- Specifications & Description Tabs (Glass/Bento hybrid) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-20">
+<div class="md:col-span-2 bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant p-stack-lg md:p-8">
+<!-- Tab Nav -->
+<div class="flex gap-8 border-b border-outline-variant mb-stack-lg">
+<button class="font-headline-sm text-headline-sm text-primary border-b-2 border-primary pb-2">Description</button>
+<button class="font-headline-sm text-headline-sm text-on-surface-variant hover:text-primary pb-2">Specifications</button>
+</div>
+<!-- Tab Content -->
+<div class="prose max-w-none font-body-md text-body-md text-on-surface-variant">
+<p class="mb-4">Maintain the pristine clarity of your devices with our premium 3-in-1 Screen Cleaning Kit. Designed specifically for modern high-resolution displays, this kit provides everything you need to safely remove dust, fingerprints, and smudges without damaging sensitive screen coatings.</p>
+<p class="mb-4">The alcohol-free, anti-static cleaning solution ensures a streak-free finish while repelling dust after application. Paired with our ultra-soft, high-density microfiber cloth and soft-bristled detailing brush, it's the ultimate care package for your laptops, smartphones, tablets, and monitors.</p>
+<h4 class="font-headline-sm text-headline-sm text-on-surface mt-6 mb-2">Key Benefits:</h4>
+<ul class="list-disc pl-5 mb-4">
+<li><strong>Safe Formualtion:</strong> No alcohol, ammonia, or harsh chemicals.</li>
+<li><strong>Anti-Static Properties:</strong> Helps repel dust accumulation over time.</li>
+<li><strong>Lint-Free Cloth:</strong> Washable and reusable high-grade microfiber.</li>
+<li><strong>Detailing Brush:</strong> Perfect for cleaning keyboard crevices and ports.</li>
+</ul>
+</div>
+</div>
+<!-- Grouped Products Side Panel -->
+<div class="bg-surface-container-low rounded-xl p-stack-lg border border-outline-variant flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-stack-md">Frequently Bought Together</h3>
+<div class="flex flex-col gap-stack-md flex-grow">
+<!-- Item 1 -->
+<div class="flex gap-4 items-center bg-surface-container-lowest p-3 rounded-lg border border-outline-variant">
+<img alt="Extra Microfiber Cloths" class="w-16 h-16 object-cover rounded bg-surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8hUmdc8dftGw4g2id-ZpiRk1xxJ9bJuE6OOByaTgs1io97WOukCUdliFDwoZrramQJ-bpzbhqh0eJgVvCreYS5LBlEaoLIGwr0dUPoiItnybL1TLd2yiGesNh8Ah7uD3Ql5V-PlPQxzKGnk27L5spxRB7lToAuV8yPRaWHLZQbdNVCzhLl5HH8okKNAJJNGzZGRFItZQHJq_KOwSTcBsYS1KgydS1Tp8Bi-Ise5ND5I4Mf0b6GvdpocHAWwt2Pov-VSlhrrMCImk"/>
+<div class="flex-grow">
+<h4 class="font-body-sm text-body-sm font-bold text-on-surface line-clamp-1">Extra Microfiber Cloths (3-Pack)</h4>
+<p class="font-body-sm text-body-sm text-primary">NPR 450</p>
+</div>
+<input checked="" class="w-5 h-5 text-primary border-outline-variant rounded rounded-DEFAULT focus:ring-primary" type="checkbox"/>
+</div>
+<!-- Item 2 -->
+<div class="flex gap-4 items-center bg-surface-container-lowest p-3 rounded-lg border border-outline-variant">
+<img alt="Keyboard Cleaning Gel" class="w-16 h-16 object-cover rounded bg-surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGmItmNkRrMioyAHBbwiDWJXA0G18RYriGhJqjT_m06IHQJPnd4ShSuUT_vJjZA5eGnSP-hNxGZhEc82Xv1T5gnSoonUVQYRQj8nr88be3_qdTGeVTSmzY2KkIznuezOgQaeMZpKWcjq-VLANC1kWaIZcqtBEZ7BL_MioJSm9SSZQVUqr9oDmFq4KCJozrZ317vU1a0zryv5T1REIq8SrVVgf-s6xlsH92pT4tssNn9N8ffOfHxAlbKfbwePhkWlDYSmDrsaP6kXU"/>
+<div class="flex-grow">
+<h4 class="font-body-sm text-body-sm font-bold text-on-surface line-clamp-1">Keyboard Cleaning Gel</h4>
+<p class="font-body-sm text-body-sm text-primary">NPR 300</p>
+</div>
+<input class="w-5 h-5 text-primary border-outline-variant rounded rounded-DEFAULT focus:ring-primary" type="checkbox"/>
+</div>
+</div>
+<div class="mt-stack-lg pt-stack-md border-t border-outline-variant">
+<div class="flex justify-between items-center mb-stack-md">
+<span class="font-body-md text-body-md text-on-surface-variant">Total Price:</span>
+<span class="font-headline-sm text-headline-sm text-primary">NPR 1,200</span>
+</div>
+<button class="w-full bg-surface-container-highest text-on-surface hover:bg-outline-variant transition-colors font-body-md text-body-md py-2 rounded-lg border border-outline-variant">
+                        Add Both to Cart
+                    </button>
+</div>
+</div>
+</div>
+<!-- Reviews Section -->
+<div class="mb-20">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-lg">Customer Reviews</h2>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Summary -->
+<div class="md:col-span-4 bg-surface-container-lowest rounded-xl shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant p-stack-lg flex flex-col gap-stack-md h-fit">
+<div class="flex items-center gap-4">
+<span class="font-display-lg text-display-lg text-primary">4.8</span>
+<div>
+<div class="flex text-[#F59E0B] mb-1">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[20px]">star_half</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Based on 128 reviews</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 w-full mt-4">
+<!-- 5 star -->
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant w-12">5 Star</span>
+<div class="flex-grow h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-[#F59E0B] w-[80%]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant w-8 text-right">80%</span>
+</div>
+<!-- 4 star -->
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant w-12">4 Star</span>
+<div class="flex-grow h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-[#F59E0B] w-[15%]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant w-8 text-right">15%</span>
+</div>
+<!-- 3 star -->
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant w-12">3 Star</span>
+<div class="flex-grow h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-[#F59E0B] w-[3%]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant w-8 text-right">3%</span>
+</div>
+<!-- 2 star -->
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant w-12">2 Star</span>
+<div class="flex-grow h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-[#F59E0B] w-[1%]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant w-8 text-right">1%</span>
+</div>
+<!-- 1 star -->
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant w-12">1 Star</span>
+<div class="flex-grow h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-[#F59E0B] w-[1%]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant w-8 text-right">1%</span>
+</div>
+</div>
+<button class="mt-4 w-full border border-primary text-primary font-headline-sm text-headline-sm rounded-lg h-12 hover:bg-surface-container-low transition-colors">Write a Review</button>
+</div>
+<!-- Review List -->
+<div class="md:col-span-8 flex flex-col gap-stack-lg">
+<!-- Review Item 1 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-stack-lg">
+<div class="flex justify-between items-start mb-stack-md">
+<div>
+<div class="flex text-[#F59E0B] mb-1">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Excellent Quality</h4>
+</div>
+<span class="font-body-sm text-body-sm text-outline">Oct 12, 2023</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">This cleaning kit is fantastic. The microfiber cloth is super soft and doesn't scratch my screens. The brush is great for getting dust out of the keyboard crevices.</p>
+<span class="font-body-sm text-body-sm text-on-surface font-bold mt-4 block">Alex M.</span>
+</div>
+<!-- Review Item 2 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-stack-lg">
+<div class="flex justify-between items-start mb-stack-md">
+<div>
+<div class="flex text-[#F59E0B] mb-1">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]">star_half</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Does the job well</h4>
+</div>
+<span class="font-body-sm text-body-sm text-outline">Sep 28, 2023</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">The spray solution doesn't leave any streaks, which is exactly what I was looking for. The bottle is a bit smaller than expected, but a little goes a long way.</p>
+<span class="font-body-sm text-body-sm text-on-surface font-bold mt-4 block">Sarah T.</span>
+</div>
+<!-- Review Item 3 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-stack-lg">
+<div class="flex justify-between items-start mb-stack-md">
+<div>
+<div class="flex text-[#F59E0B] mb-1">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Must have for laptop owners</h4>
+</div>
+<span class="font-body-sm text-body-sm text-outline">Sep 05, 2023</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">I keep this in my laptop bag everywhere I go. The components feel premium and it keeps my screen looking brand new. Highly recommend.</p>
+<span class="font-body-sm text-body-sm text-on-surface font-bold mt-4 block">David L.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Recommended Products Section -->
+<div class="mb-10">
+<div class="flex justify-between items-end mb-stack-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface">You Might Also Like</h2>
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="flex overflow-x-auto gap-gutter pb-4 snap-x snap-mandatory hide-scrollbar">
+<!-- Card 1 -->
+<div class="min-w-[280px] w-[280px] flex-shrink-0 snap-start bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant group cursor-pointer">
+<div class="aspect-square bg-surface-container relative overflow-hidden">
+<img alt="Wireless Ergonomic Mouse" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCu8P8ycNywngZCCKkm3OnwhAXuUP44gC-i2z-Ig9PBWII8bmjX-P2Ba33EPwH91tGWDAjDPhZ_gRE4kOKahXdUb15zfmnBtFMBqtGneKaEAiC11kkK-t5u5xC3-9BMkPMEPiYGeyWtW4aAOQmPBTdCOw-1xz-ohCFBVPo3HP5uCD71pW9Z8vy4TqOd6QkXQiact3iNE4zAVzKvVJSkq-DPPIk748SGyx09cubI-kCKuixuShBsgfnOg75r9iqdrr28-9S0HcxS9uI"/>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-2">Wireless Ergonomic Mouse</h3>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">4.6 (89)</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary mt-1">NPR 1,200</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="min-w-[280px] w-[280px] flex-shrink-0 snap-start bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant group cursor-pointer">
+<div class="aspect-square bg-surface-container relative overflow-hidden">
+<img alt="Noise Cancelling Headphones" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR3h9I3tX1g8DL_ji2XokyBN1V37wXrbQoNvtugNokBhnp33Gar-Bkx8UQYZGVh24BkVZyT7-FvBCG9asUwsmPdAJuhU0JxA0MpNHQAofqLqGZjU-kJO8EPg7qREYB0dfD4TPf3S_pT1-H-dAhktIG_yDR4Vj97VxXxyBex2aitOkWqOwJ1eV9NOhcxrr6n-dgiFVQye7tLNUcSaAx1ri815q2ypnpL_JJ39cqxiTSKm5IIZgjKZ8SFLHYBhgIyYu4U92UQlVFJ1I"/>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-2">Premium ANC Headphones</h3>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">4.9 (214)</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary mt-1">NPR 12,500</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="min-w-[280px] w-[280px] flex-shrink-0 snap-start bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant group cursor-pointer">
+<div class="aspect-square bg-surface-container relative overflow-hidden">
+<img alt="Braided Charging Cable" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkzuwRJmcj2b2iWFwbLPPm0zDBbf2ciAUyNGuqbdCzgn2zC7sXToIZRZlrqGpXci1QL92F4ZOMUq60ivApIoZ59kt0zu17_Cr55deendBwhB1lYsSzCEb59nwOpelaWSLiJ8MXh0ZvUfDREOMjqvB08cspX4RrDU5tjRTO4jy1h4JEJAWfNLMwRyHBQ9FaXkaoBWH_ynjf0cf3Pt8-T5p7CohOeVdqap9ugV3S-ZD3LeJZimnARqV5Hd0MWU_i8FpOaLEqcWA5vqQ"/>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-2">Braided USB-C Charging Cable (2m)</h3>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">4.5 (342)</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary mt-1">NPR 850</span>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="min-w-[280px] w-[280px] flex-shrink-0 snap-start bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_12px_rgba(15,76,92,0.05)] border border-outline-variant group cursor-pointer">
+<div class="aspect-square bg-surface-container relative overflow-hidden">
+<img alt="Mechanical Keyboard" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdYWIf6j99PSBai1pD5ouXi5Ker_SS87ChncQyqelMzGrtmUTldT-cg2KkccS1uKORk3lBMPwq6vVyquT-DG7r74XZrV8lH1chfUTYPH4VqrqJN8XZiU3UrO-W18dVH7KPfn3c39Xvmt1mxvXBhvI23Os_-JQeaZC8F844Kqrkv5WDoyq3I3jlTxPNLbx0Lr_bwYGztICo5wZaPAPte6VScDeHnvveX8GPdRRG3iyNCeBt0kJ4wdb1iFG5Px8e8GnZwO8aruIR6qQ"/>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-2">Compact Mechanical Keyboard</h3>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#F59E0B]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">4.8 (156)</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary mt-1">NPR 4,500</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Component -->
+<footer class="bg-surface-container-highest border-t border-outline-variant full-width bottom mt-auto">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-12 max-w-container-max mx-auto">
+<div class="flex flex-col gap-4">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">Balapasa</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Premium electronics and accessories for modern professionals.</p>
+</div>
+<div class="flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface font-bold uppercase tracking-wider mb-2">Shop</span>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Computers</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Mobiles</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Accessories</a>
+</div>
+<div class="flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface font-bold uppercase tracking-wider mb-2">Support</span>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Shipping Info</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Contact Us</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Returns</a>
+</div>
+<div class="flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-surface font-bold uppercase tracking-wider mb-2">Legal</span>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Terms of Service</a>
+</div>
+</div>
+<div class="border-t border-outline-variant py-6 px-margin-desktop text-center">
+<p class="font-body-sm text-body-sm text-on-surface-variant">© 2024 Balapasa Electronics. All rights reserved.</p>
+</div>
+</footer>
+</body></html>
