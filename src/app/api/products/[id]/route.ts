@@ -28,7 +28,11 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory,
       brand, sku, barcode, weight, boughtTogetherIds,
-    } = body
+      variantOptions, variants,
+    } = body as Record<string, unknown> & {
+      variantOptions?: { name: string; values: string[] }[]
+      variants?: { title: string; sku?: string | null; price?: number | null; stock?: number; image?: string | null; options: Record<string, string> }[]
+    }
 
     const data: Record<string, unknown> = {}
     if (name              !== undefined) data.name              = name
@@ -54,7 +58,47 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     if (weight            !== undefined) data.weight            = weight  ? Number(weight) : null
     if (boughtTogetherIds !== undefined) data.boughtTogetherIds = Array.isArray(boughtTogetherIds) ? boughtTogetherIds : []
 
-    const product = await prisma.product.update({ where: { id }, data })
+    // If the body includes variant fields, treat them as the full desired state
+    // and replace existing rows. The admin form always sends the complete list,
+    // so a wholesale replace is simpler and safer than diffing by id/title.
+    const replaceVariants = variants !== undefined
+    const replaceOptions  = variantOptions !== undefined
+
+    const product = await prisma.$transaction(async tx => {
+      const updated = await tx.product.update({ where: { id }, data })
+
+      if (replaceOptions) {
+        await tx.productOption.deleteMany({ where: { productId: id } })
+        if (Array.isArray(variantOptions) && variantOptions.length) {
+          await tx.productOption.createMany({
+            data: variantOptions.map((opt, i) => ({
+              productId: id, name: opt.name, values: opt.values, position: i,
+            })),
+          })
+        }
+      }
+
+      if (replaceVariants) {
+        // Variant rows may carry a unique SKU — delete first so re-using SKUs works.
+        await tx.productVariant.deleteMany({ where: { productId: id } })
+        if (Array.isArray(variants) && variants.length) {
+          await tx.productVariant.createMany({
+            data: variants.map(v => ({
+              productId: id,
+              title:     v.title,
+              sku:       v.sku   || null,
+              price:     v.price != null ? Number(v.price) : null,
+              stock:     Number(v.stock ?? 0),
+              image:     v.image || null,
+              options:   v.options,
+            })),
+          })
+        }
+      }
+
+      return updated
+    })
+
     return Response.json(product)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
