@@ -95,6 +95,8 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
       params.sort === 'price-asc'  ? { price:     'asc'  } :
       params.sort === 'price-desc' ? { price:     'desc' } :
       params.sort === 'rating'     ? { rating:    'desc' } :
+      params.sort === 'popular'    ? { viewCount: 'desc' } :
+      // 'newest' (explicit) + any unknown value falls through to createdAt desc
                                      { createdAt: 'desc' }
 
     const include = { category: { select: { name: true } } }

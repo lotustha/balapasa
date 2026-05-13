@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { getPathaoConfig, getPicknDropConfig } from '@/lib/logistics-config'
 
-// Store is always Kathmandu — use precise coords for reliability
-const STORE_LAT = 27.7172
-const STORE_LON = 85.3240
+// Fallback if neither logistics config has a store location set
+const FALLBACK_LAT = 27.7172
+const FALLBACK_LON = 85.3240
+const FALLBACK_LABEL = 'Kathmandu'
 
 interface OWMPayload {
   weather: { id: number; main: string; description: string }[]
@@ -31,10 +33,33 @@ async function owmByCity(city: string, key: string): Promise<OWMPayload | null> 
     )
     if (!res.ok) return null
     const data: OWMPayload = await res.json()
-    // OWM returns cod:404 as a string when city not found
     if (data.cod && String(data.cod) !== '200') return null
     return data
   } catch { return null }
+}
+
+// Resolves the store's weather. Priority:
+//   1. Pathao storeLat/storeLng (most precise — set in admin Settings)
+//   2. PnD pickupArea (city name — uses OWM city lookup)
+//   3. Fallback: hardcoded Kathmandu coords
+async function fetchStoreWeather(apiKey: string): Promise<{ data: OWMPayload | null; label: string }> {
+  const [pathao, pnd] = await Promise.all([
+    getPathaoConfig().catch(() => null),
+    getPicknDropConfig().catch(() => null),
+  ])
+
+  if (pathao?.storeLat && pathao?.storeLng) {
+    const data = await owmByCoords(pathao.storeLat, pathao.storeLng, apiKey)
+    if (data) return { data, label: pathao.storeName || data.name || FALLBACK_LABEL }
+  }
+
+  if (pnd?.pickupArea) {
+    const data = await owmByCity(pnd.pickupArea, apiKey)
+    if (data) return { data, label: pnd.pickupArea }
+  }
+
+  const data = await owmByCoords(FALLBACK_LAT, FALLBACK_LON, apiKey)
+  return { data, label: FALLBACK_LABEL }
 }
 
 export async function POST(req: Request) {
@@ -46,14 +71,13 @@ export async function POST(req: Request) {
     district: string
   }
 
-  const [store, destByMunicipality, destByDistrict] = await Promise.all([
-    owmByCoords(STORE_LAT, STORE_LON, apiKey),
+  const [storeRes, destByMunicipality, destByDistrict] = await Promise.all([
+    fetchStoreWeather(apiKey),
     municipality ? owmByCity(municipality, apiKey) : Promise.resolve(null),
     district     ? owmByCity(district, apiKey)     : Promise.resolve(null),
   ])
 
-  // Prefer municipality name; fall back to district if OWM doesn't recognise it
   const destination = destByMunicipality ?? destByDistrict
 
-  return NextResponse.json({ store, destination })
+  return NextResponse.json({ store: storeRes.data, storeLabel: storeRes.label, destination })
 }

@@ -178,6 +178,7 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 }
 
 /* ── Rich text editor render styles (product detail page) ─────────────── */
+.rte-render               { overflow-wrap: anywhere; word-break: break-word; min-width: 0; max-width: 100%; }
 .rte-render p             { margin: 0 0 0.75em; }
 .rte-render p:last-child  { margin-bottom: 0; }
 .rte-render h1            { font-size: 1.4rem; font-weight: 800; margin: 1.1em 0 0.4em; color: #0f172a; }
@@ -188,10 +189,20 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 .rte-render li            { margin: 0.25em 0; }
 .rte-render blockquote    { border-left: 3px solid #16a34a; padding-left: 1em; margin: 0.75em 0; color: #475569; font-style: italic; }
 .rte-render hr            { border: none; border-top: 1px solid #e2e8f0; margin: 1em 0; }
-.rte-render code          { background: #f1f5f9; border-radius: 4px; padding: 0.15em 0.4em; font-family: monospace; font-size: 0.85em; color: #be185d; }
-.rte-render a             { color: #16a34a; text-decoration: underline; }
+.rte-render code          { background: #f1f5f9; border-radius: 4px; padding: 0.15em 0.4em; font-family: monospace; font-size: 0.85em; color: #be185d; word-break: break-all; }
+.rte-render a             { color: #16a34a; text-decoration: underline; word-break: break-all; }
 .rte-render strong        { font-weight: 700; color: #0f172a; }
 .rte-render em            { font-style: italic; }
+/* Embedded media stays inside the card */
+.rte-render img,
+.rte-render video,
+.rte-render iframe        { max-width: 100%; height: auto; display: block; border-radius: 0.5rem; margin: 0.5em 0; }
+.rte-render pre           { overflow-x: auto; max-width: 100%; padding: 0.75em; background: #f1f5f9; border-radius: 0.5rem; font-size: 0.85em; white-space: pre-wrap; word-break: break-word; }
+.rte-render pre code      { background: none; padding: 0; color: inherit; word-break: normal; }
+/* Tables: horizontal scroll on overflow rather than blowing past the card */
+.rte-render table         { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; margin: 0.5em 0; }
+.rte-render th,
+.rte-render td            { border: 1px solid #e2e8f0; padding: 0.4em 0.6em; font-size: 0.85em; }
 @keyframes iridescent-shift {
   0%   { background-position: 0% center; }
   100% { background-position: 200% center; }

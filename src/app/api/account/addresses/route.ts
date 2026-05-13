@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
       label: string; name: string; phone: string
       address: string; house: string; road: string; city: string
       lat: number; lng: number; isDefault: boolean
+      province: string; district: string; municipality: string
+      ward: string; street: string; tole: string
     }>
 
     if (!body.name?.trim() || !body.phone?.trim() || !body.address?.trim()) {
@@ -45,17 +47,23 @@ export async function POST(req: NextRequest) {
 
     const created = await prisma.address.create({
       data: {
-        userId:    user.sub,
-        label:     body.label?.trim() || 'Home',
-        name:      body.name.trim(),
-        phone:     body.phone.trim(),
-        address:   body.address.trim(),
-        house:     body.house?.trim() || null,
-        road:      body.road?.trim()  || null,
-        city:      body.city?.trim()  || 'Kathmandu',
-        lat:       typeof body.lat === 'number' ? body.lat : null,
-        lng:       typeof body.lng === 'number' ? body.lng : null,
-        isDefault: setDefault,
+        userId:       user.sub,
+        label:        body.label?.trim() || 'Home',
+        name:         body.name.trim(),
+        phone:        body.phone.trim(),
+        address:      body.address.trim(),
+        house:        body.house?.trim() || null,
+        road:         body.road?.trim()  || null,
+        city:         body.city?.trim()  || 'Kathmandu',
+        lat:          typeof body.lat === 'number' ? body.lat : null,
+        lng:          typeof body.lng === 'number' ? body.lng : null,
+        isDefault:    setDefault,
+        province:     body.province?.trim()     || null,
+        district:     body.district?.trim()     || null,
+        municipality: body.municipality?.trim() || null,
+        ward:         body.ward?.trim()         || null,
+        street:       body.street?.trim()       || null,
+        tole:         body.tole?.trim()         || null,
       },
     })
     return Response.json({ address: created }, { status: 201 })

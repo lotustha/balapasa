@@ -19,10 +19,14 @@ export interface PathaoConfig {
 }
 
 export interface PicknDropConfig {
-  baseUrl:    string
-  apiKey:     string
-  apiSecret:  string
-  isActive:   boolean
+  baseUrl:        string
+  apiKey:         string
+  apiSecret:      string
+  pickupBranch:   string
+  pickupArea:     string
+  pickupLocation: string
+  maxSurgeNpr:    number      // cap on surge passed through; 0 = no cap
+  isActive:       boolean
 }
 
 // ── Module-level cache so we don't hit DB every request ───────────────────────
@@ -75,10 +79,14 @@ export async function getPicknDropConfig(): Promise<PicknDropConfig> {
   const row = await getRow('PICKNDROP')
 
   const cfg: PicknDropConfig = {
-    baseUrl:   row?.baseUrl   ?? process.env.PICKNDROP_BASE_URL    ?? 'https://app-t.pickndropnepal.com',
-    apiKey:    row?.apiKey    ?? process.env.PICKNDROP_API_KEY     ?? 'bf1a7ce75dacf51',
-    apiSecret: row?.apiSecret ?? process.env.PICKNDROP_API_SECRET  ?? '63b8931e70aee27',
-    isActive:  row !== null ? row.isActive : true,
+    baseUrl:        row?.baseUrl        ?? process.env.PICKNDROP_BASE_URL        ?? 'https://app-t.pickndropnepal.com',
+    apiKey:         row?.apiKey         ?? process.env.PICKNDROP_API_KEY         ?? 'bf1a7ce75dacf51',
+    apiSecret:      row?.apiSecret      ?? process.env.PICKNDROP_API_SECRET      ?? '63b8931e70aee27',
+    pickupBranch:   row?.pickupBranch   ?? process.env.PICKNDROP_PICKUP_BRANCH   ?? 'KATHMANDU VALLEY',
+    pickupArea:     row?.pickupArea     ?? process.env.PICKNDROP_PICKUP_AREA     ?? 'Kathmandu',
+    pickupLocation: row?.pickupLocation ?? process.env.PICKNDROP_PICKUP_LOCATION ?? 'Balaju',
+    maxSurgeNpr:    row?.maxSurgeNpr ?? Number(process.env.PICKNDROP_MAX_SURGE_NPR ?? 0),
+    isActive:       row !== null ? row.isActive : true,
   }
 
   _pndCache = { data: cfg, at: Date.now() }
@@ -113,12 +121,15 @@ export async function seedDefaultsIfMissing() {
       where:  { provider: 'PICKNDROP' },
       update: {},
       create: {
-        provider:  'PICKNDROP',
-        isActive:  true,
-        isMock:    false,
-        apiKey:    process.env.PICKNDROP_API_KEY    ?? 'bf1a7ce75dacf51',
-        apiSecret: process.env.PICKNDROP_API_SECRET ?? '63b8931e70aee27',
-        baseUrl:   process.env.PICKNDROP_BASE_URL   ?? 'https://app-t.pickndropnepal.com',
+        provider:       'PICKNDROP',
+        isActive:       true,
+        isMock:         false,
+        apiKey:         process.env.PICKNDROP_API_KEY         ?? 'bf1a7ce75dacf51',
+        apiSecret:      process.env.PICKNDROP_API_SECRET      ?? '63b8931e70aee27',
+        baseUrl:        process.env.PICKNDROP_BASE_URL        ?? 'https://app-t.pickndropnepal.com',
+        pickupBranch:   process.env.PICKNDROP_PICKUP_BRANCH   ?? 'KATHMANDU VALLEY',
+        pickupArea:     process.env.PICKNDROP_PICKUP_AREA     ?? 'Kathmandu',
+        pickupLocation: process.env.PICKNDROP_PICKUP_LOCATION ?? 'Balaju',
       },
     })
   } catch {

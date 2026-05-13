@@ -98,11 +98,11 @@ export async function POST(req: NextRequest) {
     errors.push(`Pathao: ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  // ── 2. Pick & Drop (only if active; uses static rate matrix) ────────────────
+  // ── 2. Pick & Drop (live rate API, with hand-tuned fallback inside lib) ────
   if (pndConfig.isActive) try {
     const fromCity = 'Kathmandu'
     const toCity   = district ?? municipality ?? 'Kathmandu'
-    const pndRates = calculatePndRates(fromCity, toCity)
+    const pndRates = await calculatePndRates(fromCity, toCity)
 
     for (const rate of pndRates) {
       options.push({

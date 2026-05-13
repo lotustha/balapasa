@@ -78,6 +78,9 @@ model Product {
   barcode           String?
   weight            Float?
   videoUrl          String?  @map("video_url")
+  kind                ProductKind @default(PHYSICAL)
+  digitalDeliveryNote String?     @db.Text @map("digital_delivery_note")
+  planId              String?     @map("plan_id")
   boughtTogetherIds String[] @default([]) @map("bought_together_ids")
   viewCount         Int      @default(0) @map("view_count")
   rating            Float    @default(0)
@@ -234,6 +237,16 @@ model Address {
   lng       Float?
   isDefault Boolean @default(false) @map("is_default")
 
+  // Structured Nepal address fields — nullable for back-compat with addresses
+  // created before this migration. New addresses captured via NepalAddressSelector
+  // populate these so saved addresses round-trip cleanly back into the picker.
+  province     String?
+  district     String?
+  municipality String?
+  ward         String?
+  street       String?
+  tole         String?
+
   user Profile @relation(fields: [userId], references: [id])
 
   @@map("addresses")
@@ -288,6 +301,14 @@ model LogisticsSettings {
   storeAddress String?  @map("store_address")
   storeLat     Float?   @map("store_lat")
   storeLng     Float?   @map("store_lng")
+
+  // Pick & Drop pickup defaults — used as `pickup_branch`/`city_area`/`location` on rate + create_order calls
+  pickupBranch   String? @map("pickup_branch")
+  pickupArea     String? @map("pickup_area")
+  pickupLocation String? @map("pickup_location")
+
+  // Cap on surge price passed through to customer (NPR). null/0 = no cap.
+  maxSurgeNpr    Float?  @map("max_surge_npr")
 
   // Base URL override
   baseUrl      String?  @map("base_url")
@@ -441,6 +462,38 @@ enum CouponType {
   FIXED
 }
 
+model GiftCard {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  initialValue    Float    @map("initial_value")  // What it was issued for
+  balance         Float                            // Current remaining (drops on redemption)
+  expiresAt       DateTime? @map("expires_at")
+  isActive        Boolean  @default(true) @map("is_active")
+  issuedToEmail   String?  @map("issued_to_email")
+  issuedToUserId  String?  @map("issued_to_user_id")
+  note            String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  redemptions     GiftCardRedemption[]
+
+  @@map("gift_cards")
+}
+
+model GiftCardRedemption {
+  id          String   @id @default(cuid())
+  giftCardId  String   @map("gift_card_id")
+  orderId     String   @map("order_id")
+  amount      Float
+  redeemedAt  DateTime @default(now()) @map("redeemed_at")
+
+  giftCard    GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+
+  @@index([giftCardId])
+  @@index([orderId])
+  @@map("gift_card_redemptions")
+}
+
 enum Role {
   CUSTOMER  // Shoppers — account, orders, wishlist
   STAFF     // View/update orders, customer support only
@@ -469,4 +522,92 @@ enum PaymentStatus {
   PAID
   REFUNDED
   FAILED
+}
+
+enum ProductKind {
+  PHYSICAL
+  DIGITAL
+  SUBSCRIPTION
+}
+
+model Plan {
+  id            String       @id @default(cuid())
+  name          String
+  description   String?      @db.Text
+  amount        Float
+  interval      PlanInterval
+  intervalCount Int          @default(1) @map("interval_count")
+  trialDays     Int          @default(0) @map("trial_days")
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+enum PlanInterval {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String             @map("user_id")
+  planId             String             @map("plan_id")
+  status             SubscriptionStatus @default(ACTIVE)
+  startedAt          DateTime           @default(now()) @map("started_at")
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  cancelAtPeriodEnd  Boolean            @default(false) @map("cancel_at_period_end")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  notes              String?            @db.Text
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  plan     Plan      @relation(fields: [planId], references: [id])
+  invoices Invoice[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+  TRIALING
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  subscriptionId String?       @map("subscription_id")
+  userId         String        @map("user_id")
+  number         String        @unique
+  amount         Float
+  status         InvoiceStatus @default(OPEN)
+  dueDate        DateTime      @map("due_date")
+  paidAt         DateTime?     @map("paid_at")
+  paymentMethod  String?       @map("payment_method")
+  transactionId  String?       @map("transaction_id")
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+  OVERDUE
+  VOID
 }

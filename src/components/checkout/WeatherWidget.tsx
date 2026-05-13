@@ -12,6 +12,7 @@ export interface WeatherData {
 interface Props {
   store:       WeatherData | null
   destination: WeatherData | null
+  storeLabel?: string
 }
 
 type Cond = 'clear' | 'partly-cloudy' | 'cloudy' | 'rain' | 'drizzle' | 'storm' | 'snow' | 'mist'
@@ -201,7 +202,7 @@ const ICONS: Record<Cond, () => React.JSX.Element> = {
   'snow': SnowIcon, 'mist': MistIcon,
 }
 
-function WeatherCard({ data, isStore }: { data: WeatherData; isStore: boolean }) {
+function WeatherCard({ data, isStore, storeLabel }: { data: WeatherData; isStore: boolean; storeLabel?: string }) {
   const c    = cond(data.weather[0].id)
   const Icon = ICONS[c]
   return (
@@ -212,7 +213,7 @@ function WeatherCard({ data, isStore }: { data: WeatherData; isStore: boolean })
           : <MapPin   size={11} className="text-slate-500 shrink-0" />
         }
         <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">
-          {isStore ? 'Store · Kathmandu' : 'Your Destination'}
+          {isStore ? `Store · ${storeLabel ?? data.name ?? 'Pickup'}` : 'Your Destination'}
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -236,7 +237,7 @@ function WeatherCard({ data, isStore }: { data: WeatherData; isStore: boolean })
   )
 }
 
-export default function WeatherWidget({ store, destination }: Props) {
+export default function WeatherWidget({ store, destination, storeLabel }: Props) {
   if (!store && !destination) return null
 
   const impactData   = destination ?? store
@@ -258,7 +259,7 @@ export default function WeatherWidget({ store, destination }: Props) {
       <div className="p-4 space-y-3">
         {/* Cards — one or two depending on same/different city */}
         <div className={`flex gap-3 ${!showDest ? 'justify-center' : ''}`}>
-          {store      && <WeatherCard data={store}       isStore />}
+          {store      && <WeatherCard data={store}       isStore storeLabel={storeLabel} />}
           {showDest   && <WeatherCard data={destination!} isStore={false} />}
         </div>
 

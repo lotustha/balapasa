@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { invalidatePathaoCache, invalidatePndCache, seedDefaultsIfMissing } from '@/lib/logistics-config'
+import { invalidatePndBranchCache, invalidatePndRateCache } from '@/lib/pickndrop'
 
 export async function GET() {
   await seedDefaultsIfMissing()
@@ -25,7 +26,11 @@ export async function PATCH(req: NextRequest) {
 
     // Bust the in-memory config cache
     if (provider === 'PATHAO')    invalidatePathaoCache()
-    if (provider === 'PICKNDROP') invalidatePndCache()
+    if (provider === 'PICKNDROP') {
+      invalidatePndCache()
+      invalidatePndBranchCache()
+      invalidatePndRateCache()
+    }
 
     // Also invalidate Pathao auth token when credentials change
     if (provider === 'PATHAO' && (data.clientId || data.clientSecret)) {

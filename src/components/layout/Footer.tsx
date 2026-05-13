@@ -1,7 +1,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Heart } from 'lucide-react'
-import { STORE_NAME } from '@/lib/config'
+
+interface FooterProps {
+  siteName?:   string
+  brandSplit?: { primary: string; accent: string }
+  logoUrl?:    string
+}
 
 function FacebookIcon() {
   return <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -44,7 +49,11 @@ const SOCIALS = [
   { href: '#', icon: YoutubeIcon,   label: 'YouTube'   },
 ]
 
-export default function Footer() {
+export default function Footer({
+  siteName   = 'Balapasa',
+  brandSplit = { primary: 'Bala', accent: 'pasa' },
+  logoUrl    = '/logo.png',
+}: FooterProps = {}) {
   return (
     <footer
       className="relative overflow-hidden"
@@ -61,9 +70,10 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5 mb-5 cursor-pointer">
-              <Image src="/logo.png" alt={STORE_NAME} width={40} height={40} className="rounded-2xl" />
+              <Image src={logoUrl} alt={siteName} width={40} height={40} className="rounded-2xl" />
               <span className="font-heading font-bold text-xl text-slate-800">
-                Bala<span className="iridescent-text">pasa</span>
+                {brandSplit.primary}
+                {brandSplit.accent && <span className="iridescent-text">{brandSplit.accent}</span>}
               </span>
             </Link>
             <p className="text-sm text-slate-500 leading-relaxed max-w-xs">
@@ -112,7 +122,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-slate-400 flex items-center gap-1">
             Made with <Heart size={10} className="text-pink-500 fill-pink-500" /> in Nepal &middot;
-            &copy; {new Date().getFullYear()} {STORE_NAME}
+            &copy; {new Date().getFullYear()} {siteName}
           </p>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 mr-1">We accept</span>

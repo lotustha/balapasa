@@ -6,38 +6,86 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Settings, BarChart3, Truck, LogOut, Upload, Ticket, Zap, MessageCircle, DollarSign, Monitor,
-  ShieldCheck,
+  Tag, Settings, BarChart3, Truck, LogOut, Ticket, Zap, MessageCircle, DollarSign, Monitor,
+  ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 
-// minRole: the minimum role required to see this nav item
-// STAFF < MANAGER < ADMIN
-const NAV = [
-  { href: '/admin',            icon: LayoutDashboard, label: 'Dashboard',  minRole: 'STAFF'   },
-  { href: '/admin/orders',     icon: ShoppingBag,     label: 'Orders',     minRole: 'STAFF'   },
-  { href: '/admin/products',   icon: Package,         label: 'Products',   minRole: 'MANAGER' },
-  { href: '/admin/customers',  icon: Users,           label: 'Customers',  minRole: 'MANAGER' },
-  { href: '/admin/team',       icon: ShieldCheck,     label: 'Team',       minRole: 'ADMIN'   },
-  { href: '/admin/categories', icon: Tag,             label: 'Categories', minRole: 'MANAGER' },
-  { href: '/admin/coupons',     icon: Ticket,          label: 'Coupons',     minRole: 'MANAGER' },
-  { href: '/admin/promotions',  icon: Zap,             label: 'Promotions',  minRole: 'MANAGER' },
-  { href: '/admin/analytics',  icon: BarChart3,       label: 'Analytics',  minRole: 'MANAGER' },
-  { href: '/admin/finance',    icon: DollarSign,      label: 'Finance',    minRole: 'MANAGER' },
-  { href: '/admin/pos',        icon: Monitor,         label: 'POS',        minRole: 'STAFF'   },
-  { href: '/admin/logistics',  icon: Truck,           label: 'Logistics',   minRole: 'ADMIN'   },
-  { href: '/admin/messaging',  icon: MessageCircle,   label: 'Messaging',   minRole: 'STAFF'   },
-  { href: '/admin/settings',   icon: Settings,        label: 'Settings',   minRole: 'ADMIN'   },
+type Role = 'STAFF' | 'MANAGER' | 'ADMIN'
+const ROLE_RANK: Record<Role, number> = { STAFF: 1, MANAGER: 2, ADMIN: 3 }
+
+interface NavItem  { href: string; icon: LucideIcon; label: string; minRole: Role }
+interface NavGroup { label: string; items: NavItem[] }
+
+// Grouped IA — 7 sections, each ≤ 4 items.
+// Items are role-filtered at render. Empty groups (after filtering) are hidden.
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Operations',
+    items: [
+      { href: '/admin',         icon: LayoutDashboard, label: 'Dashboard', minRole: 'STAFF' },
+      { href: '/admin/orders',  icon: ShoppingBag,     label: 'Orders',    minRole: 'STAFF' },
+      { href: '/admin/pos',     icon: Monitor,         label: 'POS',       minRole: 'STAFF' },
+    ],
+  },
+  {
+    label: 'Catalog',
+    items: [
+      { href: '/admin/products',   icon: Package, label: 'Products',   minRole: 'MANAGER' },
+      { href: '/admin/inventory',  icon: Boxes,   label: 'Inventory',  minRole: 'MANAGER' },
+      { href: '/admin/categories', icon: Tag,     label: 'Categories', minRole: 'MANAGER' },
+      { href: '/admin/suppliers',  icon: Factory, label: 'Suppliers',  minRole: 'MANAGER' },
+      { href: '/admin/plans',      icon: Repeat,  label: 'Plans',      minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Customers',
+    items: [
+      { href: '/admin/customers',     icon: Users,  label: 'Customers',     minRole: 'MANAGER' },
+      { href: '/admin/subscriptions', icon: Repeat, label: 'Subscriptions', minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Marketing',
+    items: [
+      { href: '/admin/promotions', icon: Zap,    label: 'Promotions', minRole: 'MANAGER' },
+      { href: '/admin/coupons',    icon: Ticket, label: 'Coupons',    minRole: 'MANAGER' },
+      { href: '/admin/gift-cards', icon: Gift,   label: 'Gift Cards', minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Reports',
+    items: [
+      { href: '/admin/analytics', icon: BarChart3,  label: 'Analytics', minRole: 'MANAGER' },
+      { href: '/admin/finance',   icon: DollarSign, label: 'Finance',   minRole: 'MANAGER' },
+      { href: '/admin/invoices',  icon: FileText,   label: 'Invoices',  minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Channels',
+    items: [
+      { href: '/admin/logistics', icon: Truck,         label: 'Logistics', minRole: 'ADMIN' },
+      { href: '/admin/messaging', icon: MessageCircle, label: 'Messaging', minRole: 'STAFF' },
+      { href: '/admin/import',    icon: Download,      label: 'Import',    minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Administration',
+    items: [
+      { href: '/admin/team',     icon: ShieldCheck, label: 'Team',     minRole: 'ADMIN' },
+      { href: '/admin/settings', icon: Settings,    label: 'Settings', minRole: 'ADMIN' },
+    ],
+  },
 ]
 
-const ROLE_RANK: Record<string, number> = { STAFF: 1, MANAGER: 2, ADMIN: 3 }
-function canAccess(userRole: string, minRole: string) {
-  return (ROLE_RANK[userRole] ?? 0) >= (ROLE_RANK[minRole] ?? 99)
+function canAccess(userRole: Role, minRole: Role) {
+  return ROLE_RANK[userRole] >= ROLE_RANK[minRole]
 }
 
 export default function AdminNav() {
   const pathname  = usePathname()
-  const [role, setRole] = useState<string>('ADMIN')
+  const [role, setRole] = useState<Role>('ADMIN')
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.role) setRole(d.role) }).catch(() => {})
@@ -48,7 +96,9 @@ export default function AdminNav() {
     return pathname.startsWith(href)
   }
 
-  const visibleNav = NAV.filter(item => canAccess(role, item.minRole))
+  const visibleGroups = NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(item => canAccess(role, item.minRole)) }))
+    .filter(g => g.items.length > 0)
 
   return (
     <aside className="w-64 shrink-0 hidden md:flex flex-col min-h-screen"
@@ -64,30 +114,36 @@ export default function AdminNav() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {visibleNav.map(({ href, icon: Icon, label }) => {
-          const active = isActive(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer ${
-                active
-                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <Icon size={16} className={active ? 'text-white' : ''} />
-              {label}
-              {active && <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full opacity-70" />}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        {visibleGroups.map(group => (
+          <div key={group.label}>
+            <p className="px-3 mb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">{group.label}</p>
+            <div className="space-y-0.5">
+              {group.items.map(({ href, icon: Icon, label }) => {
+                const active = isActive(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer ${
+                      active
+                        ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <Icon size={16} className={active ? 'text-white' : ''} />
+                    {label}
+                    {active && <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full opacity-70" />}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-white/5 space-y-2">
-        {/* Admin info */}
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-extrabold text-white shrink-0"
             style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>

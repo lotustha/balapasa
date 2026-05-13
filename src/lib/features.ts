@@ -5,10 +5,11 @@
 export const PAYMENT_METHODS = ['COD', 'PARTIAL_COD', 'ESEWA', 'KHALTI'] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
-// Production launch: COD only. eSewa / Khalti integrations stay in source
-// for the post-launch flip. PARTIAL_COD requires an advance method (ESEWA or
-// KHALTI), so it goes off too — re-enable it after wallets come back.
-export const ENABLED_PAYMENT_METHODS: readonly PaymentMethod[] = ['COD']
+// All payment methods enabled. eSewa + Khalti require working sandbox/prod
+// credentials in .env.local (ESEWA_MERCHANT_CODE, ESEWA_SECRET_KEY,
+// KHALTI_SECRET_KEY) — see src/lib/payment.ts for the contract. PARTIAL_COD
+// works because at least one wallet (ESEWA or KHALTI) is enabled.
+export const ENABLED_PAYMENT_METHODS: readonly PaymentMethod[] = ['COD', 'ESEWA', 'KHALTI', 'PARTIAL_COD']
 
 export function isPaymentMethodEnabled(m: string): m is PaymentMethod {
   return (ENABLED_PAYMENT_METHODS as readonly string[]).includes(m)

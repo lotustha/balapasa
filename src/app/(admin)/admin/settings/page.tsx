@@ -19,6 +19,8 @@ interface StoreForm {
   STORE_NAME: string; STORE_EMAIL: string; STORE_PHONE: string
   STORE_ADDRESS: string; FREE_DELIVERY_THRESHOLD: string; STORE_LOGO_URL: string
   STORE_THEME: string; STORE_FAVICON_URL: string
+  STORE_URL: string
+  SEO_TITLE: string; SEO_DESCRIPTION: string; SEO_KEYWORDS: string
 }
 interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHALTI_SECRET_KEY: string }
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
@@ -341,6 +343,8 @@ interface ProviderRow {
   clientId?: string; clientSecret?: string; apiKey?: string; apiSecret?: string
   storeId?: string; storeName?: string; storePhone?: string; storeAddress?: string
   storeLat?: number | null; storeLng?: number | null; baseUrl?: string; notes?: string
+  pickupBranch?: string; pickupArea?: string; pickupLocation?: string
+  maxSurgeNpr?: number | null
 }
 
 const PATHAO_DEFAULTS: ProviderRow = {
@@ -352,6 +356,8 @@ const PATHAO_DEFAULTS: ProviderRow = {
 const PND_DEFAULTS: ProviderRow = {
   provider: 'PICKNDROP', isActive: true, isMock: false,
   apiKey: '', apiSecret: '', baseUrl: 'https://app-t.pickndropnepal.com',
+  pickupBranch: 'KATHMANDU VALLEY', pickupArea: 'Kathmandu', pickupLocation: 'Balaju',
+  maxSurgeNpr: 0,
 }
 
 function DeliverySettingsPanel() {
@@ -417,8 +423,17 @@ function DeliverySettingsPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPathao(p => ({ ...p, isActive: !p.isActive }))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${pathao.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+            <button
+              type="button"
+              onClick={() => {
+                const next = { ...pathao, isActive: !pathao.isActive }
+                setPathao(next)
+                saveProvider(next)
+              }}
+              disabled={saving === 'PATHAO'}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors disabled:opacity-50 ${pathao.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
+              aria-pressed={pathao.isActive}
+            >
               {pathao.isActive ? 'Active' : 'Disabled'}
             </button>
           </div>
@@ -430,9 +445,20 @@ function DeliverySettingsPanel() {
               <p className="text-sm font-bold text-amber-800">Mock / Test Mode</p>
               <p className="text-xs text-amber-600 mt-0.5">Returns simulated delivery options without calling live Pathao API.</p>
             </div>
-            <button onClick={() => setPathao(p => ({ ...p, isMock: !p.isMock }))}
-              className={`shrink-0 ml-4 w-11 h-6 rounded-full transition-colors cursor-pointer relative ${pathao.isMock ? 'bg-amber-400' : 'bg-green-500'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${pathao.isMock ? 'translate-x-0.5' : 'translate-x-5'}`} />
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pathao.isMock}
+              aria-label="Mock / Test Mode"
+              onClick={() => {
+                const next = { ...pathao, isMock: !pathao.isMock }
+                setPathao(next)
+                saveProvider(next)
+              }}
+              disabled={saving === 'PATHAO'}
+              className={`shrink-0 ml-4 w-11 h-6 rounded-full transition-colors cursor-pointer relative disabled:opacity-60 ${pathao.isMock ? 'bg-amber-500' : 'bg-slate-300'}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${pathao.isMock ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </div>
 
@@ -481,17 +507,61 @@ function DeliverySettingsPanel() {
               <p className="text-[10px] text-slate-400">{pnd.baseUrl}</p>
             </div>
           </div>
-          <button onClick={() => setPnd(p => ({ ...p, isActive: !p.isActive }))}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${pnd.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+          <button
+            type="button"
+            onClick={() => {
+              const next = { ...pnd, isActive: !pnd.isActive }
+              setPnd(next)
+              saveProvider(next)
+            }}
+            disabled={saving === 'PICKNDROP'}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors disabled:opacity-50 ${pnd.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
+            aria-pressed={pnd.isActive}
+          >
             {pnd.isActive ? 'Active' : 'Disabled'}
           </button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-5">
+          <SectionTitle>Credentials</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-3">
             <div><Label>API Key</Label><input value={pnd.apiKey ?? ''} onChange={e => setPnd(p => ({ ...p, apiKey: e.target.value }))} className={fieldCls} /></div>
             <div><Label>API Secret</Label><input type="password" value={pnd.apiSecret ?? ''} onChange={e => setPnd(p => ({ ...p, apiSecret: e.target.value }))} className={fieldCls} /></div>
             <div className="sm:col-span-2"><Label>Base URL</Label><input value={pnd.baseUrl ?? ''} onChange={e => setPnd(p => ({ ...p, baseUrl: e.target.value }))} className={fieldCls} /></div>
           </div>
+
+          <SectionTitle>Pickup Origin</SectionTitle>
+          <p className="text-xs text-slate-500 -mt-2">Sent as <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">pickup_branch</code>, <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">city_area</code>, and <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">location</code> on rate &amp; create_order calls.</p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <Label>Pickup Branch</Label>
+              <input value={pnd.pickupBranch ?? ''} onChange={e => setPnd(p => ({ ...p, pickupBranch: e.target.value }))} className={fieldCls} placeholder="KATHMANDU VALLEY" />
+            </div>
+            <div>
+              <Label>City / Area</Label>
+              <input value={pnd.pickupArea ?? ''} onChange={e => setPnd(p => ({ ...p, pickupArea: e.target.value }))} className={fieldCls} placeholder="Kathmandu" />
+            </div>
+            <div>
+              <Label>Location</Label>
+              <input value={pnd.pickupLocation ?? ''} onChange={e => setPnd(p => ({ ...p, pickupLocation: e.target.value }))} className={fieldCls} placeholder="Balaju" />
+            </div>
+          </div>
+
+          <SectionTitle>Surge Cap</SectionTitle>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Max Surge (NPR)</Label>
+              <input
+                type="number"
+                min={0}
+                value={pnd.maxSurgeNpr ?? 0}
+                onChange={e => setPnd(p => ({ ...p, maxSurgeNpr: Number(e.target.value) || 0 }))}
+                className={fieldCls}
+                placeholder="0 = no cap"
+              />
+              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Caps PnD&apos;s peak-traffic surge passed to customer. Anything above this amount is absorbed by the store. Set to <code className="px-1 bg-slate-100 rounded">0</code> to pass surge through unchanged.</p>
+            </div>
+          </div>
+
           <div className="flex justify-end pt-2 border-t border-slate-50"><ProviderSaveBtn provider="PICKNDROP" /></div>
         </div>
       </div>
@@ -798,10 +868,51 @@ export default function SettingsPage() {
   const [saved,      setSaved]      = useState<string | null>(null)
   const [saveError,  setSaveError]  = useState<string | null>(null)
   const [testStatus, setTestStatus] = useState<Record<string, 'idle' | 'ok' | 'fail' | 'testing'>>({})
+  const [aiSuggesting, setAiSuggesting] = useState(false)
+  const [aiError,      setAiError]      = useState<string | null>(null)
+
+  async function suggestSeoWithAI() {
+    setAiSuggesting(true)
+    setAiError(null)
+    try {
+      const res = await fetch('/api/admin/ai/seo', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          storeName: store.STORE_NAME,
+          storeUrl:  store.STORE_URL,
+          niche:     'Electronics, gadgets, skincare and beauty products',
+          region:    'Nepal (primary Kathmandu Valley)',
+          existing:  {
+            title:       store.SEO_TITLE       || undefined,
+            description: store.SEO_DESCRIPTION || undefined,
+            keywords:    store.SEO_KEYWORDS    || undefined,
+          },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.suggestion) {
+        setAiError(data.error ?? 'AI suggestion failed')
+        return
+      }
+      setStore(s => ({
+        ...s,
+        SEO_TITLE:       data.suggestion.title       ?? s.SEO_TITLE,
+        SEO_DESCRIPTION: data.suggestion.description ?? s.SEO_DESCRIPTION,
+        SEO_KEYWORDS:    data.suggestion.keywords    ?? s.SEO_KEYWORDS,
+      }))
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setAiSuggesting(false)
+    }
+  }
 
   const [store, setStore] = useState<StoreForm>({
     STORE_NAME: STORE_NAME, STORE_EMAIL: '', STORE_PHONE: '',
     STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '', STORE_THEME: 'emerald', STORE_FAVICON_URL: '',
+    STORE_URL: '',
+    SEO_TITLE: '', SEO_DESCRIPTION: '', SEO_KEYWORDS: '',
   })
   const [payment, setPayment] = useState<PaymentForm>({ ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '', KHALTI_SECRET_KEY: '' })
   const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
@@ -817,8 +928,12 @@ export default function SettingsPage() {
         STORE_ADDRESS:           settings.STORE_ADDRESS           ?? s.STORE_ADDRESS,
         FREE_DELIVERY_THRESHOLD: settings.FREE_DELIVERY_THRESHOLD ?? s.FREE_DELIVERY_THRESHOLD,
         STORE_LOGO_URL:          settings.STORE_LOGO_URL          ?? s.STORE_LOGO_URL,
-          STORE_THEME:             settings.STORE_THEME             ?? s.STORE_THEME,
-          STORE_FAVICON_URL:       settings.STORE_FAVICON_URL       ?? s.STORE_FAVICON_URL,
+        STORE_THEME:             settings.STORE_THEME             ?? s.STORE_THEME,
+        STORE_FAVICON_URL:       settings.STORE_FAVICON_URL       ?? s.STORE_FAVICON_URL,
+        STORE_URL:               settings.STORE_URL               ?? s.STORE_URL,
+        SEO_TITLE:               settings.SEO_TITLE               ?? s.SEO_TITLE,
+        SEO_DESCRIPTION:         settings.SEO_DESCRIPTION         ?? s.SEO_DESCRIPTION,
+        SEO_KEYWORDS:            settings.SEO_KEYWORDS            ?? s.SEO_KEYWORDS,
       }))
       setPayment(p => ({
         ESEWA_MERCHANT_ID: settings.ESEWA_MERCHANT_ID ?? p.ESEWA_MERCHANT_ID,
@@ -946,6 +1061,12 @@ export default function SettingsPage() {
                     <Label>Store Name</Label>
                     <input value={store.STORE_NAME} onChange={e => setStore(s => ({ ...s, STORE_NAME: e.target.value }))}
                       placeholder="Your Store" className={inputCls} />
+                    <Hint>
+                      Use <code className="bg-slate-100 px-1 rounded">|</code> to mark the footer-wordmark accent split.
+                      Example: <code className="bg-slate-100 px-1 rounded">Bala|pasa</code> shows as
+                      &ldquo;Bala<span className="iridescent-text font-bold">pasa</span>&rdquo; in the footer.
+                      The pipe is stripped everywhere else (titles, emails, search results).
+                    </Hint>
                   </div>
                   <div>
                     <Label>Store Email</Label>
@@ -1025,6 +1146,123 @@ export default function SettingsPage() {
                     ))}
                   </div>
                   <Hint>Theme color applies to buttons, links, and accent elements across the store.</Hint>
+                </div>
+
+                {/* ── Site URL ─────────────────────────────────────── */}
+                <div className="border-t border-slate-50 pt-5">
+                  <SectionTitle>Site URL</SectionTitle>
+                  <Label>Public URL</Label>
+                  <input
+                    type="url"
+                    value={store.STORE_URL}
+                    onChange={e => setStore(s => ({ ...s, STORE_URL: e.target.value }))}
+                    placeholder="https://yourstore.com"
+                    className={inputCls}
+                  />
+                  <Hint>
+                    Canonical URL of your live storefront. Used in email links, payment redirects, JSON-LD structured data, and openGraph URLs.
+                    Include <code className="bg-slate-100 px-1 rounded">https://</code> and no trailing slash.
+                  </Hint>
+                </div>
+
+                {/* ── SEO ──────────────────────────────────────────── */}
+                <div className="border-t border-slate-50 pt-5">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-0.5 h-4 rounded-full bg-primary" />
+                      <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">Search Engines (SEO)</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={suggestSeoWithAI}
+                      disabled={aiSuggesting || !store.STORE_NAME.trim()}
+                      title={!store.STORE_NAME.trim() ? 'Set a store name first' : 'Fill all 3 SEO fields with AI suggestions'}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 text-white shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      {aiSuggesting
+                        ? <><Loader2 size={12} className="animate-spin" /> Generating…</>
+                        : <><Sparkles size={12} /> Suggest with AI</>}
+                    </button>
+                  </div>
+
+                  {aiError && (
+                    <div className="mb-4 flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-100">
+                      <AlertCircle size={13} className="text-red-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-red-600 font-medium leading-relaxed">{aiError}</p>
+                        {aiError.toLowerCase().includes('api key') && (
+                          <p className="text-[10px] text-red-500 mt-1">
+                            Configure your key in <span className="font-bold">AI Configuration</span> tab below.
+                          </p>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => setAiError(null)}
+                        className="text-red-400 hover:text-red-600 cursor-pointer">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label>SEO Title <span className="normal-case font-normal text-slate-400">(50–60 characters recommended)</span></Label>
+                      <input
+                        type="text"
+                        value={store.SEO_TITLE}
+                        onChange={e => setStore(s => ({ ...s, SEO_TITLE: e.target.value }))}
+                        placeholder="Balapasa — Tech & Beauty Hub Nepal"
+                        maxLength={70}
+                        className={inputCls}
+                      />
+                      <Hint>The clickable blue link shown in Google search results.</Hint>
+                    </div>
+
+                    <div>
+                      <Label>SEO Description <span className="normal-case font-normal text-slate-400">(140–160 characters recommended)</span></Label>
+                      <textarea
+                        value={store.SEO_DESCRIPTION}
+                        onChange={e => setStore(s => ({ ...s, SEO_DESCRIPTION: e.target.value }))}
+                        placeholder="Shop electronics, gadgets, skincare & beauty at the best prices…"
+                        rows={3}
+                        maxLength={200}
+                        className={inputCls + ' resize-none'}
+                      />
+                      <Hint>The gray tagline shown under the title in Google. Sell the experience — fast delivery, authenticity, prices.</Hint>
+                    </div>
+
+                    <div>
+                      <Label>SEO Keywords <span className="normal-case font-normal text-slate-400">(comma-separated)</span></Label>
+                      <input
+                        type="text"
+                        value={store.SEO_KEYWORDS}
+                        onChange={e => setStore(s => ({ ...s, SEO_KEYWORDS: e.target.value }))}
+                        placeholder="online shopping Nepal, electronics Nepal, beauty products, fast delivery Kathmandu"
+                        className={inputCls}
+                      />
+                      <Hint>Lower priority than title/description but still indexed. Aim for 5–8 phrases your customers actually type.</Hint>
+                    </div>
+
+                    {/* Google preview card */}
+                    {(store.SEO_TITLE || store.SEO_DESCRIPTION) && (
+                      <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Google Preview</p>
+                        <div className="bg-white rounded-xl p-4 border border-slate-100">
+                          <p className="text-xs text-slate-600 mb-1 truncate">
+                            {store.STORE_URL || 'https://yourstore.com'}
+                          </p>
+                          <p className="text-lg text-[#1a0dab] hover:underline cursor-pointer font-medium leading-snug line-clamp-1">
+                            {store.SEO_TITLE || 'Your SEO Title — appears here'}
+                          </p>
+                          <p className="text-sm text-slate-600 leading-relaxed mt-1 line-clamp-2">
+                            {store.SEO_DESCRIPTION || 'Your SEO description appears here. This is what people see when searching for your site in Google.'}
+                          </p>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2">
+                          Actual appearance may vary — Google sometimes rewrites titles/descriptions based on the search query.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-2 border-t border-slate-50">

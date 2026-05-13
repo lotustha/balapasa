@@ -20,18 +20,26 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       label: string; name: string; phone: string
       address: string; house: string; road: string; city: string
       lat: number; lng: number; isDefault: boolean
+      province: string; district: string; municipality: string
+      ward: string; street: string; tole: string
     }>
 
     const data: Record<string, unknown> = {}
-    if (body.label   !== undefined) data.label   = body.label.trim()   || 'Home'
-    if (body.name    !== undefined) data.name    = body.name.trim()
-    if (body.phone   !== undefined) data.phone   = body.phone.trim()
-    if (body.address !== undefined) data.address = body.address.trim()
-    if (body.house   !== undefined) data.house   = body.house?.trim() || null
-    if (body.road    !== undefined) data.road    = body.road?.trim()  || null
-    if (body.city    !== undefined) data.city    = body.city.trim()   || 'Kathmandu'
-    if (body.lat     !== undefined) data.lat     = typeof body.lat === 'number' ? body.lat : null
-    if (body.lng     !== undefined) data.lng     = typeof body.lng === 'number' ? body.lng : null
+    if (body.label        !== undefined) data.label        = body.label.trim()   || 'Home'
+    if (body.name         !== undefined) data.name         = body.name.trim()
+    if (body.phone        !== undefined) data.phone        = body.phone.trim()
+    if (body.address      !== undefined) data.address      = body.address.trim()
+    if (body.house        !== undefined) data.house        = body.house?.trim() || null
+    if (body.road         !== undefined) data.road         = body.road?.trim()  || null
+    if (body.city         !== undefined) data.city         = body.city.trim()   || 'Kathmandu'
+    if (body.lat          !== undefined) data.lat          = typeof body.lat === 'number' ? body.lat : null
+    if (body.lng          !== undefined) data.lng          = typeof body.lng === 'number' ? body.lng : null
+    if (body.province     !== undefined) data.province     = body.province?.trim()     || null
+    if (body.district     !== undefined) data.district     = body.district?.trim()     || null
+    if (body.municipality !== undefined) data.municipality = body.municipality?.trim() || null
+    if (body.ward         !== undefined) data.ward         = body.ward?.trim()         || null
+    if (body.street       !== undefined) data.street       = body.street?.trim()       || null
+    if (body.tole         !== undefined) data.tole         = body.tole?.trim()         || null
 
     // Setting default is special — clear other defaults first
     if (body.isDefault === true && !owned.isDefault) {

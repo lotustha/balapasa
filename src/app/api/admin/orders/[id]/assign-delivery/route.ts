@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { estimateDelivery, createParcel } from '@/lib/pathao'
-import { calculatePndRates, createPndOrder } from '@/lib/pickndrop'
-import { getPicknDropConfig, getPathaoConfig } from '@/lib/logistics-config'
+import { calculatePndRates, createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
+import { getPicknDropConfig } from '@/lib/logistics-config'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       const cfg = await getPicknDropConfig()
       if (!cfg.isActive) return Response.json({ error: 'Pick & Drop is disabled' }, { status: 400 })
       const toDistrict = cityToDistrict(order.city)
-      const options = calculatePndRates('Kathmandu', toDistrict)
+      const options = await calculatePndRates('Kathmandu', toDistrict)
       return Response.json({ provider: 'PICKNDROP', options })
     }
 
@@ -106,32 +106,38 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     if (type === 'PICKNDROP') {
-      const { fromBranch, toBranch, serviceType } = body
-      const cfg = await getPicknDropConfig()
+      const { destinationBranch, instruction, weightKg } = body
+      // Resolve destination branch from order.city if admin didn't override.
+      const resolved = destinationBranch ?? (await resolveBranchForArea(order.city))?.branch_name ?? cityToDistrict(order.city)
+
+      const itemSummary = (await prisma.orderItem.findMany({ where: { orderId: order.id } }))
+        .map(i => `${i.quantity}× ${i.name}`).join(', ')
+
       const result = await createPndOrder({
-        customerName:    order.name,
-        senderName:      'Balapasa Store',
-        senderPhone:     process.env.PATHAO_PICKUP_PHONE ?? '9800000000',
-        receiverName:    order.name,
-        receiverPhone:   order.phone,
-        receiverAddress: `${order.address}, ${order.city}`,
-        fromBranch:      fromBranch ?? 'KATHMANDU',
-        toBranch:        toBranch   ?? order.city.toUpperCase(),
-        itemValue:       order.total,
-        codAmount:       order.paymentMethod === 'COD' ? order.total : 0,
-        serviceType:     serviceType ?? 'STANDARD',
-        orderId:         order.id,
+        customerName:        order.name,
+        primaryMobileNo:     order.phone.replace(/\D/g, '').slice(-10),
+        destinationBranch:   resolved,
+        destinationCityArea: order.city,
+        landmark:            [order.house, order.road, order.address].filter(Boolean).join(', ').slice(0, 200),
+        codAmount:           order.paymentMethod === 'COD' ? order.total : 0,
+        orderDescription:    itemSummary || `Order ${order.id}`,
+        weightKg:            weightKg ?? 1,
+        instruction:         instruction,
+        customerLatitude:    order.lat ?? undefined,
+        customerLongitude:   order.lng ?? undefined,
+        vendorTrackingNumber: order.id,
       })
 
       const updated = await prisma.order.update({
         where: { id },
         data: {
-          status:         'CONFIRMED',
-          pathaoOrderId:  result.trackingId,                   // PnD tracking number
-          pathaoHash:     result.trackingId,                   // reuse for lookup
-          trackingUrl:    result.trackingUrl,
-          deliveryCharge: deliveryCharge ?? result.charge ?? 0,
-          shippingOption: `Pick & Drop — ${serviceType ?? 'STANDARD'}`,
+          status:           'CONFIRMED',
+          shippingProvider: 'PICKNDROP',
+          pathaoOrderId:    result.trackingId,                 // PnD orderID
+          pathaoHash:       result.trackingId,                 // reuse for lookup
+          trackingUrl:      result.trackingUrl,
+          deliveryCharge:   deliveryCharge ?? result.charge ?? 0,
+          shippingOption:   `Pick & Drop — ${resolved}`,
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },
         include: { items: true },
@@ -156,7 +162,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return Response.json({ ok: true, order: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } })
     }
 
-    return Response.json({ error: 'Invalid type. Use PATHAO or MANUAL' }, { status: 400 })
+    return Response.json({ error: 'Invalid type. Use PATHAO, PICKNDROP, or MANUAL' }, { status: 400 })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })
   }

@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { pushOrderEvent } from '@/lib/push'
+import { sendEmail } from '@/lib/email'
+import { renderShipmentUpdate } from '@/lib/emails/shipment-update'
+import { getSiteSettings } from '@/lib/site-settings'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -18,7 +21,26 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       include: { items: true },
     })
 
-    // Push + WhatsApp on status changes
+    // Push + WhatsApp + Email on status changes. Settings fetched once and
+    // shared across any email this PATCH triggers.
+    const emailSettings = await getSiteSettings()
+    function maybeSendStatusEmail(status: 'SHIPPED' | 'DELIVERED' | 'CANCELLED') {
+      if (!order.email) return
+      const { subject, html } = renderShipmentUpdate({
+        orderId:        order.id,
+        recipientName:  order.name,
+        status,
+        trackingUrl:    order.trackingUrl ?? null,
+        shippingOption: order.shippingOption ?? null,
+        siteUrl:        emailSettings.storeUrl,
+        siteName:       emailSettings.siteName,
+        tagline:        emailSettings.seo.description,
+      })
+      sendEmail({ to: order.email, subject, html }).catch(e =>
+        console.warn('[orders PATCH] status email failed (non-fatal):', e),
+      )
+    }
+
     if (body.status === 'SHIPPED') {
       if (order.trackingUrl && order.phone) {
         import('@/lib/notifications').then(({ sendShippingNotification }) =>
@@ -31,6 +53,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         title:   '🚚 Your order is on its way!',
         body:    `Order #${order.id.slice(0, 8).toUpperCase()} has been shipped via Pathao.${order.trackingUrl ? ' Tap to track.' : ''}`,
       }).catch(() => {})
+      maybeSendStatusEmail('SHIPPED')
     }
 
     if (body.status === 'DELIVERED') {
@@ -40,6 +63,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         title:   '✅ Order Delivered!',
         body:    `Order #${order.id.slice(0, 8).toUpperCase()} was delivered. Enjoy your purchase!`,
       }).catch(() => {})
+      maybeSendStatusEmail('DELIVERED')
     }
 
     if (body.status === 'CANCELLED') {
@@ -49,6 +73,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         title:   '❌ Order Cancelled',
         body:    `Order #${order.id.slice(0, 8).toUpperCase()} has been cancelled. Contact support if this was unexpected.`,
       }).catch(() => {})
+      maybeSendStatusEmail('CANCELLED')
     }
 
     if (body.paymentStatus === 'PAID' && order.paymentStatus === 'PAID') {

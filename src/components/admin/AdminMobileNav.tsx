@@ -5,38 +5,27 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Settings, BarChart3, Truck, LogOut, Ticket, Zap,
-  MessageCircle, DollarSign, Monitor, Bell, ChevronLeft,
-  MoreHorizontal, X, ShieldCheck,
+  LayoutDashboard, Package, ShoppingBag, Monitor,
+  LogOut, Bell, ChevronLeft, MoreHorizontal, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { NAV_GROUPS } from './AdminNav'
 
 type Role = 'STAFF' | 'MANAGER' | 'ADMIN'
 const ROLE_RANK: Record<Role, number> = { STAFF: 1, MANAGER: 2, ADMIN: 3 }
 
-interface NavItem { href: string; icon: LucideIcon; label: string; minRole: Role }
+interface BottomTab { href: string; icon: LucideIcon; label: string; minRole: Role }
 
-// Same 13 items as desktop nav
-const ALL_NAV: NavItem[] = [
-  { href: '/admin',            icon: LayoutDashboard, label: 'Home',       minRole: 'STAFF'   },
-  { href: '/admin/orders',     icon: ShoppingBag,     label: 'Orders',     minRole: 'STAFF'   },
-  { href: '/admin/products',   icon: Package,         label: 'Products',   minRole: 'MANAGER' },
-  { href: '/admin/customers',  icon: Users,           label: 'Customers',  minRole: 'MANAGER' },
-  { href: '/admin/team',       icon: ShieldCheck,     label: 'Team',       minRole: 'ADMIN'   },
-  { href: '/admin/categories', icon: Tag,             label: 'Categories', minRole: 'MANAGER' },
-  { href: '/admin/coupons',    icon: Ticket,          label: 'Coupons',    minRole: 'MANAGER' },
-  { href: '/admin/promotions', icon: Zap,             label: 'Promotions', minRole: 'MANAGER' },
-  { href: '/admin/analytics',  icon: BarChart3,       label: 'Analytics',  minRole: 'MANAGER' },
-  { href: '/admin/finance',    icon: DollarSign,      label: 'Finance',    minRole: 'MANAGER' },
-  { href: '/admin/pos',        icon: Monitor,         label: 'POS',        minRole: 'STAFF'   },
-  { href: '/admin/logistics',  icon: Truck,           label: 'Logistics',  minRole: 'ADMIN'   },
-  { href: '/admin/messaging',  icon: MessageCircle,   label: 'Messaging',  minRole: 'STAFF'   },
-  { href: '/admin/settings',   icon: Settings,        label: 'Settings',   minRole: 'ADMIN'   },
+// Bottom-tab "primary" routes — kept as the daily-driver shortcuts even after
+// the More sheet was switched to the grouped IA. Order matters (POS gets the
+// raised FAB treatment when present).
+const BOTTOM_TABS: BottomTab[] = [
+  { href: '/admin',         icon: LayoutDashboard, label: 'Home',     minRole: 'STAFF' },
+  { href: '/admin/orders',  icon: ShoppingBag,     label: 'Orders',   minRole: 'STAFF' },
+  { href: '/admin/pos',     icon: Monitor,         label: 'POS',      minRole: 'STAFF' },
+  { href: '/admin/products', icon: Package,        label: 'Products', minRole: 'MANAGER' },
 ]
-
-// 4 fixed bottom-tab slots + More
-const PRIMARY_HREFS = ['/admin', '/admin/orders', '/admin/pos', '/admin/products']
+const BOTTOM_HREFS = new Set(BOTTOM_TABS.map(t => t.href))
 
 function canAccess(role: Role, minRole: Role) {
   return ROLE_RANK[role] >= ROLE_RANK[minRole]
@@ -56,7 +45,6 @@ export default function AdminMobileNav() {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.role) setRole(d.role) }).catch(() => {})
   }, [])
 
-  // Lock body scroll when sheet is open
   useEffect(() => {
     if (!moreOpen) return
     const prev = document.body.style.overflow
@@ -64,20 +52,19 @@ export default function AdminMobileNav() {
     return () => { document.body.style.overflow = prev }
   }, [moreOpen])
 
-  // Build the 5 bottom tabs: 4 primary + More
-  const primaryItems = PRIMARY_HREFS
-    .map(href => ALL_NAV.find(n => n.href === href))
-    .filter((n): n is NavItem => !!n && canAccess(role, n.minRole))
+  const primaryItems = BOTTOM_TABS.filter(t => canAccess(role, t.minRole))
 
-  // "More" contents = everything not already on the bottom bar (still role-filtered)
-  const overflowItems = ALL_NAV.filter(
-    n => !PRIMARY_HREFS.includes(n.href) && canAccess(role, n.minRole),
-  )
+  // Build grouped overflow: same shape as desktop NAV_GROUPS, minus items
+  // already pinned to the bottom bar, with role-filter applied.
+  const overflowGroups = NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(i => !BOTTOM_HREFS.has(i.href) && canAccess(role, i.minRole as Role)) }))
+    .filter(g => g.items.length > 0)
 
-  // Title for top bar — match the deepest nav entry
-  const matchedNav = [...ALL_NAV].sort((a, b) => b.href.length - a.href.length).find(n => activeHref(pathname, n.href))
-  const title = matchedNav?.label ?? 'Admin'
-  const isDetailPage = pathname.split('/').filter(Boolean).length > 2 // /admin/orders/[id] etc.
+  // Title for top bar — match the deepest nav entry across all groups
+  const allItems = NAV_GROUPS.flatMap(g => g.items)
+  const matched = [...allItems].sort((a, b) => b.href.length - a.href.length).find(n => activeHref(pathname, n.href))
+  const title = matched?.label ?? 'Admin'
+  const isDetailPage = pathname.split('/').filter(Boolean).length > 2
 
   return (
     <>
@@ -137,7 +124,6 @@ export default function AdminMobileNav() {
             const Icon = item.icon
             const active = activeHref(pathname, item.href)
             const isPos = item.href === '/admin/pos'
-            // POS gets FAB-style elevated treatment
             if (isPos) {
               return (
                 <Link
@@ -190,13 +176,11 @@ export default function AdminMobileNav() {
       {/* ── More sheet ─────────────────────────────────────────────── */}
       {moreOpen && (
         <>
-          {/* Backdrop */}
           <button
             aria-label="Close menu"
             onClick={() => setMoreOpen(false)}
             className="md:hidden fixed inset-0 z-50 bg-black/50 animate-fade-in cursor-pointer"
           />
-          {/* Sheet */}
           <div
             role="dialog"
             aria-modal="true"
@@ -204,7 +188,6 @@ export default function AdminMobileNav() {
             className="md:hidden fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white shadow-2xl animate-slide-up"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
-            {/* Drag handle */}
             <div className="flex justify-center pt-2.5 pb-1">
               <span className="w-10 h-1.5 rounded-full bg-slate-300" />
             </div>
@@ -223,31 +206,37 @@ export default function AdminMobileNav() {
               </button>
             </div>
 
-            <div className="px-3 pt-2 pb-3 grid grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto">
-              {overflowItems.map(item => {
-                const Icon = item.icon
-                const active = activeHref(pathname, item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMoreOpen(false)}
-                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors cursor-pointer ${
-                      active
-                        ? 'bg-primary-bg border-primary/20'
-                        : 'bg-white border-slate-100 hover:bg-slate-50 active:bg-slate-100'
-                    }`}
-                  >
-                    <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      <Icon size={17} />
-                    </span>
-                    <span className={`text-sm font-bold ${active ? 'text-primary' : 'text-slate-800'}`}>{item.label}</span>
-                  </Link>
-                )
-              })}
+            <div className="px-3 pt-1 pb-3 space-y-4 max-h-[60vh] overflow-y-auto">
+              {overflowGroups.map(group => (
+                <div key={group.label}>
+                  <p className="px-2 mb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">{group.label}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {group.items.map(item => {
+                      const Icon = item.icon
+                      const active = activeHref(pathname, item.href)
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMoreOpen(false)}
+                          className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-primary-bg border-primary/20'
+                              : 'bg-white border-slate-100 hover:bg-slate-50 active:bg-slate-100'
+                          }`}
+                        >
+                          <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            <Icon size={17} />
+                          </span>
+                          <span className={`text-sm font-bold ${active ? 'text-primary' : 'text-slate-800'}`}>{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* Footer: profile + back to store */}
             <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div

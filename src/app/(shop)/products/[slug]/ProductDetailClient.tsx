@@ -659,7 +659,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             </div>
 
             {/* Description / Specs tabs */}
-            <div className="glass-panel p-5">
+            <div className="glass-panel p-5 min-w-0 overflow-hidden">
               <div className="flex gap-6 border-b border-white/40 mb-4">
                 <button onClick={() => setActiveTab('description')}
                   className={`pb-3 font-heading font-bold text-sm cursor-pointer transition-colors ${activeTab==='description'?'text-primary border-b-2 border-primary -mb-px':'text-slate-500 hover:text-slate-700'}`}>
@@ -671,7 +671,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 </button>
               </div>
               {activeTab === 'description' ? (
-                <div>
+                <div className="min-w-0">
                   <div className="text-slate-600 text-sm leading-relaxed rte-render"
                     dangerouslySetInnerHTML={{ __html: p.description }} />
                   {p.tags.length > 0 && (
@@ -681,16 +681,18 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   )}
                 </div>
               ) : (
-                <table className="w-full text-sm">
-                  <tbody>
-                    {specs.map(([k, v]) => (
-                      <tr key={k} className="border-b border-white/30 last:border-b-0">
-                        <th className="text-left py-2 pr-4 font-semibold text-slate-700 align-top whitespace-nowrap">{k}</th>
-                        <td className="py-2 text-slate-600">{v}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {specs.map(([k, v]) => (
+                        <tr key={k} className="border-b border-white/30 last:border-b-0">
+                          <th className="text-left py-2 pr-4 font-semibold text-slate-700 align-top whitespace-nowrap">{k}</th>
+                          <td className="py-2 text-slate-600 break-words">{v}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 

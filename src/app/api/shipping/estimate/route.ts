@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       totalValue:      subtotal,
       isCodActive,
     }),
-    Promise.resolve(calculatePndRates(originCity, city)),
+    calculatePndRates(originCity, city),
   ])
 
   const options: UnifiedShippingOption[] = []

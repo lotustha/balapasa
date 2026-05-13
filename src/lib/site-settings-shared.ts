@@ -21,11 +21,22 @@ export interface HeroSettings {
   badges:           HeroBadge[]
 }
 
+export interface SeoSettings {
+  title:       string  // Full Google title (e.g. "Balapasa — Tech & Beauty Hub Nepal")
+  description: string  // Gray text shown under the title in Google search results
+  keywords:    string  // Comma-separated meta keywords
+}
+
 export interface SiteSettings {
-  siteName:   string
+  siteName:   string  // Clean brand name (no | marker). Use everywhere except the
+                      //  footer/logo wordmark where a gradient-accent half is wanted.
+  brandSplit: { primary: string; accent: string }  // Split halves for the wordmark.
+  storeUrl:   string  // Public canonical URL (e.g. https://balapasa.com). Used in
+                      //  emails, JSON-LD, openGraph, payment redirects.
   logoUrl:    string
   faviconUrl: string
   hero:       HeroSettings
+  seo:        SeoSettings
 }
 
 export const HERO_DEFAULTS: HeroSettings = {
@@ -46,11 +57,32 @@ export const HERO_DEFAULTS: HeroSettings = {
   ],
 }
 
+export const SEO_DEFAULTS: SeoSettings = {
+  title:       'Balapasa — Tech & Beauty Hub Nepal',
+  description: 'Shop electronics, gadgets, skincare & beauty at the best prices in Nepal. Fast same-day delivery in Kathmandu via Pathao. 100% authentic products.',
+  keywords:    'online shopping Nepal, electronics Nepal, gadgets, beauty products, buy online Nepal, fast delivery Kathmandu, Balapasa',
+}
+
+const DEFAULT_BRAND_RAW = process.env.NEXT_PUBLIC_STORE_NAME ?? 'Bala|pasa'
+
 export const SITE_DEFAULTS: SiteSettings = {
-  siteName:   process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa',
+  siteName:   DEFAULT_BRAND_RAW.replace(/\|/g, ''),
+  brandSplit: splitDefault(DEFAULT_BRAND_RAW),
+  storeUrl:   process.env.NEXT_PUBLIC_APP_URL    ?? 'https://balapasa.com',
   logoUrl:    '/logo.png',
   faviconUrl: '/favicon.ico',
   hero:       HERO_DEFAULTS,
+  seo:        SEO_DEFAULTS,
+}
+
+function splitDefault(name: string): { primary: string; accent: string } {
+  if (name.includes('|')) {
+    const idx = name.indexOf('|')
+    return { primary: name.slice(0, idx), accent: name.slice(idx + 1) }
+  }
+  if (name.length <= 1) return { primary: name, accent: '' }
+  const mid = Math.ceil(name.length / 2)
+  return { primary: name.slice(0, mid), accent: name.slice(mid) }
 }
 
 export const HERO_SETTING_KEYS = [
@@ -67,7 +99,36 @@ export const HERO_SETTING_KEYS = [
   'HERO_BADGES_JSON',
 ] as const
 
-export const SITE_SETTING_KEYS = ['STORE_NAME', 'STORE_LOGO_URL', 'STORE_FAVICON_URL'] as const
+export const SITE_SETTING_KEYS = [
+  'STORE_NAME', 'STORE_URL', 'STORE_LOGO_URL', 'STORE_FAVICON_URL',
+  'SEO_TITLE', 'SEO_DESCRIPTION', 'SEO_KEYWORDS',
+] as const
+
+/**
+ * Split a brand/site name into two halves for the gradient-accent treatment
+ * used in the footer + logo wordmark.
+ *
+ * Convention: the admin can mark the split point with a single `|` character
+ * inside STORE_NAME (e.g. `"Bala|pasa"` → primary "Bala", accent "pasa"). If
+ * no marker is present, the name is split at its midpoint so the treatment
+ * still works without configuration.
+ *
+ * Everywhere else (page titles, metadata, JSON-LD, openGraph, emails) should
+ * use `cleanBrandName()` to strip the marker.
+ */
+export function splitBrandName(name: string): { primary: string; accent: string } {
+  if (name.includes('|')) {
+    const idx = name.indexOf('|')
+    return { primary: name.slice(0, idx), accent: name.slice(idx + 1) }
+  }
+  if (name.length <= 1) return { primary: name, accent: '' }
+  const mid = Math.ceil(name.length / 2)
+  return { primary: name.slice(0, mid), accent: name.slice(mid) }
+}
+
+export function cleanBrandName(name: string): string {
+  return name.replace(/\|/g, '')
+}
 
 export function parseBadges(raw: string | undefined): HeroBadge[] {
   if (!raw) return HERO_DEFAULTS.badges

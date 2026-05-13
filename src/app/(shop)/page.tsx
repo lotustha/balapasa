@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { STORE_URL } from '@/lib/config'
 import Hero from '@/components/home/Hero'
 import CategorySection from '@/components/home/CategorySection'
+import NewlyAddedProducts from '@/components/home/NewlyAddedProducts'
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import DealsSection from '@/components/home/DealsSection'
 import Newsletter from '@/components/home/Newsletter'
@@ -58,6 +59,7 @@ export default async function HomePage() {
       }) }} />
       <Hero hero={settings.hero} />
       <CategorySection />
+      <NewlyAddedProducts />
       <FeaturedProducts />
       <DealsSection />
 

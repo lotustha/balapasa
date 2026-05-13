@@ -2,7 +2,7 @@ name: Deploy API to VPS
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   deploy:
@@ -16,4 +16,9 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /www/wwwroot/balapasa
-            git pull origin main
+            git pull origin master
+            npm install
+            npx prisma db push --accept-data-loss
+            npx prisma generate
+            npm run build
+            pm2 restart balapasa

@@ -4,12 +4,21 @@ import { esewaFormData, ESEWA_PAYMENT_URL, khaltiInitiate } from '@/lib/payment'
 import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
 import { pushOrderEvent } from '@/lib/push'
 import { validateCoupon } from '@/lib/coupons'
+import { validateGiftCard } from '@/lib/gift-cards'
 import { ENABLED_PAYMENT_METHODS } from '@/lib/features'
+import { createMagicToken, magicLinkUrl } from '@/lib/magic-link'
+import { sendEmail } from '@/lib/email'
+import { renderOrderConfirmation } from '@/lib/emails/order-confirmation'
+import { getSiteSettings } from '@/lib/site-settings'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
 // can surface a 409 to the client instead of a 500.
 class CouponRaceError extends Error {
   readonly _coupon = true
+}
+
+class GiftCardRaceError extends Error {
+  readonly _giftCard = true
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +35,17 @@ export async function POST(req: NextRequest) {
     } catch { /* guest checkout */ }
 
     const body = await req.json()
-    const { items, subtotal, deliveryCharge, paymentMethod, shippingOption, shippingProvider, name, phone, email, address, house, road, city, lat, lng, advancePaid, codAmount, advanceMethod, couponCode: rawCouponCode, autoDiscount } = body
+    const {
+      items, subtotal, deliveryCharge, paymentMethod, shippingOption, shippingProvider,
+      name, phone, email, address, house, road, city, lat, lng,
+      advancePaid, codAmount, advanceMethod,
+      couponCode: rawCouponCode, autoDiscount,
+      giftCardCode: rawGiftCardCode,
+      // Structured Nepal address (used when saving address to a new/existing Profile)
+      province, district, municipality, ward, street, tole,
+      // Guest signup nudge — "Save my info for next time" checkbox
+      createAccount,
+    } = body
 
     // Reject payment methods that are feature-flagged off for this release.
     // Keeps eSewa/Khalti integration code dormant but live for post-launch flip.
@@ -61,10 +80,27 @@ export async function POST(req: NextRequest) {
 
     // Recompute total from server values — never trust client `total`
     const safeAutoDiscount = autoDiscount ? Math.max(0, Number(autoDiscount)) : 0
-    const serverTotal = Math.max(
+    const totalBeforeGiftCard = Math.max(
       0,
       Number(subtotal) + Number(deliveryCharge) - (serverCouponDiscount ?? 0) - safeAutoDiscount,
     )
+
+    // ── Server-side gift card validation ───────────────────────────────
+    // Same defense-in-depth as coupons: re-validate from code, derive the
+    // discount on the server (= min(balance, total-after-coupon)).
+    const giftCardCode = rawGiftCardCode ? String(rawGiftCardCode).toUpperCase().trim() : null
+    let giftCardDiscount = 0
+    let giftCardId: string | null = null
+    if (giftCardCode) {
+      const result = await validateGiftCard(giftCardCode)
+      if (!result.valid) {
+        return Response.json({ error: result.error }, { status: result.status })
+      }
+      giftCardId       = result.id
+      giftCardDiscount = Math.min(result.balance, totalBeforeGiftCard)
+    }
+
+    const serverTotal = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
 
     // ── Atomic transaction: coupon usage check-and-increment + order create ─
     // The raw UPDATE with WHERE used_count < max_uses is race-safe at the DB level.
@@ -84,7 +120,25 @@ export async function POST(req: NextRequest) {
           throw new CouponRaceError('Coupon usage limit reached or coupon no longer valid. Please remove it and try again.')
         }
       }
-      return tx.order.create({
+
+      // Race-safe gift card decrement. The WHERE balance >= amount guarantees we
+      // can't oversell across concurrent checkouts; if 0 rows are updated, the
+      // card was drained by a parallel order and we abort.
+      if (giftCardCode && giftCardId && giftCardDiscount > 0) {
+        const updated = await tx.$executeRaw`
+          UPDATE gift_cards
+          SET balance = balance - ${giftCardDiscount}, updated_at = NOW()
+          WHERE code = ${giftCardCode}
+            AND is_active = true
+            AND balance >= ${giftCardDiscount}
+            AND (expires_at IS NULL OR expires_at > NOW())
+        `
+        if (updated === 0) {
+          throw new GiftCardRaceError('Gift card balance changed during checkout. Please remove it and try again.')
+        }
+      }
+
+      const created = await tx.order.create({
         data: {
           userId,
           subtotal:        Number(subtotal),
@@ -122,14 +176,120 @@ export async function POST(req: NextRequest) {
           },
         },
       })
+
+      // Log gift card redemption (atomic with the balance decrement above)
+      if (giftCardId && giftCardDiscount > 0) {
+        await tx.giftCardRedemption.create({
+          data: { giftCardId, orderId: created.id, amount: giftCardDiscount },
+        })
+      }
+
+      return created
     })
 
     const total = serverTotal
+
+    // ── Guest signup nudge: create a passwordless Profile + Address + magic-link token ──
+    // Fires only when (1) request is guest (no auth cookie), (2) createAccount flag set,
+    // (3) email is present, (4) no existing Profile with that email.
+    // Failures are non-blocking — the order is already created.
+    let magicLinkToken: string | null = null
+    if (!userId && createAccount === true && email && typeof email === 'string') {
+      try {
+        const trimmedEmail = email.trim().toLowerCase()
+        const existing = await prisma.profile.findUnique({ where: { email: trimmedEmail } })
+        if (!existing) {
+          const newProfile = await prisma.profile.create({
+            data: {
+              email:    trimmedEmail,
+              name:     name || null,
+              phone:    phone || null,
+              password: null,
+              role:     'CUSTOMER',
+            },
+          })
+          // Backfill the order with the new userId so order history shows up post-claim
+          await prisma.order.update({ where: { id: order.id }, data: { userId: newProfile.id } }).catch(() => {})
+
+          // Save the address to the new profile so it shows up in their saved addresses
+          if (address && (province || district || municipality)) {
+            await prisma.address.create({
+              data: {
+                userId:       newProfile.id,
+                label:        'Home',
+                name:         name || newProfile.name || 'Customer',
+                phone:        phone || newProfile.phone || '',
+                address,
+                house:        house        || null,
+                road:         road         || null,
+                city:         city         || 'Kathmandu',
+                lat:          lat ? Number(lat) : null,
+                lng:          lng ? Number(lng) : null,
+                isDefault:    true,
+                province:     province     ?? null,
+                district:     district     ?? null,
+                municipality: municipality ?? null,
+                ward:         ward         ?? null,
+                street:       street       ?? null,
+                tole:         tole         ?? null,
+              },
+            }).catch(() => {})
+          }
+
+          magicLinkToken = await createMagicToken({
+            email:   trimmedEmail,
+            type:    'signup-claim',
+            orderId: order.id,
+          })
+        }
+      } catch (e) {
+        console.warn('[orders] guest signup nudge failed (non-fatal):', e)
+      }
+    }
 
     // WhatsApp order confirmation (fire-and-forget)
     import('@/lib/notifications').then(({ sendOrderConfirmation }) =>
       sendOrderConfirmation(order.id, phone, name, total).catch(() => {})
     ).catch(() => {})
+
+    // Email order confirmation (fire-and-forget) — also includes the magic-link
+    // CTA when this was a guest order with the "save my info" flag set.
+    const recipientEmail = email || userEmail
+    if (recipientEmail) {
+      const settings = await getSiteSettings()
+      const claimUrl = magicLinkToken
+        ? magicLinkUrl(magicLinkToken, settings.storeUrl)
+        : null
+
+      const { subject, html } = renderOrderConfirmation({
+        orderId:        order.id,
+        recipientName:  name,
+        recipientEmail,
+        recipientPhone: phone,
+        address,
+        shippingOption,
+        subtotal:       Number(subtotal),
+        deliveryCharge: Number(deliveryCharge),
+        couponDiscount: serverCouponDiscount,
+        autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
+        total,
+        paymentMethod,
+        items: (items as { name: string; price: number; salePrice?: number | null; quantity: number; image?: string }[]).map(it => ({
+          name:     it.name,
+          quantity: it.quantity,
+          price:    it.salePrice ?? it.price,
+          image:    it.image,
+        })),
+        magicLinkUrl: claimUrl,
+        siteUrl:      settings.storeUrl,
+        siteName:     settings.siteName,
+        tagline:      settings.seo.description,
+      })
+
+      sendEmail({ to: recipientEmail, subject, html }).catch(e => {
+        console.warn('[orders] email send failed (non-fatal):', e)
+      })
+    }
 
     // FCM push notification (fire-and-forget)
     pushOrderEvent({
@@ -197,9 +357,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ orderId: order.id, paymentUrl: khalti.payment_url, pidx: khalti.pidx })
     }
 
-    return Response.json({ orderId: order.id, status: 'success' }, { status: 201 })
+    return Response.json(
+      { orderId: order.id, status: 'success', magicLinkToken },
+      { status: 201 },
+    )
   } catch (e) {
-    if (e instanceof CouponRaceError) {
+    if (e instanceof CouponRaceError || e instanceof GiftCardRaceError) {
       return Response.json({ error: e.message }, { status: 409 })
     }
     console.error('[orders] create failed:', e)

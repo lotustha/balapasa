@@ -4,10 +4,21 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+// Only allow returnTo paths that stay on the same site — prevents open-redirect attacks.
+function safeReturnTo(raw: string | null): string | null {
+  if (!raw) return null
+  // Reject protocol-relative (//evil.com) and absolute URLs.
+  if (raw.startsWith('//') || /^https?:/i.test(raw)) return null
+  if (!raw.startsWith('/')) return null
+  return raw
+}
 
 export default function LoginPage() {
-  const router = useRouter()
+  const router        = useRouter()
+  const searchParams  = useSearchParams()
+  const returnTo      = safeReturnTo(searchParams.get('returnTo'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -32,7 +43,10 @@ export default function LoginPage() {
       return
     }
 
-    router.push(data.role === 'ADMIN' || data.role === 'MANAGER' || data.role === 'STAFF' ? '/admin' : '/account')
+    const isStaff = data.role === 'ADMIN' || data.role === 'MANAGER' || data.role === 'STAFF'
+    // Staff always go to /admin; customers honor returnTo (e.g. back to /checkout)
+    const dest = isStaff ? '/admin' : (returnTo ?? '/account')
+    router.push(dest)
     router.refresh()
   }
 
@@ -100,7 +114,10 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-gray-500 mt-6">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary font-bold hover:underline cursor-pointer">
+            <Link
+              href={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register'}
+              className="text-primary font-bold hover:underline cursor-pointer"
+            >
               Create one
             </Link>
           </p>
