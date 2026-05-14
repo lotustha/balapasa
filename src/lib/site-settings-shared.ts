@@ -105,25 +105,23 @@ export const SITE_SETTING_KEYS = [
 ] as const
 
 /**
- * Split a brand/site name into two halves for the gradient-accent treatment
- * used in the footer + logo wordmark.
+ * Split a brand/site name into two halves for the gradient-accent wordmark
+ * used in the header, footer, admin sidebar, and auth pages.
  *
- * Convention: the admin can mark the split point with a single `|` character
- * inside STORE_NAME (e.g. `"Bala|pasa"` → primary "Bala", accent "pasa"). If
- * no marker is present, the name is split at its midpoint so the treatment
- * still works without configuration.
+ * The split point is fully driven by the admin's STORE_NAME setting:
+ *   - `"Bala|pasa"`  → primary "Bala", accent "pasa"  (iridescent half)
+ *   - `"Acme Shop"`  → primary "Acme Shop", accent "" (no accent half)
+ *
+ * No magic: tenants without a `|` simply render the whole name as plain text.
+ * Multi-tenant SaaS-friendly — every brand controls its own split.
  *
  * Everywhere else (page titles, metadata, JSON-LD, openGraph, emails) should
  * use `cleanBrandName()` to strip the marker.
  */
 export function splitBrandName(name: string): { primary: string; accent: string } {
-  if (name.includes('|')) {
-    const idx = name.indexOf('|')
-    return { primary: name.slice(0, idx), accent: name.slice(idx + 1) }
-  }
-  if (name.length <= 1) return { primary: name, accent: '' }
-  const mid = Math.ceil(name.length / 2)
-  return { primary: name.slice(0, mid), accent: name.slice(mid) }
+  const idx = name.indexOf('|')
+  if (idx === -1) return { primary: name, accent: '' }
+  return { primary: name.slice(0, idx), accent: name.slice(idx + 1) }
 }
 
 export function cleanBrandName(name: string): string {

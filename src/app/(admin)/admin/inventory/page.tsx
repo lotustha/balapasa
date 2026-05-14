@@ -82,9 +82,9 @@ export default function InventoryPage() {
   const filtered = tab === 'overview' ? tracked : []
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2">
             <Warehouse size={22} className="text-primary" /> Inventory
@@ -94,7 +94,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
         {[
           { label: 'Healthy',       value: healthy.length,    icon: TrendingUp,   color: 'bg-green-50 text-green-600',  border: 'border-green-100' },
           { label: 'Low Stock',     value: lowStock.length,   icon: AlertTriangle, color: 'bg-amber-50 text-amber-600', border: 'border-amber-100' },
@@ -125,6 +125,7 @@ export default function InventoryPage() {
         <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-primary" /></div>
       ) : tab === 'overview' ? (
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-50 bg-slate-50/60">
@@ -190,10 +191,12 @@ export default function InventoryPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         /* History tab */
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-50 bg-slate-50/60">
@@ -233,6 +236,7 @@ export default function InventoryPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -249,7 +253,7 @@ export default function InventoryPage() {
             <p className="text-xs text-slate-400 mb-5">Current stock: <strong className="text-slate-700">{modal.stock}</strong></p>
 
             {/* Type selector */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
               {(['PURCHASE', 'RETURN', 'ADJUSTMENT', 'DAMAGE'] as const).map(t => (
                 <button key={t} onClick={() => setAdjType(t)}
                   className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer capitalize ${adjType === t ? 'border-primary bg-primary-bg text-primary' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}>

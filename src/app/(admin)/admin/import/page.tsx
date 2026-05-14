@@ -293,7 +293,7 @@ export default function ImportPage() {
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-4xl">
       <div className="mb-7">
         <h1 className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2">
           <Upload size={22} className="text-primary" /> Daraz Product Import
@@ -369,7 +369,7 @@ export default function ImportPage() {
       {step === 'preview' && parsed && (
         <div className="space-y-5">
           {/* Summary cards */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {[
               { label: 'Products',   value: parsed.products.length,              color: 'text-primary'     },
               { label: 'Categories', value: Object.keys(parsed.storeCatMap).length, color: 'text-violet-600'  },

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import { formatPrice } from '@/lib/utils'
 import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight } from 'lucide-react'
@@ -13,7 +14,18 @@ const CLOSE_MS = 320   // ease-in slide-out
 
 export default function CartDrawer() {
   const { items, count, subtotal, isOpen, closeCart, removeItem, updateQty } = useCart()
+  const pathname = usePathname()
   const unlockRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auto-close when route changes (e.g. user clicks wishlist in navbar while
+  // cart is open). Without this the drawer overlays the new page until manual
+  // dismiss. Skip the very first mount so we don't fight initial render.
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return }
+    if (isOpen) closeCart()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   // Body scroll lock — lock immediately on open, release after close animation
   useEffect(() => {

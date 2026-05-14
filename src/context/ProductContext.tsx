@@ -11,14 +11,22 @@ export interface ProductContextValue {
 interface Ctx {
   product: ProductContextValue | null
   setProduct: (p: ProductContextValue | null) => void
+  stickyBarVisible: boolean
+  setStickyBarVisible: (v: boolean) => void
 }
 
-const ProductCtx = createContext<Ctx>({ product: null, setProduct: () => {} })
+const ProductCtx = createContext<Ctx>({
+  product: null,
+  setProduct: () => {},
+  stickyBarVisible: false,
+  setStickyBarVisible: () => {},
+})
 
 export function ProductContextProvider({ children }: { children: React.ReactNode }) {
   const [product, setProduct] = useState<ProductContextValue | null>(null)
+  const [stickyBarVisible, setStickyBarVisible] = useState(false)
   return (
-    <ProductCtx.Provider value={{ product, setProduct }}>
+    <ProductCtx.Provider value={{ product, setProduct, stickyBarVisible, setStickyBarVisible }}>
       {children}
     </ProductCtx.Provider>
   )

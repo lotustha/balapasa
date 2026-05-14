@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import CartDrawer from '@/components/ui/CartDrawer'
 import {
@@ -11,6 +11,7 @@ import {
   Truck, ArrowRight, Star, Loader2,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import BrandText from '@/components/ui/BrandText'
 
 interface SearchResult {
   id: string; name: string; slug: string; price: number;
@@ -196,13 +197,19 @@ function InlineSearch() {
 // ── Navbar ───────────────────────────────────────────────────────────────────
 
 interface NavbarProps {
-  siteName: string
-  logoUrl:  string
+  siteName:    string
+  logoUrl:     string
+  brandSplit?: { primary: string; accent: string }
 }
 
-export default function Navbar({ siteName, logoUrl }: NavbarProps) {
+export default function Navbar({
+  siteName,
+  logoUrl,
+  brandSplit = { primary: 'Bala', accent: 'pasa' },
+}: NavbarProps) {
   const { count, openCart } = useCart()
   const router = useRouter()
+  const pathname = usePathname()
   const [scrolled,    setScrolled]    = useState(false)
   const [mobileOpen,  setMobileOpen]  = useState(false)
   const [mobileSearch, setMobileSearch] = useState(false)
@@ -213,6 +220,10 @@ export default function Navbar({ siteName, logoUrl }: NavbarProps) {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  // Close mobile menu / search whenever route changes (covers browser
+  // back/forward and any non-Link navigation that bypasses our onClick handlers).
+  useEffect(() => { setMobileOpen(false); setMobileSearch(false) }, [pathname])
 
   function submitMobileSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -241,9 +252,7 @@ export default function Navbar({ siteName, logoUrl }: NavbarProps) {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 shrink-0 cursor-pointer">
               <Image src={logoUrl} alt={siteName} width={34} height={34} className="rounded-xl" unoptimized />
-              <span className="font-heading font-bold text-lg text-slate-800 hidden sm:block">
-                {siteName}
-              </span>
+              <BrandText name={siteName} split={brandSplit} className="font-heading font-bold text-lg text-slate-800 hidden sm:block" />
             </Link>
 
             {/* Inline search (desktop) */}

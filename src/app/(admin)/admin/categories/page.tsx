@@ -174,8 +174,8 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-7">
+    <div className="p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-7">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900">Categories</h1>
           <p className="text-slate-500 text-sm mt-0.5">{categories.length} categories · click to add icon or image</p>

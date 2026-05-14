@@ -15,7 +15,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <ThemeApplicator />
       <FacebookPixel />
       <ScrollReset />
-      <Navbar siteName={settings.siteName} logoUrl={settings.logoUrl} />
+      <Navbar siteName={settings.siteName} logoUrl={settings.logoUrl} brandSplit={settings.brandSplit} />
       {/* pt-20 clears floating navbar; pb-20 clears bottom nav on mobile */}
       <main className="flex-1 pt-20 pb-20 md:pb-0">
         {children}

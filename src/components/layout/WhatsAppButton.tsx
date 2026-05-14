@@ -9,9 +9,10 @@ export default function WhatsAppButton() {
   const [phone, setPhone]     = useState<string | null>(null)
   const [visible, setVisible] = useState(false)
   const [hint, setHint]       = useState(false)
+  const [isMd, setIsMd]       = useState(false)
   const pathname              = usePathname()
   const { items, subtotal }   = useCart()
-  const { product }           = useProductContext()
+  const { product, stickyBarVisible } = useProductContext()
 
   // Load WhatsApp number from store config
   useEffect(() => {
@@ -26,6 +27,25 @@ export default function WhatsAppButton() {
     const t = setTimeout(() => setVisible(true), 1500)
     return () => clearTimeout(t)
   }, [])
+
+  // Track md breakpoint so we can pick the right vertical offset
+  // (mobile must clear the 64px BottomNav; desktop sits closer to the corner).
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const update = () => setIsMd(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  // Resting offset: just above the bottom-right corner.
+  //   mobile  → clear 64px BottomNav + small gap (safe-area aware)
+  //   desktop → 1.5rem from the bottom edge (no BottomNav)
+  // When the product-page sticky add-to-cart bar (~72px) is visible, lift the
+  // button above it.
+  const buttonBottom = isMd
+    ? (stickyBarVisible ? '6rem' : '1.5rem')
+    : `calc(env(safe-area-inset-bottom) + ${stickyBarVisible ? '9rem' : '4.5rem'})`
 
   // Don't render the button on admin routes or if number isn't configured
   if (!phone || pathname?.startsWith('/admin')) return null
@@ -56,13 +76,12 @@ export default function WhatsAppButton() {
 
   return (
     <>
-      {/* Tooltip */}
+      {/* Tooltip — vertically centered on the 56px button (28px / 1.75rem from button bottom) */}
       {hint && (
         <div
-          className="fixed z-50 right-[88px] bottom-7 md:bottom-7 hidden sm:block animate-fade-in"
+          className="fixed z-50 right-[88px] hidden sm:block animate-fade-in"
           style={{
-            // align with button
-            bottom: 'calc(env(safe-area-inset-bottom) + 1.75rem)',
+            bottom: `calc(${buttonBottom} + 1.25rem)`,
           }}
         >
           <div className="bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-xl shadow-lg whitespace-nowrap">
@@ -85,8 +104,7 @@ export default function WhatsAppButton() {
         }`}
         style={{
           background: '#25D366',
-          // Float above the mobile bottom-nav (h-16 ≈ 64px) and respect notch
-          bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)',
+          bottom: buttonBottom,
           boxShadow: '0 10px 30px rgba(37,211,102,0.40)',
         }}
       >

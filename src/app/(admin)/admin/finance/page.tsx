@@ -409,8 +409,8 @@ export default function FinancePage() {
       <a ref={fileRef} className="hidden" />
 
       {/* ── Page header ─────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border-b border-slate-100 px-4 md:px-8 py-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-900/20">
               <BarChart3 size={18} className="text-amber-400" />
@@ -448,7 +448,7 @@ export default function FinancePage() {
       </div>
 
       {/* ── Content ──────────────────────────────────────────────── */}
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {loading ? (
           <div className="flex items-center justify-center py-24"><Loader2 size={22} className="animate-spin text-slate-400" /></div>
         ) : !summary && tab !== 'reports' ? (
@@ -460,7 +460,7 @@ export default function FinancePage() {
               <div className="space-y-5">
 
                 {/* KPI row — 5 cards with period-over-period deltas */}
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                   {/* Revenue */}
                   <div className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-sm transition-shadow">
                     <div className="flex items-center justify-between mb-3">
@@ -546,7 +546,7 @@ export default function FinancePage() {
                 </div>
 
                 {/* Bottom row: category breakdown + recent activity */}
-                <div className="grid grid-cols-5 gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5">
 
                   {/* Expenses by category — 2/5 */}
                   <div className="col-span-2 bg-white rounded-2xl border border-slate-100 p-6">
@@ -772,7 +772,7 @@ export default function FinancePage() {
                 </div>
 
                 {/* Document cards */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {REPORT_DOCS.map(doc => (
                     <button
                       key={doc.type}
@@ -845,7 +845,7 @@ export default function FinancePage() {
               </button>
             </div>
             <form onSubmit={addExpense} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount (NPR)</label>
                   <input type="number" min="0" required value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" className={inputCls} />
@@ -861,7 +861,7 @@ export default function FinancePage() {
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
                 <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Monthly office rent" className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Paid To</label>
                   <input value={form.paidTo} onChange={e => setForm(f => ({ ...f, paidTo: e.target.value }))} placeholder="Vendor / person" className={inputCls} />
@@ -929,7 +929,7 @@ export default function FinancePage() {
                 const cb = reportModal.data as CashbookData
                 return (
                   <div>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                       {[
                         { label: 'Total Cash In',  value: cb.totalIn,        color: 'text-emerald-600' },
                         { label: 'Total Cash Out', value: cb.totalOut,       color: 'text-rose-500'    },
@@ -984,7 +984,7 @@ export default function FinancePage() {
                 const db = reportModal.data as DaybookData
                 return (
                   <div>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                       {[
                         { label: 'Total Cash In',  value: db.totalIn,              color: 'text-emerald-600' },
                         { label: 'Total Cash Out', value: db.totalOut,             color: 'text-rose-500'    },
@@ -1040,7 +1040,7 @@ export default function FinancePage() {
                 const sd = reportModal.data as SalesData
                 return (
                   <div>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                       {[
                         { label: 'Total Orders',   value: null, display: String(sd.totalOrders), color: 'text-slate-900' },
                         { label: 'Paid Revenue',   value: sd.totalRevenue,  color: 'text-emerald-600' },
@@ -1108,7 +1108,7 @@ export default function FinancePage() {
                 for (const e of ld.entries) byCat[e.category] = (byCat[e.category] ?? 0) + e.amount
                 return (
                   <div>
-                    <div className="grid grid-cols-4 gap-3 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                       {Object.entries(byCat).sort(([, a], [, b]) => b - a).slice(0, 3).map(([cat, amt]) => {
                         const meta = CAT_META[cat] ?? CAT_META.OTHER
                         return (

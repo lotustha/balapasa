@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Heart } from 'lucide-react'
+import BrandText from '@/components/ui/BrandText'
 
 interface FooterProps {
   siteName?:   string
@@ -71,10 +72,7 @@ export default function Footer({
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5 mb-5 cursor-pointer">
               <Image src={logoUrl} alt={siteName} width={40} height={40} className="rounded-2xl" />
-              <span className="font-heading font-bold text-xl text-slate-800">
-                {brandSplit.primary}
-                {brandSplit.accent && <span className="iridescent-text">{brandSplit.accent}</span>}
-              </span>
+              <BrandText name={siteName} split={brandSplit} className="font-heading font-bold text-xl text-slate-800" />
             </Link>
             <p className="text-sm text-slate-500 leading-relaxed max-w-xs">
               Your one-stop destination for premium electronics, gadgets, and beauty products — delivered fast across Nepal.

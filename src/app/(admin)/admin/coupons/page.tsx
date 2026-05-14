@@ -115,9 +115,9 @@ export default function CouponsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2">
             <Tag size={20} className="text-primary" /> Coupons
@@ -140,6 +140,7 @@ export default function CouponsPage() {
             <p className="text-sm font-medium text-slate-400">No coupons yet. Create your first discount code.</p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
@@ -202,6 +203,7 @@ export default function CouponsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -230,7 +232,7 @@ export default function CouponsPage() {
               </div>
 
               {/* Type + Value */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Type</label>
                   <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as 'PERCENT' | 'FIXED' }))}
@@ -250,7 +252,7 @@ export default function CouponsPage() {
               </div>
 
               {/* Min Order + Max Uses */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Min Order (NPR)</label>
                   <input type="number" min="0" value={form.minOrder}

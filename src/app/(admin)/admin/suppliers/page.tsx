@@ -17,8 +17,8 @@ export default async function SuppliersPage() {
   const suppliers = await getSuppliers()
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-7">
+    <div className="p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-7">
         <div>
           <Link href="/admin/products" className="text-xs text-slate-400 hover:text-primary flex items-center gap-1 mb-1 cursor-pointer">
             ← Products

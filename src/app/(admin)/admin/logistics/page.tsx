@@ -96,9 +96,9 @@ export default function LogisticsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2">
             <Truck size={20} className="text-primary" /> Logistics

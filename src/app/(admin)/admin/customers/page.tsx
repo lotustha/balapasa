@@ -35,8 +35,8 @@ export default function CustomersPage() {
   const totalOrders  = customers.reduce((s, c) => s + c.orderCount, 0)
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900">Customers</h1>
           <p className="text-slate-500 text-sm mt-0.5">{customers.length} registered · {totalOrders} orders · {formatPrice(totalRevenue)} revenue</p>
@@ -45,7 +45,7 @@ export default function CustomersPage() {
 
       {/* Summary cards */}
       {!loading && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {[
             { icon: Users,      label: 'Total Customers', value: String(customers.length),     color: 'bg-purple-50 text-purple-600' },
             { icon: ShoppingBag,label: 'Total Orders',    value: String(totalOrders),           color: 'bg-blue-50 text-blue-600'   },
@@ -76,6 +76,7 @@ export default function CustomersPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-primary" /></div>
         ) : (
+          <div className="overflow-x-auto -mx-4 md:mx-0">
           <table className="w-full">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-slate-100 bg-white/95 backdrop-blur-sm shadow-sm">
@@ -136,6 +137,7 @@ export default function CustomersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

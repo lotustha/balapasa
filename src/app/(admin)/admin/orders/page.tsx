@@ -196,8 +196,8 @@ export default function OrdersPage() {
   }, {} as Record<string, number>)
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900">Orders</h1>
           <p className="text-slate-500 text-sm mt-0.5">{orders.length} total · {orders.filter(o=>o.status==='PENDING').length} pending</p>
@@ -269,6 +269,7 @@ export default function OrdersPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-primary" /></div>
         ) : (
+          <div className="overflow-x-auto -mx-4 md:mx-0">
           <table className="w-full">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-slate-100 bg-white/95 backdrop-blur-sm shadow-sm">
@@ -342,6 +343,7 @@ export default function OrdersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

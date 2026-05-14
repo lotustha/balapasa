@@ -6,12 +6,12 @@ import Image from 'next/image'
 import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
-  ExternalLink, AlertCircle, RefreshCw, ChevronRight, Upload, Palette,
+  ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
   MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
-import { HERO_DEFAULTS, type HeroBadge } from '@/lib/site-settings-shared'
+import { HERO_DEFAULTS, splitBrandName, cleanBrandName, type HeroBadge } from '@/lib/site-settings-shared'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -863,6 +863,10 @@ function HomepageSettingsPanel({ saving, saved, onSave }: {
 
 export default function SettingsPage() {
   const [tab,        setTab]        = useState<TabId>('store')
+  // Mobile-only: when true, show the iOS-style settings index instead of the active panel.
+  // Starts true so mobile users land on the index. On desktop (md+), this state has no
+  // visual effect — both panes render via responsive classes.
+  const [mobileNavOpen, setMobileNavOpen] = useState(true)
   const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState<string | null>(null)
   const [saved,      setSaved]      = useState<string | null>(null)
@@ -982,9 +986,9 @@ export default function SettingsPage() {
   const activeTab = TABS.find(t => t.id === tab)!
 
   return (
-    <div className="p-8">
-      {/* Page header */}
-      <div className="flex items-center gap-3 mb-8">
+    <div className="p-4 md:p-8">
+      {/* Page header — desktop only. Mobile uses its own sticky bar (below). */}
+      <div className="hidden md:flex items-center gap-3 mb-8">
         <div className="w-10 h-10 bg-primary-bg rounded-2xl flex items-center justify-center">
           <Settings size={18} className="text-primary" />
         </div>
@@ -994,58 +998,80 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Mobile sticky header — title on the index, back-arrow + tab name on detail */}
+      <div className="md:hidden sticky top-14 -mx-4 z-30 bg-slate-50/95 backdrop-blur-xl border-b border-slate-200/60">
+        <div className="flex items-center gap-2 px-4 h-12">
+          {!mobileNavOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="-ml-2 flex items-center gap-0.5 px-2 py-2 text-primary font-semibold text-sm cursor-pointer active:opacity-60"
+            >
+              <ChevronLeft size={20} /> Settings
+            </button>
+          )}
+          <h1 className="font-heading font-bold text-slate-900 text-base flex-1 text-center pr-8">
+            {mobileNavOpen ? 'Settings' : activeTab.label}
+          </h1>
+        </div>
+      </div>
+
       {/* Error banner */}
       {saveError && (
-        <div className="flex items-start gap-2.5 px-4 py-3 mb-6 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
+        <div className="flex items-start gap-2.5 px-4 py-3 mb-4 md:mb-6 mt-4 md:mt-0 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
           <AlertCircle size={15} className="shrink-0 mt-0.5" />
           <div><p className="font-bold">Save failed</p><p className="text-xs mt-0.5 font-mono">{saveError}</p></div>
         </div>
       )}
 
       {/* Settings layout: sidebar + panel */}
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col md:flex-row md:gap-6 md:items-start mt-4 md:mt-0">
 
-        {/* ── Left sidebar ──────────────────────────────────────────── */}
-        <nav className="w-52 shrink-0 bg-white rounded-2xl border border-slate-100 overflow-hidden sticky top-6">
+        {/* ── Left sidebar (desktop) / Index list (mobile) ─────────── */}
+        <nav className={`md:w-52 md:shrink-0 bg-white rounded-2xl border border-slate-100 overflow-hidden md:sticky md:top-6 ${mobileNavOpen ? 'block' : 'hidden'} md:block`}>
           {TABS.map(t => {
             const Icon    = t.icon
             const isActive = tab === t.id
             const isDanger = t.id === 'danger'
             return (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all duration-150 cursor-pointer relative ${
+              <button key={t.id}
+                onClick={() => { setTab(t.id); setMobileNavOpen(false) }}
+                className={`w-full flex items-center gap-3 px-4 py-4 md:py-3.5 text-left transition-all duration-150 cursor-pointer relative border-b border-slate-50 last:border-b-0 md:border-b-0 ${
                   isActive
                     ? isDanger
-                      ? 'bg-red-50 text-red-600'
-                      : 'bg-primary-bg text-primary'
+                      ? 'md:bg-red-50 md:text-red-600 text-red-500'
+                      : 'md:bg-primary-bg md:text-primary text-slate-700'
                     : isDanger
-                    ? 'text-red-400 hover:bg-red-50 hover:text-red-600'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'text-red-500 md:text-red-400 active:bg-red-50 md:hover:bg-red-50 md:hover:text-red-600'
+                    : 'text-slate-700 active:bg-slate-50 md:hover:bg-slate-50 md:hover:text-slate-900'
                 }`}>
                 {isActive && (
-                  <span className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full ${isDanger ? 'bg-red-500' : 'bg-primary'}`} />
+                  <span className={`hidden md:block absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full ${isDanger ? 'bg-red-500' : 'bg-primary'}`} />
                 )}
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                <div className={`w-9 h-9 md:w-7 md:h-7 rounded-xl md:rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                   isActive
                     ? isDanger ? 'bg-red-100' : 'bg-primary/15'
-                    : 'bg-slate-100'
+                    : isDanger ? 'bg-red-50' : 'bg-slate-100'
                 }`}>
-                  <Icon size={14} />
+                  <Icon size={16} className="md:hidden" />
+                  <Icon size={14} className="hidden md:block" />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold leading-none">{t.label}</p>
-                  <p className={`text-[10px] mt-0.5 truncate ${isActive ? 'opacity-70' : 'text-slate-400'}`}>{t.desc}</p>
+                  <p className={`text-xs md:text-[10px] mt-1 md:mt-0.5 truncate ${isActive ? 'opacity-70' : 'text-slate-400'}`}>{t.desc}</p>
                 </div>
+                {/* Mobile chevron */}
+                <ChevronRight size={16} className="md:hidden text-slate-300 shrink-0" />
               </button>
             )
           })}
         </nav>
 
         {/* ── Right panel ───────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0">
+        <div className={`flex-1 min-w-0 mt-4 md:mt-0 ${mobileNavOpen ? 'hidden' : 'block'} md:block`}>
 
-          {/* Panel header */}
-          <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
+          {/* Breadcrumb — desktop only (mobile uses sticky back-bar instead) */}
+          <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 mb-4">
             <span>Settings</span>
             <ChevronRight size={12} />
             <span className="text-slate-600 font-semibold">{activeTab.label}</span>
@@ -1061,11 +1087,29 @@ export default function SettingsPage() {
                     <Label>Store Name</Label>
                     <input value={store.STORE_NAME} onChange={e => setStore(s => ({ ...s, STORE_NAME: e.target.value }))}
                       placeholder="Your Store" className={inputCls} />
+                    {/* Live wordmark preview — exactly how it renders in header / footer / sidebar / auth pages */}
+                    {(() => {
+                      const { primary, accent } = splitBrandName(store.STORE_NAME)
+                      const clean = cleanBrandName(store.STORE_NAME)
+                      return (
+                        <div className="mt-2 flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Preview</span>
+                          <span className="font-heading font-bold text-slate-800 text-base">
+                            {primary}
+                            {accent && <span className="iridescent-text">{accent}</span>}
+                          </span>
+                          {!accent && clean && (
+                            <span className="text-[10px] text-slate-400 ml-auto">No accent — add a <code className="bg-white px-1 rounded">|</code> to colour part of the name</span>
+                          )}
+                        </div>
+                      )
+                    })()}
                     <Hint>
-                      Use <code className="bg-slate-100 px-1 rounded">|</code> to mark the footer-wordmark accent split.
-                      Example: <code className="bg-slate-100 px-1 rounded">Bala|pasa</code> shows as
-                      &ldquo;Bala<span className="iridescent-text font-bold">pasa</span>&rdquo; in the footer.
-                      The pipe is stripped everywhere else (titles, emails, search results).
+                      Add a single <code className="bg-slate-100 px-1 rounded">|</code> where you want the iridescent accent to begin.
+                      Example: <code className="bg-slate-100 px-1 rounded">Bala|pasa</code> renders as
+                      &ldquo;Bala<span className="iridescent-text font-bold">pasa</span>&rdquo; in the header, footer, admin sidebar, and auth pages.
+                      Without a <code className="bg-slate-100 px-1 rounded">|</code> the whole name shows in plain text.
+                      The pipe is stripped from titles, emails, and metadata.
                     </Hint>
                   </div>
                   <div>

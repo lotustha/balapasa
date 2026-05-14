@@ -5,6 +5,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Mail, Lock, User, Phone, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import BrandText from '@/components/ui/BrandText'
+import { STORE_NAME } from '@/lib/config'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -50,7 +52,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-xl p-8 animate-fade-in-up">
           <div className="flex flex-col items-center mb-8">
-            <Image src="/logo.png" alt="Store logo" width={56} height={56} className="rounded-2xl mb-3" />
+            <Image src="/logo.png" alt={STORE_NAME} width={56} height={56} className="rounded-2xl mb-3" />
+            <BrandText name={STORE_NAME} className="font-heading font-bold text-xl text-slate-800 mb-2" />
             <h1 className="font-heading font-extrabold text-2xl text-gray-900">Create account</h1>
             <p className="text-gray-500 text-sm mt-1">Join thousands of happy shoppers</p>
           </div>

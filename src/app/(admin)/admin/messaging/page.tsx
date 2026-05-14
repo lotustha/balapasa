@@ -79,9 +79,9 @@ export default function MessagingPage() {
   const openCount = convs.filter(c => c.status === 'OPEN').length
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
         <div>
           <h1 className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-primary-bg flex items-center justify-center">
@@ -98,7 +98,7 @@ export default function MessagingPage() {
 
       {/* Stats row */}
       {!loading && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {[
             { label: 'Total conversations', value: convs.length, icon: Users, color: 'text-slate-600', bg: 'bg-slate-100' },
             { label: 'WhatsApp',  value: waCount,  icon: WaIcon,  color: 'text-green-600', bg: 'bg-green-100' },

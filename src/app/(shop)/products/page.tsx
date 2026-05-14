@@ -272,13 +272,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
       {/* Page header */}
       <div className="relative z-10 glass-section">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-1">Shop</p>
-              <h1 className="font-heading font-extrabold text-3xl text-slate-900">{pageTitle}</h1>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] sm:text-xs font-bold text-primary uppercase tracking-[0.2em] mb-1">Shop</p>
+              <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900 truncate">{pageTitle}</h1>
+              <p className="text-xs text-slate-400 font-medium mt-0.5 sm:hidden">
+                {total} product{total !== 1 ? 's' : ''}
+                {totalPages > 1 && <span className="ml-1.5 text-slate-300">· p.{page}/{totalPages}</span>}
+              </p>
             </div>
-            <p className="text-sm text-slate-400 font-medium hidden sm:block">
+            <p className="text-sm text-slate-400 font-medium hidden sm:block shrink-0">
               {total} product{total !== 1 ? 's' : ''}
               {totalPages > 1 && <span className="ml-2 text-slate-300">· page {page} of {totalPages}</span>}
             </p>
@@ -287,7 +291,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       </div>
 
       {/* Main layout */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="flex gap-7 items-stretch">
 
           {/* Sidebar */}

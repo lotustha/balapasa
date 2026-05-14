@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
+import BrandText from '@/components/ui/BrandText'
 
 type Role = 'STAFF' | 'MANAGER' | 'ADMIN'
 const ROLE_RANK: Record<Role, number> = { STAFF: 1, MANAGER: 2, ADMIN: 3 }
@@ -108,7 +109,7 @@ export default function AdminNav() {
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/5">
         <Image src="/logo.png" alt={STORE_NAME} width={36} height={36} className="rounded-xl" />
         <div>
-          <p className="font-heading font-bold text-white text-sm leading-tight">{STORE_NAME}</p>
+          <BrandText name={STORE_NAME} className="font-heading font-bold text-white text-sm leading-tight block" />
           <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Admin Panel</p>
         </div>
       </div>

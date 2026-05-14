@@ -455,7 +455,7 @@ export default function OrderDetailPage() {
   )
 
   return (
-    <div className="p-6 max-w-6xl relative">
+    <div className="p-4 md:p-6 max-w-6xl relative">
 
       {/* ── Confirm Delivery Modal ── */}
       {confirmPayload && (
@@ -649,7 +649,7 @@ export default function OrderDetailPage() {
             {editCustomer ? (
               <div className="space-y-4">
                 {/* Contact info */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     { label:'Full Name', key:'name',  icon:User,  type:'text'  },
                     { label:'Phone',     key:'phone', icon:Phone, type:'tel'   },
@@ -693,7 +693,7 @@ export default function OrderDetailPage() {
                     Advanced (GPS Coordinates)
                   </button>
                   {showAdvanced && (
-                    <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Latitude</label>
                         <input type="number" step="any" value={customerDraft.lat}
@@ -1026,7 +1026,7 @@ export default function OrderDetailPage() {
                     Pathao unavailable — {order?.city} is outside Kathmandu Valley
                   </p>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
                     ...(isKtmValley ? [{ key:'pathao', label:'Pathao', sub:'On-demand, real-time', logo:'/pathao.webp', color:'bg-orange-50 border-orange-200', onClick: () => { setDeliveryTab('pathao'); estimatePathao() } }] : []),
                     { key:'pickndrop', label:'Pick & Drop', sub:'Branch-to-branch, Nepal', logo:'/pick_n_drop.webp', color:'bg-blue-50 border-blue-200',   onClick: () => { setDeliveryTab('pickndrop'); estimatePnd() } },
@@ -1118,7 +1118,7 @@ export default function OrderDetailPage() {
                 </div>
 
                 {/* Branch selection */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">From Branch</label>
                     <select value={pndFromBranch} onChange={e => setPndFromBranch(e.target.value)} className={inputCls}>
@@ -1203,7 +1203,7 @@ export default function OrderDetailPage() {
                 </div>
 
                 {/* Or custom name */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rider Name <span className="normal-case font-normal">(or override)</span></label>
                     <input value={riderForm.riderName} onChange={e => setRiderForm(d => ({ ...d, riderName: e.target.value }))}

@@ -11,7 +11,7 @@ import {
   GitCompareArrows, Eye,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
-import { useRegisterProduct } from '@/context/ProductContext'
+import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
 
@@ -184,6 +184,13 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       window.removeEventListener('resize', check)
     }
   }, [])
+
+  // Sync sticky-bar visibility into ProductContext so the WhatsApp button can lift above it.
+  const { setStickyBarVisible } = useProductContext()
+  useEffect(() => {
+    setStickyBarVisible(showSticky)
+    return () => setStickyBarVisible(false)
+  }, [showSticky, setStickyBarVisible])
 
   // ── Variants ───────────────────────────────────────────────────────────
   const options = p?.options ?? []
@@ -388,7 +395,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
   return (
     <div className="min-h-screen relative"
-      style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)' }}>
+      style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)', overflowX: 'clip' }}>
 
       {/* Blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex:0 }}>

@@ -142,11 +142,11 @@ export default function AdminGiftCardsPage() {
   const totalRedeemed  = totalIssued - cards.reduce((s, c) => s + c.balance, 0)
 
   return (
-    <div className="min-h-screen p-6 lg:p-8 bg-slate-50">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8 bg-slate-50">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Gift size={16} className="text-primary" />
