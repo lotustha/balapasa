@@ -360,6 +360,13 @@ const PND_DEFAULTS: ProviderRow = {
   maxSurgeNpr: 0,
 }
 
+interface VendorSync {
+  vendorName?: string
+  vendorAddress?: string
+  parsed?: { pickupBranch?: string; pickupArea?: string; pickupLocation?: string }
+  error?: string
+}
+
 function DeliverySettingsPanel() {
   const [pathao,  setPathao]  = useState<ProviderRow>(PATHAO_DEFAULTS)
   const [pnd,     setPnd]     = useState<ProviderRow>(PND_DEFAULTS)
@@ -367,6 +374,7 @@ function DeliverySettingsPanel() {
   const [saving,  setSaving]  = useState<string | null>(null)
   const [saved,   setSaved]   = useState<string | null>(null)
   const [err,     setErr]     = useState('')
+  const [pndVendor, setPndVendor] = useState<VendorSync | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/logistics').then(r => r.json()).then(j => {
@@ -374,7 +382,12 @@ function DeliverySettingsPanel() {
       const p = rows.find(r => r.provider === 'PATHAO')
       const d = rows.find(r => r.provider === 'PICKNDROP')
       if (p) setPathao({ ...PATHAO_DEFAULTS, ...p })
-      if (d) setPnd({ ...PND_DEFAULTS, ...d })
+      if (d) {
+        setPnd({ ...PND_DEFAULTS, ...d })
+        if (d.storeName || d.storeAddress) {
+          setPndVendor({ vendorName: d.storeName, vendorAddress: d.storeAddress })
+        }
+      }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -385,6 +398,12 @@ function DeliverySettingsPanel() {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
       })
       if (!res.ok) throw new Error(await res.text())
+      const j = await res.json()
+      if (data.provider === 'PICKNDROP') {
+        if (j?.setting) setPnd(prev => ({ ...prev, ...j.setting }))
+        if (j?.vendorSync) setPndVendor(j.vendorSync as VendorSync)
+      }
+      if (data.provider === 'PATHAO' && j?.setting) setPathao(prev => ({ ...prev, ...j.setting }))
       setSaved(data.provider); setTimeout(() => setSaved(null), 3000)
     } catch (e) { setErr(String(e)) }
     setSaving(null)
@@ -529,8 +548,23 @@ function DeliverySettingsPanel() {
             <div className="sm:col-span-2"><Label>Base URL</Label><input value={pnd.baseUrl ?? ''} onChange={e => setPnd(p => ({ ...p, baseUrl: e.target.value }))} className={fieldCls} /></div>
           </div>
 
+          {pndVendor && (pndVendor.vendorAddress || pndVendor.error) && (
+            <div className={`p-4 rounded-xl border ${pndVendor.error ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100'}`}>
+              {pndVendor.error ? (
+                <p className="text-xs text-rose-700">{pndVendor.error}</p>
+              ) : (
+                <>
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-emerald-700">Registered with Pick &amp; Drop</p>
+                  {pndVendor.vendorName && <p className="text-sm font-bold text-emerald-900 mt-1">{pndVendor.vendorName}</p>}
+                  <p className="text-xs text-emerald-800/80 mt-0.5">{pndVendor.vendorAddress}</p>
+                  <p className="text-[10px] text-emerald-700/70 mt-2">Auto-fetched from <code className="px-1 bg-emerald-100 rounded">business_address</code> · pickup fields below were parsed from this address.</p>
+                </>
+              )}
+            </div>
+          )}
+
           <SectionTitle>Pickup Origin</SectionTitle>
-          <p className="text-xs text-slate-500 -mt-2">Sent as <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">pickup_branch</code>, <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">city_area</code>, and <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">location</code> on rate &amp; create_order calls.</p>
+          <p className="text-xs text-slate-500 -mt-2">Auto-filled from your PnD registered address when credentials are saved. Sent as <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">pickup_branch</code>, <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">city_area</code>, and <code className="px-1 py-0.5 bg-slate-100 rounded text-[10px]">location</code> on rate &amp; create_order calls.</p>
           <div className="grid sm:grid-cols-3 gap-3">
             <div>
               <Label>Pickup Branch</Label>

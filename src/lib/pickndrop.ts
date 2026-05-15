@@ -151,12 +151,15 @@ export async function calculatePndRates(
   let surge      = 0
   let zoneLabel  = ''
 
+  let branchAreas: string[] = []
+
   try {
     const cfg    = await getPicknDropConfig()
     const isTest = /app-t\.pickndropnepal\.com/i.test(cfg.baseUrl)
     const branch = await resolveBranchForArea(toCity)
     if (branch) {
-      branchName = branch.branch_name
+      branchName  = branch.branch_name
+      branchAreas = branch.area ?? []
       const rate = await getDeliveryRate({
         destinationBranch: branchName,
         cityArea: toCity,
@@ -191,7 +194,10 @@ export async function calculatePndRates(
 
   // ETA bands (seconds) — PnD doesn't return ETA from rate endpoint; we infer
   // from branch (KTM Valley = same-day, Terai/Mid = 1-2d, Far = 3d).
-  const eta = etaFor(zoneLabel)
+  // Real PnD branch names don't always contain the city (e.g. "Capital" covers
+  // Kathmandu via its area[] list), so we feed both name and areas + the
+  // customer's typed city into the matcher.
+  const eta = etaFor(zoneLabel, branchAreas, toCity)
 
   return [{
     id: `pnd-standard-${norm(zoneLabel)}`,
@@ -233,11 +239,15 @@ function fallbackRate(toCity: string): { charge: number; zone: string; branchHin
   return { charge: STANDARD_RATE[zone], zone, branchHint: hint }
 }
 
-function etaFor(branchOrZone: string): number {
-  const b = branchOrZone.toLowerCase()
-  if (b.includes('kathmandu') || b.includes('lalitpur') || b.includes('bhaktapur')) return ETA_SECS.SAME
-  if (b.includes('pokhara') || b.includes('chitwan'))                                return ETA_SECS.MID
-  if (TERAI_HINT.has(b.replace(/\s+/g, '')))                                         return ETA_SECS.TERAI
+function etaFor(branchOrZone: string, branchAreas: string[] = [], cityArea = ''): number {
+  // Combine every signal we have about the destination — branch name plus its
+  // coverage area list plus the customer's typed city — so a branch named
+  // "Capital" with area ["Kathmandu", "Lalitpur"] still resolves to SAME.
+  const haystack = [branchOrZone, ...branchAreas, cityArea].join(' ').toLowerCase()
+  const compact  = haystack.replace(/\s+/g, '')
+  if (/kathmandu|lalitpur|bhaktapur|kavre|sindhupalchok|nuwakot|kirtipur|gokarneshwar|budhanilkantha/.test(haystack)) return ETA_SECS.SAME
+  if (/pokhara|chitwan|kaski|bharatpur/.test(haystack))                                                                return ETA_SECS.MID
+  for (const t of TERAI_HINT) if (compact.includes(t))                                                                 return ETA_SECS.TERAI
   return ETA_SECS.FAR
 }
 
@@ -375,4 +385,82 @@ export async function getBusinessAddresses(): Promise<PndBusinessAddresses | nul
   } catch {
     return null
   }
+}
+
+// Variant that takes overrides — used during admin save before the new
+// credentials have been flushed through getPicknDropConfig()'s 30s cache.
+export async function fetchBusinessAddressesWithCreds(
+  cfg: { baseUrl: string; apiKey: string; apiSecret: string },
+): Promise<PndBusinessAddresses | null> {
+  if (!cfg.apiKey || !cfg.apiSecret || !cfg.baseUrl) return null
+  try {
+    const res = await fetch(`${cfg.baseUrl}/api/method/logi360.api.business_address`, {
+      headers: { Authorization: authHeader(cfg.apiKey, cfg.apiSecret), 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const data = json?.message?.data
+    if (!data) return null
+    return { vendor_name: String(data.vendor_name ?? ''), addresses: data.addresses ?? [] }
+  } catch {
+    return null
+  }
+}
+
+// Same as the cached version of getBranches() but accepts overridden creds so
+// the admin save flow can resolve a branch from freshly-saved API keys before
+// the in-memory cache rotates.
+export async function fetchBranchesWithCreds(
+  cfg: { baseUrl: string; apiKey: string; apiSecret: string },
+): Promise<PndBranch[]> {
+  if (!cfg.apiKey || !cfg.apiSecret || !cfg.baseUrl) return []
+  try {
+    const res = await fetch(`${cfg.baseUrl}/api/method/logi360.api.get_branches`, {
+      headers: { Authorization: authHeader(cfg.apiKey, cfg.apiSecret), 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    return json?.message?.data?.branches ?? []
+  } catch {
+    return []
+  }
+}
+
+// Parse a vendor address string into the three structured atoms PnD's rate
+// API expects. The address is human-typed ("Balaju, Kathmandu") so we use the
+// branch list as ground truth: any segment that matches a branch's area[] is
+// our city_area; the branch covering it is the pickup_branch; the segment to
+// the left (or the whole string before the matched area) is the location.
+export function parseVendorAddress(
+  address: string,
+  branches: PndBranch[],
+): { pickupBranch?: string; pickupArea?: string; pickupLocation?: string } {
+  if (!address) return {}
+  const segments = address.split(',').map(s => s.trim()).filter(Boolean)
+  if (segments.length === 0) return {}
+
+  // Walk segments right-to-left looking for a branch.area[] match — the area
+  // is usually the city at the tail of the string (e.g. "..., Kathmandu").
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i]
+    const segN = norm(seg)
+    for (const b of branches) {
+      if (b.status !== 'Active') continue
+      const hit = b.area.some(a => norm(a) === segN || norm(a).includes(segN) || segN.includes(norm(a)))
+        || norm(b.branch_name) === segN
+      if (hit) {
+        const before = segments.slice(0, i).join(', ').trim()
+        return {
+          pickupBranch:   b.branch_name,
+          pickupArea:     seg,
+          pickupLocation: before || seg,
+        }
+      }
+    }
+  }
+
+  // No branch matched — best-effort split: last segment = area, rest = location.
+  const area     = segments[segments.length - 1]
+  const location = segments.slice(0, -1).join(', ') || area
+  return { pickupArea: area, pickupLocation: location }
 }

@@ -16,8 +16,9 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /www/wwwroot/balapasa
-            git pull origin master
-            npm install
+            git fetch origin master
+            git reset --hard origin/master
+            npm ci
             npx prisma db push --accept-data-loss
             npx prisma generate
             npm run build
