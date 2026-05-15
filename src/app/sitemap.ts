@@ -1,8 +1,34 @@
 import type { MetadataRoute } from 'next'
 import { prisma } from '@/lib/prisma'
-import { STORE_URL as BASE } from '@/lib/config'
+import { getSiteSettings } from '@/lib/site-settings'
+
+// Force fresh resolution every request — sitemap must reflect the current
+// public URL from app_settings, not a build-time captured value.
+export const dynamic  = 'force-dynamic'
+export const revalidate = 0
+
+// Resolve the public site URL with hard guards:
+// - read from app_settings.STORE_URL (DB) via getSiteSettings
+// - fall back to env, then a hard production default
+// - reject localhost so a stale dev env on the VPS doesn't poison the sitemap
+//   (Google rejects sitemaps where URLs don't match the hosting domain).
+async function getBaseUrl(): Promise<string> {
+  let url: string
+  try {
+    const settings = await getSiteSettings()
+    url = settings.storeUrl
+  } catch {
+    url = process.env.NEXT_PUBLIC_APP_URL ?? 'https://balapasa.com.np'
+  }
+  if (!url || !/^https?:\/\//i.test(url) || /localhost|127\.0\.0\.1/i.test(url)) {
+    url = 'https://balapasa.com.np'
+  }
+  return url.replace(/\/+$/, '')
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const BASE = await getBaseUrl()
+
   const [products, categories] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
