@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
@@ -18,6 +18,22 @@ function safeReturnTo(raw: string | null): string | null {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginInner />
+    </Suspense>
+  )
+}
+
+function LoginFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+      <Loader2 size={28} className="animate-spin text-primary" />
+    </div>
+  )
+}
+
+function LoginInner() {
   const router        = useRouter()
   const searchParams  = useSearchParams()
   const returnTo      = safeReturnTo(searchParams.get('returnTo'))
