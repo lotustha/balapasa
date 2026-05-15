@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, GripVertical, ChevronDown, ChevronUp, Upload, Loader2, Image as ImageIcon } from 'lucide-react'
+import { Plus, X, GripVertical, ChevronDown, ChevronUp, Upload, Loader2, Image as ImageIcon, Library } from 'lucide-react'
+import GalleryPickerModal from './GalleryPickerModal'
 
 async function uploadVariantImage(file: File): Promise<string | null> {
   const form = new FormData()
@@ -17,6 +18,7 @@ function VariantImageCell({
   value: string; onChange: (url: string) => void; productImages: string[]
 }) {
   const [open, setOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   return (
     <div className="flex items-center justify-center">
@@ -82,16 +84,33 @@ function VariantImageCell({
                 </div>
               )}
 
-              {value && (
-                <button type="button" onClick={() => { onChange(''); setOpen(false) }}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-100">
-                  <X size={12} /> Remove image
+              <div className="flex flex-col gap-2">
+                <button type="button"
+                  onClick={() => { setOpen(false); setPickerOpen(true) }}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer border border-slate-200">
+                  <Library size={12} /> Pick from full library
                 </button>
-              )}
+                {value && (
+                  <button type="button" onClick={() => { onChange(''); setOpen(false) }}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-100">
+                    <X size={12} /> Remove image
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </>
       )}
+
+      <GalleryPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(urls) => { if (urls[0]) onChange(urls[0]) }}
+        mode="single"
+        kind="image"
+        initiallySelected={value ? [value] : []}
+        title="Pick a variant image"
+      />
     </div>
   )
 

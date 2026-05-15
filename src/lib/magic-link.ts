@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const MAGIC_LINK_EXPIRY = '7d'
+const MAGIC_LINK_EXPIRY        = '7d'
+const VERIFY_EMAIL_EXPIRY      = '24h'
 
 function secret() {
   return new TextEncoder().encode(
@@ -8,16 +9,18 @@ function secret() {
   )
 }
 
+export type MagicLinkType = 'signup-claim' | 'login' | 'email-verify'
+
 export interface MagicLinkPayload {
-  email:   string
-  type:    'signup-claim'
+  email:    string
+  type:     MagicLinkType
   orderId?: string
 }
 
-export async function createMagicToken(payload: MagicLinkPayload): Promise<string> {
+export async function createMagicToken(payload: MagicLinkPayload, expiry: string = MAGIC_LINK_EXPIRY): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime(MAGIC_LINK_EXPIRY)
+    .setExpirationTime(expiry)
     .setIssuedAt()
     .sign(secret())
 }
@@ -25,15 +28,30 @@ export async function createMagicToken(payload: MagicLinkPayload): Promise<strin
 export async function verifyMagicToken(token: string): Promise<MagicLinkPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret())
-    if (payload.type !== 'signup-claim' || typeof payload.email !== 'string') return null
+    if (typeof payload.email !== 'string') return null
+    const t = payload.type
+    if (t !== 'signup-claim' && t !== 'login' && t !== 'email-verify') return null
     return payload as unknown as MagicLinkPayload
   } catch {
     return null
   }
 }
 
+export async function createVerifyEmailToken(email: string): Promise<string> {
+  return createMagicToken({ email, type: 'email-verify' }, VERIFY_EMAIL_EXPIRY)
+}
+
+// URLs — kept separate so callers can pick the right one for the flow.
 export function magicLinkUrl(token: string, origin: string): string {
   return `${origin}/account/setup?token=${encodeURIComponent(token)}`
+}
+
+export function loginLinkUrl(token: string, origin: string): string {
+  return `${origin}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`
+}
+
+export function verifyEmailUrl(token: string, origin: string): string {
+  return `${origin}/api/auth/verify-email?token=${encodeURIComponent(token)}`
 }
 
 export function generateWelcomeCouponCode(email: string): string {

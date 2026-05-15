@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       name, slug, description, price, salePrice, costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory,
-      brand, sku, barcode, weight, boughtTogetherIds,
+      brand, sku, barcode, weight, length, width, height, boughtTogetherIds,
       variantOptions, variants,
     } = body as Record<string, unknown> & {
       variantOptions?: { name: string; values: string[] }[]
@@ -56,6 +56,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     if (sku               !== undefined) data.sku               = sku     || null
     if (barcode           !== undefined) data.barcode           = barcode || null
     if (weight            !== undefined) data.weight            = weight  ? Number(weight) : null
+    if (length            !== undefined) data.length            = length  ? Number(length) : null
+    if (width             !== undefined) data.width             = width   ? Number(width)  : null
+    if (height            !== undefined) data.height            = height  ? Number(height) : null
     if (boughtTogetherIds !== undefined) data.boughtTogetherIds = Array.isArray(boughtTogetherIds) ? boughtTogetherIds : []
 
     // If the body includes variant fields, treat them as the full desired state

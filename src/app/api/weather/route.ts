@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import { getPathaoConfig, getPicknDropConfig } from '@/lib/logistics-config'
 
 // Fallback if neither logistics config has a store location set
@@ -62,8 +63,18 @@ async function fetchStoreWeather(apiKey: string): Promise<{ data: OWMPayload | n
   return { data, label: FALLBACK_LABEL }
 }
 
+async function getOpenWeatherKey(): Promise<string | null> {
+  try {
+    const row = await prisma.$queryRaw<{ value: string }[]>`
+      SELECT value FROM app_settings WHERE key = 'OPENWEATHER_API_KEY' LIMIT 1
+    `
+    if (row[0]?.value) return row[0].value
+  } catch { /* DB unavailable — fall through */ }
+  return null
+}
+
 export async function POST(req: Request) {
-  const apiKey = process.env.OPENWEATHER_API_KEY
+  const apiKey = await getOpenWeatherKey()
   if (!apiKey) return NextResponse.json({ error: 'not_configured' }, { status: 503 })
 
   const { municipality, district } = (await req.json()) as {

@@ -221,10 +221,12 @@ export default function OrdersPage() {
                   {selected.size > 0 ? `${selected.size} selected order${selected.size>1?'s':''}` : 'All filtered orders'}
                 </p>
                 {[
-                  { type:'shipping', label:'Shipping Labels',  sub:'100mm × 140mm sticker' },
-                  { type:'invoice',  label:'Tax Invoice',      sub:'Full invoice with VAT'  },
-                  { type:'packing',  label:'Packing Slip',     sub:'Goes inside the box'    },
-                  { type:'all',      label:'All Documents',    sub:'Label + Invoice + Slip' },
+                  { type:'shipping',     label:'Shipping Labels', sub:'100mm × 140mm sticker'           },
+                  { type:'awb',          label:'Air Waybill',     sub:'Courier AWB, one per page'        },
+                  { type:'invoice',      label:'Tax Invoice',     sub:'Full invoice with VAT'            },
+                  { type:'packing',      label:'Packing Slip',    sub:'One full page per order'          },
+                  { type:'packing-list', label:'Packing List',    sub:'Multi-order list — saves paper'   },
+                  { type:'all',          label:'All Documents',   sub:'Label + Invoice + Slip'           },
                 ].map(d => (
                   <button key={d.type} onClick={() => printDocs(d.type)}
                     className="w-full flex flex-col px-4 py-3 hover:bg-slate-50 cursor-pointer text-left border-b border-slate-50 last:border-0 transition-colors">

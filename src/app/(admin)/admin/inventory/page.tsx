@@ -41,6 +41,7 @@ export default function InventoryPage() {
   const [adjQty,   setAdjQty]   = useState('')
   const [adjNote,  setAdjNote]  = useState('')
   const [saving,   setSaving]   = useState(false)
+  const [adjError, setAdjError] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -61,16 +62,25 @@ export default function InventoryPage() {
   async function submitAdjustment() {
     if (!modal || !adjQty) return
     setSaving(true)
-    const res = await fetch('/api/admin/inventory/adjust', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId: modal.id, type: adjType, quantity: Number(adjQty), note: adjNote }),
-    })
-    if (res.ok) {
-      setModal(null); setAdjQty(''); setAdjNote('')
-      load()
+    setAdjError(null)
+    try {
+      const res  = await fetch('/api/admin/inventory/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: modal.id, type: adjType, quantity: Number(adjQty), note: adjNote }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setAdjError(data.error || `Failed (HTTP ${res.status})`)
+      } else {
+        setModal(null); setAdjQty(''); setAdjNote('')
+        load()
+      }
+    } catch (e) {
+      setAdjError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const tracked  = products.filter(p => p.trackInventory)
@@ -289,6 +299,12 @@ export default function InventoryPage() {
                 placeholder="e.g. Received from supplier, PO #123"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
             </div>
+
+            {adjError && (
+              <div className="mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-semibold border border-red-200">
+                {adjError}
+              </div>
+            )}
 
             <button onClick={submitAdjustment} disabled={!adjQty || saving}
               className="w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-primary-dark disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer">

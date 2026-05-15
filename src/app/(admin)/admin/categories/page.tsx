@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Tag, Plus, Edit2, Loader2, X, Upload, Check } from 'lucide-react'
+import { Tag, Plus, Edit2, Loader2, X, Upload, Check, Library } from 'lucide-react'
 import Image from 'next/image'
+import GalleryPickerModal from '@/components/admin/GalleryPickerModal'
 
 interface Category {
   id: string; name: string; slug: string; color: string
   icon: string | null; image: string | null
+  seoIntro?: string | null
   _count?: { products: number }
 }
 
@@ -22,9 +24,31 @@ function EditModal({ cat, onSave, onClose }: {
   const [color,    setColor]    = useState(cat.color)
   const [icon,     setIcon]     = useState(cat.icon ?? '')
   const [image,    setImage]    = useState(cat.image ?? '')
+  const [seoIntro, setSeoIntro] = useState(cat.seoIntro ?? '')
+  const [aiLoading,setAiLoading]= useState(false)
+  const [aiError,  setAiError]  = useState<string | null>(null)
   const [saving,   setSaving]   = useState(false)
   const [uploading,setUploading]= useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  async function generateIntroAI() {
+    setAiLoading(true); setAiError(null)
+    try {
+      const res  = await fetch('/api/admin/ai/category-intro', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ categoryId: cat.id, save: false }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Generation failed')
+      setSeoIntro(data.intro ?? '')
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   async function uploadImage(file: File) {
     setUploading(true)
@@ -39,7 +63,7 @@ function EditModal({ cat, onSave, onClose }: {
     setSaving(true)
     const res = await fetch('/api/admin/categories', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: cat.id, name, color, icon: icon || null, image: image || null }),
+      body: JSON.stringify({ id: cat.id, name, color, icon: icon || null, image: image || null, seoIntro: seoIntro.trim() || null }),
     })
     const updated = await res.json()
     if (res.ok) onSave({ ...cat, ...updated })
@@ -104,11 +128,15 @@ function EditModal({ cat, onSave, onClose }: {
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Image (overrides emoji)</label>
           <input ref={fileRef} type="file" accept="image/*" className="hidden"
             onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0])} />
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
               className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors disabled:opacity-60">
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               Upload image
+            </button>
+            <button type="button" onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
+              <Library size={14} /> From library
             </button>
             {image && (
               <div className="flex items-center gap-2">
@@ -117,6 +145,15 @@ function EditModal({ cat, onSave, onClose }: {
               </div>
             )}
           </div>
+          <GalleryPickerModal
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            onSelect={(urls) => { if (urls[0]) setImage(urls[0]) }}
+            mode="single"
+            kind="image"
+            initiallySelected={image ? [image] : []}
+            title="Pick a category image"
+          />
         </div>
 
         {/* Color */}
@@ -131,6 +168,24 @@ function EditModal({ cat, onSave, onClose }: {
             <input type="color" value={color} onChange={e => setColor(e.target.value)}
               className="w-7 h-7 rounded-lg cursor-pointer border border-slate-200" title="Custom color" />
           </div>
+        </div>
+
+        {/* SEO intro — shown above product grid when filtering by this category */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">SEO intro (optional)</label>
+            <button type="button" onClick={generateIntroAI} disabled={aiLoading}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-600 text-white text-[11px] font-bold hover:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer transition">
+              {aiLoading ? <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : '✨'}
+              {aiLoading ? 'Generating…' : 'Generate with AI'}
+            </button>
+          </div>
+          <textarea value={seoIntro} onChange={e => setSeoIntro(e.target.value)} rows={4}
+            placeholder="60–110 word paragraph shown above the product grid when shoppers filter by this category. Boosts category landing-page SEO."
+            className="w-full px-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 leading-relaxed" />
+          {aiError && (
+            <p className="mt-1 text-[11px] font-semibold text-rose-700">{aiError}</p>
+          )}
         </div>
 
         <div className="flex gap-3 pt-2">

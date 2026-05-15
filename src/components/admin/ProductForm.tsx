@@ -25,6 +25,7 @@ export interface ProductData {
   price: string; salePrice: string; salePriceExpiresAt: string; costPrice: string; isTaxable: boolean
   trackInventory: boolean; stock: string; lowStockThreshold: string
   barcode: string; weight: string
+  length: string; width: string; height: string
   categoryId: string; supplierId: string; brand: string; tags: string[]
   isActive: boolean; isFeatured: boolean; isNew: boolean
   boughtTogetherIds: string[]
@@ -35,6 +36,7 @@ const EMPTY: ProductData = {
   price: '', salePrice: '', salePriceExpiresAt: '', costPrice: '', isTaxable: false,
   trackInventory: true, stock: '10', lowStockThreshold: '10',
   barcode: '', weight: '',
+  length: '', width: '', height: '',
   categoryId: '', supplierId: '', brand: '', tags: [],
   isActive: true, isFeatured: false, isNew: true,
   boughtTogetherIds: [],
@@ -548,6 +550,74 @@ const AI_PROVIDERS = {
 
 type ProviderKey = keyof typeof AI_PROVIDERS
 
+// ── AI FAQ button ──────────────────────────────────────────────────────────
+// One-click Gemini-generated FAQ for the product. Saves to product.aiFaqJson
+// and emits FAQPage JSON-LD on the public page. Only works when the product
+// has been saved (needs an id).
+
+function FaqAIButton({ productId }: { productId?: string }) {
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+  const [faqs,     setFaqs]     = useState<Array<{ q: string; a: string }> | null>(null)
+  const disabled = !productId
+
+  async function generate() {
+    if (!productId) return
+    setLoading(true); setError(null)
+    try {
+      const res  = await fetch('/api/admin/ai/product-faq', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ productId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Generation failed')
+      setFaqs(data.faqs ?? [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl bg-violet-50/40 ring-1 ring-violet-200 p-3.5 space-y-2.5">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'linear-gradient(135deg,#A855F7,#EC4899)' }}>
+          <span className="text-white text-xs font-extrabold">FAQ</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-800">SEO FAQ block</p>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            4 unique Q&amp;As · saved as FAQPage JSON-LD for Google rich snippets.
+          </p>
+        </div>
+        <button type="button" onClick={generate} disabled={disabled || loading}
+          title={disabled ? 'Save the product first, then generate the FAQ' : 'Generate with Gemini'}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition">
+          {loading ? <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : null}
+          {disabled ? 'Save first' : loading ? 'Generating…' : 'Generate FAQ'}
+        </button>
+      </div>
+      {error && (
+        <p className="text-xs font-semibold text-rose-700 bg-rose-50 ring-1 ring-rose-200 rounded-lg px-2.5 py-1.5">{error}</p>
+      )}
+      {faqs && faqs.length > 0 && (
+        <ul className="space-y-2 pt-1">
+          {faqs.map((f, i) => (
+            <li key={i} className="rounded-lg bg-white ring-1 ring-slate-200 p-2.5">
+              <p className="text-xs font-bold text-slate-800">Q: {f.q}</p>
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{f.a}</p>
+            </li>
+          ))}
+          <li className="text-[10px] text-slate-400 pt-0.5">Saved — appears on this product&rsquo;s page after the next revalidation (up to 1 hour).</li>
+        </ul>
+      )}
+    </div>
+  )
+}
+
 // ── AI Toolbar ─────────────────────────────────────────────────────────────
 
 function AIToolbar({
@@ -909,6 +979,9 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       lowStockThreshold: Number(form.lowStockThreshold),
       trackInventory: form.trackInventory,
       barcode: form.barcode || null, weight: form.weight ? Number(form.weight) : null,
+      length: form.length ? Number(form.length) : null,
+      width:  form.width  ? Number(form.width)  : null,
+      height: form.height ? Number(form.height) : null,
       categoryId: form.categoryId, supplierId: form.supplierId || null,
       brand: form.brand || null, tags: form.tags,
       videoUrl: form.videoUrl || null,
@@ -1022,6 +1095,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                 description={form.description} onDescriptionChange={v => set('description', v)}
                 tags={form.tags} onTagsChange={v => set('tags', v)}
               />
+              <FaqAIButton productId={form.id} />
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                   Product Images
@@ -1140,6 +1214,38 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Weight (kg)</label>
                   <input type="number" min="0" step="0.001" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="0.000" className={inputCls} />
                 </div>
+              </div>
+
+              {/* Package dimensions — passed to courier (PicknDrop / Pathao) for sizing.
+                  Missing dimensions cause the carrier to fall back to 1cm defaults, which
+                  understates the package and can underprice the shipment. */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Package dimensions (cm)
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="relative">
+                    <input type="number" min="0" step="0.1" value={form.length}
+                      onChange={e => set('length', e.target.value)} placeholder="Length"
+                      className={`${inputCls} pr-9`} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">L</span>
+                  </div>
+                  <div className="relative">
+                    <input type="number" min="0" step="0.1" value={form.width}
+                      onChange={e => set('width', e.target.value)} placeholder="Width"
+                      className={`${inputCls} pr-9`} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">W</span>
+                  </div>
+                  <div className="relative">
+                    <input type="number" min="0" step="0.1" value={form.height}
+                      onChange={e => set('height', e.target.value)} placeholder="Height"
+                      className={`${inputCls} pr-9`} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">H</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  Sent to delivery partners for package sizing. Leave blank if unknown — carriers will fall back to 1×1×1 cm.
+                </p>
               </div>
             </div>
 

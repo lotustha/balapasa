@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 1: Verify HMAC signature (prevents tampered callbacks)
-    const { valid, decoded } = esewaVerifyCallback(dataB64)
+    const { valid, decoded } = await esewaVerifyCallback(dataB64)
     if (!valid) {
       console.error('[eSewa] Signature mismatch — possible tampering', decoded)
       return Response.redirect(new URL('/checkout/failed?reason=invalid_signature', APP_URL))

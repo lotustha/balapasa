@@ -50,17 +50,19 @@ export async function getPathaoConfig(): Promise<PathaoConfig> {
   const row = await getRow('PATHAO')
 
   const cfg: PathaoConfig = {
-    baseUrl:      row?.baseUrl      ?? process.env.PATHAO_BASE_URL      ?? 'https://enterprise-api.pathao.com',
-    clientId:     row?.clientId     ?? process.env.PATHAO_CLIENT_ID     ?? 'dev_5e5612b011f438ca5b30a2d6',
-    clientSecret: row?.clientSecret ?? process.env.PATHAO_CLIENT_SECRET ?? 'F62z4qB1IazJzzgMYhKyBpdRWWRoAiikbQdR-SDrYdI',
-    storeId:      row?.storeId      ?? process.env.PATHAO_STORE_ID      ?? 'MROQI3O9',
-    storeName:    row?.storeName    ?? process.env.PATHAO_PICKUP_NAME   ?? 'Balapasa Store',
-    storePhone:   row?.storePhone   ?? process.env.PATHAO_PICKUP_PHONE  ?? '01772793058',
-    storeAddress: row?.storeAddress ?? process.env.PATHAO_PICKUP_ADDRESS ?? 'Concord Silvy Height, 73/A, Gulshan 1',
-    storeLat:     row?.storeLat     ?? parseFloat(process.env.PATHAO_PICKUP_LAT ?? '23.784519208568934'),
-    storeLng:     row?.storeLng     ?? parseFloat(process.env.PATHAO_PICKUP_LNG ?? '90.4169082847168'),
-    // Mock: DB row wins, then env var, then default true (safe for dev)
-    isMock:    row !== null ? row.isMock   : (process.env.PATHAO_MOCK === 'true'),
+    // Pathao Nepal merchant API. Admin can override per environment.
+    baseUrl:      row?.baseUrl      ?? 'https://api-hermes.pathao.com.np',
+    clientId:     row?.clientId     ?? '',
+    clientSecret: row?.clientSecret ?? '',
+    storeId:      row?.storeId      ?? '',
+    storeName:    row?.storeName    ?? 'Balapasa Store',
+    storePhone:   row?.storePhone   ?? '',
+    storeAddress: row?.storeAddress ?? 'Kathmandu, Nepal',
+    storeLat:     row?.storeLat     ?? 27.7172,   // Kathmandu
+    storeLng:     row?.storeLng     ?? 85.3240,
+    // Mock defaults to true when no DB row exists so dev environments don't
+    // hit Pathao with empty credentials.
+    isMock:    row !== null ? row.isMock   : true,
     isActive:  row !== null ? row.isActive : true,
   }
 
@@ -79,13 +81,13 @@ export async function getPicknDropConfig(): Promise<PicknDropConfig> {
   const row = await getRow('PICKNDROP')
 
   const cfg: PicknDropConfig = {
-    baseUrl:        row?.baseUrl        ?? process.env.PICKNDROP_BASE_URL        ?? 'https://app-t.pickndropnepal.com',
-    apiKey:         row?.apiKey         ?? process.env.PICKNDROP_API_KEY         ?? 'bf1a7ce75dacf51',
-    apiSecret:      row?.apiSecret      ?? process.env.PICKNDROP_API_SECRET      ?? '63b8931e70aee27',
-    pickupBranch:   row?.pickupBranch   ?? process.env.PICKNDROP_PICKUP_BRANCH   ?? 'KATHMANDU VALLEY',
-    pickupArea:     row?.pickupArea     ?? process.env.PICKNDROP_PICKUP_AREA     ?? 'Kathmandu',
-    pickupLocation: row?.pickupLocation ?? process.env.PICKNDROP_PICKUP_LOCATION ?? 'Balaju',
-    maxSurgeNpr:    row?.maxSurgeNpr ?? Number(process.env.PICKNDROP_MAX_SURGE_NPR ?? 0),
+    baseUrl:        row?.baseUrl        ?? 'https://app-t.pickndropnepal.com',
+    apiKey:         row?.apiKey         ?? '',
+    apiSecret:      row?.apiSecret      ?? '',
+    pickupBranch:   row?.pickupBranch   ?? 'KATHMANDU VALLEY',
+    pickupArea:     row?.pickupArea     ?? 'Kathmandu',
+    pickupLocation: row?.pickupLocation ?? 'Balaju',
+    maxSurgeNpr:    row?.maxSurgeNpr    ?? 0,
     isActive:       row !== null ? row.isActive : true,
   }
 
@@ -105,16 +107,16 @@ export async function seedDefaultsIfMissing() {
       create: {
         provider:     'PATHAO',
         isActive:     true,
-        isMock:       true,
-        clientId:     process.env.PATHAO_CLIENT_ID     ?? 'dev_5e5612b011f438ca5b30a2d6',
-        clientSecret: process.env.PATHAO_CLIENT_SECRET ?? 'F62z4qB1IazJzzgMYhKyBpdRWWRoAiikbQdR-SDrYdI',
-        storeId:      process.env.PATHAO_STORE_ID      ?? 'MROQI3O9',
-        storeName:    process.env.PATHAO_PICKUP_NAME   ?? 'Balapasa Store',
-        storePhone:   process.env.PATHAO_PICKUP_PHONE  ?? '01772793058',
-        storeAddress: process.env.PATHAO_PICKUP_ADDRESS ?? 'Concord Silvy Height, 73/A, Gulshan 1',
-        storeLat:     parseFloat(process.env.PATHAO_PICKUP_LAT ?? '23.784519208568934'),
-        storeLng:     parseFloat(process.env.PATHAO_PICKUP_LNG ?? '90.4169082847168'),
-        baseUrl:      process.env.PATHAO_BASE_URL ?? 'https://enterprise-api.pathao.com',
+        isMock:       true,            // safe default — won't call real Pathao until admin sets credentials
+        clientId:     '',
+        clientSecret: '',
+        storeId:      '',
+        storeName:    'Balapasa Store',
+        storePhone:   '',
+        storeAddress: 'Kathmandu, Nepal',
+        storeLat:     27.7172,         // Kathmandu
+        storeLng:     85.3240,
+        baseUrl:      'https://api-hermes.pathao.com.np',   // Pathao Nepal
       },
     })
     await prisma.logisticsSettings.upsert({
@@ -122,14 +124,14 @@ export async function seedDefaultsIfMissing() {
       update: {},
       create: {
         provider:       'PICKNDROP',
-        isActive:       true,
+        isActive:       false,         // disabled by default until admin adds credentials
         isMock:         false,
-        apiKey:         process.env.PICKNDROP_API_KEY         ?? 'bf1a7ce75dacf51',
-        apiSecret:      process.env.PICKNDROP_API_SECRET      ?? '63b8931e70aee27',
-        baseUrl:        process.env.PICKNDROP_BASE_URL        ?? 'https://app-t.pickndropnepal.com',
-        pickupBranch:   process.env.PICKNDROP_PICKUP_BRANCH   ?? 'KATHMANDU VALLEY',
-        pickupArea:     process.env.PICKNDROP_PICKUP_AREA     ?? 'Kathmandu',
-        pickupLocation: process.env.PICKNDROP_PICKUP_LOCATION ?? 'Balaju',
+        apiKey:         '',
+        apiSecret:      '',
+        baseUrl:        'https://app-t.pickndropnepal.com',
+        pickupBranch:   'KATHMANDU VALLEY',
+        pickupArea:     'Kathmandu',
+        pickupLocation: 'Balaju',
       },
     })
   } catch {

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
-import { saveFile } from '@/lib/upload'
+import { saveFile, recordMediaAsset } from '@/lib/upload'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
   const ct = req.headers.get('content-type') ?? ''
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest) {
   if (buf.byteLength < 512) {
     return Response.json({ error: 'File too small' }, { status: 400 })
   }
-  const url = await saveFile(buf, ct)
-  return Response.json({ url })
+  const saved = await saveFile(buf, ct)
+  const me    = await getCurrentUser()
+  await recordMediaAsset(saved, me?.sub ?? null)
+  return Response.json({ url: saved.url })
 }

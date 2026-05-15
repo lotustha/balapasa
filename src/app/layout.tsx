@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
@@ -27,6 +27,14 @@ const playfair = Playfair_Display({
 })
 
 import { getSiteSettings } from '@/lib/site-settings'
+
+export const viewport: Viewport = {
+  width:        'device-width',
+  initialScale: 1,
+  // Don't lock zoom — accessibility users need to pinch-zoom.
+  maximumScale: 5,
+  themeColor:   '#16A34A',
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings()

@@ -237,7 +237,8 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                 <div style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.28s ease' }}>
                   <div className="relative h-40 rounded-2xl overflow-hidden mb-3">
                     <Image key={current.id} src={current.images[0]} alt={current.name}
-                      fill className="object-cover" sizes="220px" />
+                      fill className="object-cover" sizes="220px"
+                      priority={activeIdx === 0} fetchPriority={activeIdx === 0 ? 'high' : 'auto'} />
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)' }} />
                     <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-white text-[10px] font-bold rounded-xl"
                       style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>

@@ -8,7 +8,7 @@ import {
   ShoppingCart, Star, Shield, Truck, RotateCcw, Minus, Plus, Zap,
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
-  GitCompareArrows, Eye,
+  GitCompareArrows, Eye, HelpCircle,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
@@ -255,6 +255,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
   // ── Tabs ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'description' | 'specs'>('description')
+  const [openFaq,   setOpenFaq]   = useState<number | null>(null)
   const specs: Array<[string, string]> = useMemo(() => {
     if (!p) return []
     const rows: Array<[string, string]> = []
@@ -262,10 +263,12 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     if (p.sku) rows.push(['SKU', p.sku])
     rows.push(['Category', p.category.name])
     if (p.weight) rows.push(['Weight', `${p.weight} kg`])
+    const dims = [p.length, p.width, p.height].filter((d): d is number => typeof d === 'number' && d > 0)
+    if (dims.length === 3) rows.push(['Dimensions', `${p.length} × ${p.width} × ${p.height} cm`])
     if (p.tags.length) rows.push(['Tags', p.tags.join(', ')])
     if (options.length) options.forEach(o => { rows.push([o.name, o.values.join(', ')]) })
     rows.push(['Availability', variantStock > 0 ? `${variantStock} in stock` : 'Out of stock'])
-    rows.push(['Tax', p.isTaxable ? 'Inclusive of VAT' : 'Tax-free'])
+    if (p.isTaxable) rows.push(['Tax', 'Inclusive of VAT'])
     return rows
   }, [p, options, variantStock])
 
@@ -410,14 +413,14 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
         ))}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full min-w-0">
 
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-6 animate-fade-in">
+        <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-y-1 gap-x-1.5 text-xs text-slate-500 mb-6 animate-fade-in min-w-0">
           {[['/', 'Home'], ['/products','Products'], [`/products?category=${p.category.slug}`, p.category.name]].map(([href,label]) => (
-            <span key={href} className="flex items-center gap-1.5">
-              <Link href={href} className="hover:text-primary transition-colors capitalize">{label}</Link>
-              <ChevronRight size={12} className="text-slate-300" aria-hidden="true" />
+            <span key={href} className="flex items-center gap-1.5 min-w-0">
+              <Link href={href} className="hover:text-primary transition-colors capitalize truncate">{label}</Link>
+              <ChevronRight size={12} className="text-slate-300 shrink-0" aria-hidden="true" />
             </span>
           ))}
           <span className="text-slate-700 font-semibold truncate max-w-[200px]" aria-current="page">{p.name}</span>
@@ -702,6 +705,42 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 </div>
               )}
             </div>
+
+            {/* FAQ — only renders when AI has generated entries. Also marked
+                up as FAQPage JSON-LD in the server page for rich snippets. */}
+            {p.faqs && p.faqs.length > 0 && (
+              <div className="glass-panel p-5" aria-labelledby="faq-heading">
+                <h3 id="faq-heading" className="font-heading font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
+                  <HelpCircle size={16} className="text-primary" /> Frequently Asked Questions
+                </h3>
+                <div className="divide-y divide-white/30">
+                  {p.faqs.map((f, i) => {
+                    const open = openFaq === i
+                    return (
+                      <div key={i} className="py-2 first:pt-0 last:pb-0">
+                        <button
+                          type="button"
+                          onClick={() => setOpenFaq(open ? null : i)}
+                          aria-expanded={open}
+                          className="w-full flex items-start justify-between gap-3 py-2 text-left cursor-pointer group"
+                        >
+                          <span className="font-heading font-bold text-slate-800 text-sm leading-snug group-hover:text-primary transition-colors">
+                            {f.q}
+                          </span>
+                          <ChevronRight
+                            size={16}
+                            className={`shrink-0 mt-0.5 text-slate-400 transition-transform ${open ? 'rotate-90 text-primary' : ''}`}
+                          />
+                        </button>
+                        {open && (
+                          <p className="text-sm text-slate-600 leading-relaxed pb-2 pr-7">{f.a}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Frequently Bought Together */}
             {boughtTogether.length > 0 && (

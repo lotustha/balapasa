@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import { STORE_URL } from '@/lib/config'
 import Hero from '@/components/home/Hero'
+
+// ISR: re-generate the home shell every 5 minutes. Hero trending data is
+// fetched client-side so storefront edits show up quickly while keeping
+// TTFB low and DB load down.
+export const revalidate = 300
 import CategorySection from '@/components/home/CategorySection'
 import NewlyAddedProducts from '@/components/home/NewlyAddedProducts'
 import FeaturedProducts from '@/components/home/FeaturedProducts'

@@ -111,7 +111,7 @@ export default function ProductCard({ product: p }: { product: Product }) {
           {p.brand && (
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{p.brand}</p>
           )}
-          <h3 className="font-heading font-semibold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-200">
+          <h3 className="font-heading font-semibold text-slate-800 text-sm leading-snug line-clamp-2 break-words group-hover:text-primary transition-colors duration-200">
             {p.name}
           </h3>
 

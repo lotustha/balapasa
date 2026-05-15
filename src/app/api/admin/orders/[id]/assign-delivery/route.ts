@@ -6,9 +6,11 @@ import { getPicknDropConfig } from '@/lib/logistics-config'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-// Pathao operates in Bangladesh — always use configured receiver defaults (Dhaka area)
-const PATHAO_RX_LAT = parseFloat(process.env.PATHAO_RECEIVER_DEFAULT_LAT ?? '23.73547839871336')
-const PATHAO_RX_LNG = parseFloat(process.env.PATHAO_RECEIVER_DEFAULT_LNG ?? '90.38390121513216')
+// Pathao Nepal — Kathmandu receiver default coordinates used for estimates
+// and parcel creation when the customer hasn't supplied coords. Kept as code
+// constants (operational defaults, not credentials).
+const PATHAO_RX_LAT = 27.7172
+const PATHAO_RX_LNG = 85.3240
 
 // PnD zones use district names, but order.city stores the municipality.
 // Map municipality → district so calculatePndRates gets the right zone.
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       return Response.json({ provider: 'PICKNDROP', options })
     }
 
-    // Pathao: use Dhaka receiver coordinates (Pathao only services Bangladesh)
+    // Pathao Nepal: use Kathmandu receiver coordinates as default fallback.
     const estimate = await estimateDelivery({
       receiverLat:     PATHAO_RX_LAT,
       receiverLng:     PATHAO_RX_LNG,
@@ -106,12 +108,32 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     if (type === 'PICKNDROP') {
-      const { destinationBranch, instruction, weightKg } = body
+      const { destinationBranch, instruction, weightKg, lengthCm, widthCm, heightCm } = body
       // Resolve destination branch from order.city if admin didn't override.
       const resolved = destinationBranch ?? (await resolveBranchForArea(order.city))?.branch_name ?? cityToDistrict(order.city)
 
-      const itemSummary = (await prisma.orderItem.findMany({ where: { orderId: order.id } }))
-        .map(i => `${i.quantity}× ${i.name}`).join(', ')
+      const orderItems = await prisma.orderItem.findMany({ where: { orderId: order.id } })
+      const itemSummary = orderItems.map(i => `${i.quantity}× ${i.name}`).join(', ')
+
+      // Aggregate package dimensions from item products: total weight, longest
+      // L/W/H across items. Admin body overrides win when provided.
+      const productIds = orderItems.map(i => i.productId).filter((x): x is string => !!x)
+      const products = productIds.length
+        ? await prisma.product.findMany({
+            where:  { id: { in: productIds } },
+            select: { id: true, weight: true, length: true, width: true, height: true },
+          })
+        : []
+      const pById = new Map(products.map(p => [p.id, p]))
+
+      let totalWeightKg = 0, maxLen = 0, maxWid = 0, maxHgt = 0
+      for (const it of orderItems) {
+        const p = it.productId ? pById.get(it.productId) : null
+        if (p?.weight) totalWeightKg += p.weight * it.quantity
+        if (p?.length) maxLen = Math.max(maxLen, p.length)
+        if (p?.width)  maxWid = Math.max(maxWid, p.width)
+        if (p?.height) maxHgt = Math.max(maxHgt, p.height)
+      }
 
       const result = await createPndOrder({
         customerName:        order.name,
@@ -121,7 +143,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         landmark:            [order.house, order.road, order.address].filter(Boolean).join(', ').slice(0, 200),
         codAmount:           order.paymentMethod === 'COD' ? order.total : 0,
         orderDescription:    itemSummary || `Order ${order.id}`,
-        weightKg:            weightKg ?? 1,
+        weightKg:            weightKg ?? (totalWeightKg > 0 ? totalWeightKg : 1),
+        dimWeight: (lengthCm || widthCm || heightCm || maxLen || maxWid || maxHgt)
+          ? {
+              lengthCm: lengthCm ?? (maxLen || 1),
+              widthCm:  widthCm  ?? (maxWid || 1),
+              heightCm: heightCm ?? (maxHgt || 1),
+            }
+          : undefined,
         instruction:         instruction,
         customerLatitude:    order.lat ?? undefined,
         customerLongitude:   order.lng ?? undefined,

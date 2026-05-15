@@ -136,6 +136,20 @@ async function getCategories(): Promise<SidebarCategory[]> {
   }
 }
 
+async function getCategoryIntro(slug: string | undefined): Promise<{ name: string; seoIntro: string } | null> {
+  if (!slug) return null
+  try {
+    const cat = await prisma.category.findUnique({
+      where:  { slug },
+      select: { name: true, seoIntro: true },
+    })
+    if (!cat?.seoIntro) return null
+    return { name: cat.name, seoIntro: cat.seoIntro }
+  } catch {
+    return null
+  }
+}
+
 // ── Active filter chips ──────────────────────────────────────────────────────
 function ActiveFilters({ params }: { params: Params }) {
   const chips: { label: string; key: string }[] = []
@@ -236,12 +250,19 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
   )
 }
 
+// ISR: cache for 1 hour. Listing filters use searchParams so each variant
+// generates its own static segment; admin product edits propagate on the
+// next revalidation cycle. On-demand revalidation can be added later via
+// revalidatePath('/products') in the product write APIs if needed.
+export const revalidate = 3600
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams
-  const [{ products, total }, categories] = await Promise.all([
+  const [{ products, total }, categories, categoryIntro] = await Promise.all([
     getProducts(params),
     getCategories(),
+    getCategoryIntro(params.category),
   ])
 
   const page       = Math.max(1, Number(params.page ?? 1))
@@ -305,6 +326,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
           {/* Grid area */}
           <div className="flex-1 min-w-0">
+            {categoryIntro && (
+              <div className="mb-5 rounded-2xl bg-white/70 backdrop-blur-sm ring-1 ring-white/80 p-4 sm:p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-[0.18em] mb-1">{categoryIntro.name}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{categoryIntro.seoIntro}</p>
+              </div>
+            )}
             <ActiveFilters params={params} />
 
             {products.length === 0 ? (

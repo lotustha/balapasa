@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { esewaFormData, ESEWA_PAYMENT_URL } from '@/lib/payment'
+import { esewaFormData, getEsewaPaymentUrl } from '@/lib/payment'
 
 // Returns an auto-submitting HTML form for eSewa — used by the Flutter WebView
 export async function GET(req: NextRequest) {
@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     if (!order) return new Response('Order not found', { status: 404 })
     if (order.paymentStatus === 'PAID') return new Response('Already paid', { status: 400 })
 
-    const fields = esewaFormData(order.id, order.subtotal, order.deliveryCharge)
+    const fields    = await esewaFormData(order.id, order.subtotal, order.deliveryCharge)
+    const actionUrl = await getEsewaPaymentUrl()
     const inputs = Object.entries(fields)
       .map(([k, v]) => `<input type="hidden" name="${k}" value="${v}">`)
       .join('\n')
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     <div class="logo">Balapasa</div>
     <p>Redirecting to eSewa payment…</p>
     <div class="spinner"></div>
-    <form id="f" method="POST" action="${ESEWA_PAYMENT_URL}" style="display:none">
+    <form id="f" method="POST" action="${actionUrl}" style="display:none">
       ${inputs}
     </form>
   </div>

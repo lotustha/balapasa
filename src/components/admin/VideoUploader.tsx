@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Video, Upload, X, Play, Link, Loader2, AlertCircle } from 'lucide-react'
+import { Video, Upload, X, Play, Link, Loader2, AlertCircle, Library } from 'lucide-react'
+import GalleryPickerModal from './GalleryPickerModal'
 
 interface Props {
   value:    string
@@ -27,6 +28,7 @@ export default function VideoUploader({ value, onChange }: Props) {
   const [fileInfo,    setFileInfo]    = useState<{ name: string; size: number } | null>(null)
   const [showUrl,     setShowUrl]     = useState(false)
   const [urlInput,    setUrlInput]    = useState('')
+  const [pickerOpen,  setPickerOpen]  = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function uploadWithProgress(file: File): Promise<string> {
@@ -188,13 +190,18 @@ export default function VideoUploader({ value, onChange }: Props) {
         </p>
       )}
 
-      {/* URL / YouTube / Vimeo alternative */}
-      {!showUrl ? (
-        <button type="button" onClick={() => setShowUrl(true)}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-primary transition-colors cursor-pointer">
-          <Link size={11} /> Add YouTube, Vimeo, or direct video URL instead
+      {/* Library + URL alternatives */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <button type="button" onClick={() => setPickerOpen(true)}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer">
+          <Library size={12} /> Choose from library
         </button>
-      ) : (
+        {!showUrl ? (
+          <button type="button" onClick={() => setShowUrl(true)}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-primary transition-colors cursor-pointer">
+            <Link size={11} /> Add YouTube, Vimeo, or direct video URL instead
+          </button>
+        ) : (
         <div className="flex gap-2">
           <input autoFocus value={urlInput} onChange={e => setUrlInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUrl())}
@@ -206,10 +213,21 @@ export default function VideoUploader({ value, onChange }: Props) {
             className="px-3 py-2 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50"><X size={14} /></button>
         </div>
       )}
+      </div>
 
       <p className="text-[10px] text-slate-400">
         Video is optional · Shown in the "Watch & Learn" section on the product page
       </p>
+
+      <GalleryPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(urls) => { if (urls[0]) onChange(urls[0]) }}
+        mode="single"
+        kind="video"
+        initiallySelected={value ? [value] : []}
+        title="Pick a video"
+      />
     </div>
   )
 }

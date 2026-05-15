@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       name, slug, description, price, salePrice, salePriceExpiresAt, costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory,
-      brand, sku, barcode, weight, videoUrl, boughtTogetherIds,
+      brand, sku, barcode, weight, length, width, height, videoUrl, boughtTogetherIds,
     } = body
 
     if (!name || !slug || !description || price == null || !categoryId) {
@@ -142,6 +142,9 @@ export async function POST(req: NextRequest) {
         sku:               sku      || null,
         barcode:           barcode  || null,
         weight:            weight   ? Number(weight) : null,
+        length:            length   ? Number(length) : null,
+        width:             width    ? Number(width)  : null,
+        height:            height   ? Number(height) : null,
         videoUrl:             videoUrl || null,
         salePriceExpiresAt:   salePriceExpiresAt ? new Date(salePriceExpiresAt) : null,
         boughtTogetherIds:    Array.isArray(boughtTogetherIds) ? boughtTogetherIds : [],

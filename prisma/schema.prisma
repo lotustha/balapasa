@@ -7,15 +7,16 @@ datasource db {
 }
 
 model Profile {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?  @db.Text
-  name      String?
-  phone     String?
-  avatar    String?
-  role      Role     @default(CUSTOMER)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String?   @db.Text
+  name            String?
+  phone           String?
+  avatar          String?
+  role            Role      @default(CUSTOMER)
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   reviews   Review[]
   addresses Address[]
@@ -23,13 +24,35 @@ model Profile {
   @@map("profiles")
 }
 
+model MediaAsset {
+  id         String   @id @default(cuid())
+  url        String   @unique
+  filename   String?
+  mimeType   String?  @map("mime_type")
+  sizeBytes  Int?     @map("size_bytes")
+  width      Int?
+  height     Int?
+  kind       String   @default("image") // 'image' | 'video'
+  source     String   @default("upload") // 'upload' | 'backfill' | 'external'
+  uploadedBy String?  @map("uploaded_by")
+  alt        String?
+  tags       String[] @default([])
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([kind])
+  @@index([createdAt])
+  @@map("media_assets")
+}
+
 model Category {
-  id       String    @id @default(cuid())
-  name     String
-  slug     String    @unique
-  icon     String?
-  image    String?
-  color    String    @default("#16A34A")
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  icon      String?
+  image     String?
+  color     String    @default("#16A34A")
+  seoIntro  String?   @db.Text @map("seo_intro")
   products         Product[]
   categoryMappings CategoryMapping[]
 
@@ -76,8 +99,14 @@ model Product {
   brand             String?
   sku               String?  @unique
   barcode           String?
-  weight            Float?
+  weight            Float?   // kilograms
+  length            Float?   // centimetres — for carrier package sizing
+  width             Float?   // centimetres
+  height            Float?   // centimetres
   videoUrl          String?  @map("video_url")
+  aiFaqJson         Json?    @map("ai_faq_json")   // [{ q, a }, ...] — Gemini-generated FAQ
+  aiDescAt          DateTime? @map("ai_desc_at")   // last time AI rewrote description
+  aiFaqAt           DateTime? @map("ai_faq_at")    // last time AI generated FAQ
   kind                ProductKind @default(PHYSICAL)
   digitalDeliveryNote String?     @db.Text @map("digital_delivery_note")
   planId              String?     @map("plan_id")

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { esewaFormData, ESEWA_PAYMENT_URL, khaltiInitiate } from '@/lib/payment'
+import { esewaFormData, getEsewaPaymentUrl, khaltiInitiate } from '@/lib/payment'
 import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
 import { pushOrderEvent } from '@/lib/push'
 import { validateCoupon } from '@/lib/coupons'
@@ -8,7 +8,7 @@ import { validateGiftCard } from '@/lib/gift-cards'
 import { ENABLED_PAYMENT_METHODS } from '@/lib/features'
 import { createMagicToken, magicLinkUrl } from '@/lib/magic-link'
 import { sendEmail } from '@/lib/email'
-import { renderOrderConfirmation } from '@/lib/emails/order-confirmation'
+import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
@@ -256,39 +256,43 @@ export async function POST(req: NextRequest) {
     // CTA when this was a guest order with the "save my info" flag set.
     const recipientEmail = email || userEmail
     if (recipientEmail) {
-      const settings = await getSiteSettings()
-      const claimUrl = magicLinkToken
-        ? magicLinkUrl(magicLinkToken, settings.storeUrl)
-        : null
+      ;(async () => {
+        try {
+          const settings = await getSiteSettings()
+          const claimUrl = magicLinkToken
+            ? magicLinkUrl(magicLinkToken, settings.storeUrl)
+            : null
 
-      const { subject, html } = renderOrderConfirmation({
-        orderId:        order.id,
-        recipientName:  name,
-        recipientEmail,
-        recipientPhone: phone,
-        address,
-        shippingOption,
-        subtotal:       Number(subtotal),
-        deliveryCharge: Number(deliveryCharge),
-        couponDiscount: serverCouponDiscount,
-        autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
-        total,
-        paymentMethod,
-        items: (items as { name: string; price: number; salePrice?: number | null; quantity: number; image?: string }[]).map(it => ({
-          name:     it.name,
-          quantity: it.quantity,
-          price:    it.salePrice ?? it.price,
-          image:    it.image,
-        })),
-        magicLinkUrl: claimUrl,
-        siteUrl:      settings.storeUrl,
-        siteName:     settings.siteName,
-        tagline:      settings.seo.description,
-      })
+          const { subject, html } = await renderEmail('order-confirmed', {
+            orderId:        order.id,
+            recipientName:  name,
+            recipientEmail,
+            recipientPhone: phone,
+            address,
+            shippingOption,
+            subtotal:       Number(subtotal),
+            deliveryCharge: Number(deliveryCharge),
+            couponDiscount: serverCouponDiscount,
+            autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
+            total,
+            paymentMethod,
+            items: (items as { name: string; price: number; salePrice?: number | null; quantity: number; image?: string }[]).map(it => ({
+              name:     it.name,
+              quantity: it.quantity,
+              price:    it.salePrice ?? it.price,
+              image:    it.image,
+            })),
+            magicLinkUrl: claimUrl,
+            siteUrl:      settings.storeUrl,
+            siteName:     settings.siteName,
+            tagline:      settings.seo.description,
+          })
 
-      sendEmail({ to: recipientEmail, subject, html }).catch(e => {
-        console.warn('[orders] email send failed (non-fatal):', e)
-      })
+          await sendEmail({ to: recipientEmail, subject, html })
+        } catch (e) {
+          console.warn('[orders] email send failed (non-fatal):', e)
+        }
+      })()
     }
 
     // FCM push notification (fire-and-forget)
@@ -301,11 +305,15 @@ export async function POST(req: NextRequest) {
 
     // Note: coupon usedCount was already incremented atomically inside the transaction above.
 
+    // Track products that crossed the low-stock threshold during this order so
+    // a single combined alert email can fire below (one per product).
+    const crossedLowStock: Array<{ id: string; name: string; stock: number }> = []
+
     try {
       for (const item of items as { id: string; quantity: number }[]) {
         const product = await prisma.product.findUnique({
           where: { id: item.id },
-          select: { stock: true, trackInventory: true },
+          select: { stock: true, trackInventory: true, name: true },
         })
         if (!product || !product.trackInventory) continue
 
@@ -321,14 +329,71 @@ export async function POST(req: NextRequest) {
             note:        `Order ${order.id.slice(0, 8).toUpperCase()}`,
           },
         })
+        // Defer threshold comparison to the email block where we read the
+        // configured threshold once; just record the new stock here.
+        crossedLowStock.push({ id: item.id, name: product.name, stock: newStock })
       }
     } catch (e) {
       console.warn('[orders] stock deduction failed (non-fatal):', e)
     }
 
+    // Admin new-order alert + low-stock alerts (both fire-and-forget).
+    ;(async () => {
+      try {
+        const settings = await getSiteSettings()
+        const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+          SELECT key, value FROM app_settings
+          WHERE key IN ('ORDER_NOTIFICATION_EMAIL', 'LOW_STOCK_THRESHOLD', 'LOW_STOCK_NOTIFICATION_EMAIL')
+        `
+        const cfg = Object.fromEntries(rows.map(r => [r.key, r.value]))
+        const adminTo  = cfg.ORDER_NOTIFICATION_EMAIL?.trim()
+        const lowTo    = (cfg.LOW_STOCK_NOTIFICATION_EMAIL?.trim() || adminTo || '')
+        const threshold = Math.max(0, Number(cfg.LOW_STOCK_THRESHOLD ?? 5) || 5)
+
+        if (adminTo) {
+          const rendered = await renderEmail('admin-new-order', {
+            orderId:        order.id,
+            customerName:   name,
+            customerEmail:  email || userEmail || '',
+            customerPhone:  phone,
+            total,
+            itemCount:      (items as unknown[]).length,
+            paymentMethod,
+            shippingOption,
+            adminUrl:       `${settings.storeUrl}/admin/orders/${order.id}`,
+            siteUrl:        settings.storeUrl,
+            siteName:       settings.siteName,
+            tagline:        settings.seo.description,
+          })
+          await sendEmail({ to: adminTo, subject: rendered.subject, html: rendered.html })
+        }
+
+        if (lowTo) {
+          for (const p of crossedLowStock) {
+            if (p.stock > threshold) continue
+            const rendered = await renderEmail('low-stock', {
+              productName:    p.name,
+              productId:      p.id,
+              currentStock:   p.stock,
+              threshold,
+              productUrl:     `${settings.storeUrl}/admin/products/${p.id}/edit`,
+              recipientEmail: lowTo,
+              siteUrl:        settings.storeUrl,
+              siteName:       settings.siteName,
+              tagline:        settings.seo.description,
+            })
+            await sendEmail({ to: lowTo, subject: rendered.subject, html: rendered.html })
+          }
+        }
+      } catch (e) {
+        console.warn('[orders] admin/low-stock emails failed (non-fatal):', e)
+      }
+    })()
+
     if (paymentMethod === 'ESEWA') {
-      const esewaData = esewaFormData(order.id, subtotal, deliveryCharge)
-      return Response.json({ orderId: order.id, esewaData, esewaUrl: ESEWA_PAYMENT_URL })
+      const esewaData = await esewaFormData(order.id, subtotal, deliveryCharge)
+      const esewaUrl  = await getEsewaPaymentUrl()
+      return Response.json({ orderId: order.id, esewaData, esewaUrl })
     }
 
     if (paymentMethod === 'KHALTI') {

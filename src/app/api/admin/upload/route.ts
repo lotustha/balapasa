@@ -1,5 +1,5 @@
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { saveFile, recordMediaAsset } from '@/lib/upload'
+import { getCurrentUser } from '@/lib/auth'
 
 const IMAGE_MAX = 10  * 1024 * 1024   // 10 MB
 const VIDEO_MAX = 200 * 1024 * 1024   // 200 MB
@@ -11,7 +11,6 @@ export async function POST(req: Request) {
 
   const isImage = file.type.startsWith('image/')
   const isVideo = file.type.startsWith('video/')
-
   if (!isImage && !isVideo) {
     return Response.json({ error: 'Only image or video files are allowed' }, { status: 400 })
   }
@@ -21,13 +20,9 @@ export async function POST(req: Request) {
     return Response.json({ error: `File too large (max ${isVideo ? '200' : '10'} MB)` }, { status: 400 })
   }
 
-  const ext      = file.name.split('.').pop()?.toLowerCase() ?? (isVideo ? 'mp4' : 'jpg')
-  const folder   = isVideo ? 'videos' : 'images'
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-  const uploadDir = join(process.cwd(), 'uploads', folder)
+  const saved = await saveFile(await file.arrayBuffer(), file.type || (isVideo ? 'video/mp4' : 'image/jpeg'), file.name)
+  const me    = await getCurrentUser()
+  await recordMediaAsset(saved, me?.sub ?? null)
 
-  await mkdir(uploadDir, { recursive: true })
-  await writeFile(join(uploadDir, filename), Buffer.from(await file.arrayBuffer()))
-
-  return Response.json({ url: `/uploads/${folder}/${filename}`, type: isVideo ? 'video' : 'image' })
+  return Response.json({ url: saved.url, type: saved.kind })
 }

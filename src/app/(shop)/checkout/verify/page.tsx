@@ -22,7 +22,7 @@ export default async function CheckoutVerifyPage({
     const dataB64 = sp(params.data)
     if (!dataB64) redirect('/checkout/failed?reason=missing_data')
 
-    const { valid, decoded } = esewaVerifyCallback(dataB64)
+    const { valid, decoded } = await esewaVerifyCallback(dataB64)
     if (!valid) redirect('/checkout/failed?reason=invalid_signature')
 
     const { transaction_uuid, total_amount, status, transaction_code } = decoded

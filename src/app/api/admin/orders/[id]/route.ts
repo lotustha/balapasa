@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { pushOrderEvent } from '@/lib/push'
 import { sendEmail } from '@/lib/email'
-import { renderShipmentUpdate } from '@/lib/emails/shipment-update'
+import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -26,19 +26,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const emailSettings = await getSiteSettings()
     function maybeSendStatusEmail(status: 'SHIPPED' | 'DELIVERED' | 'CANCELLED') {
       if (!order.email) return
-      const { subject, html } = renderShipmentUpdate({
-        orderId:        order.id,
-        recipientName:  order.name,
-        status,
-        trackingUrl:    order.trackingUrl ?? null,
-        shippingOption: order.shippingOption ?? null,
-        siteUrl:        emailSettings.storeUrl,
-        siteName:       emailSettings.siteName,
-        tagline:        emailSettings.seo.description,
-      })
-      sendEmail({ to: order.email, subject, html }).catch(e =>
-        console.warn('[orders PATCH] status email failed (non-fatal):', e),
-      )
+      ;(async () => {
+        try {
+          const { subject, html } = await renderEmail('shipment-update', {
+            orderId:        order.id,
+            recipientName:  order.name,
+            status,
+            trackingUrl:    order.trackingUrl ?? null,
+            shippingOption: order.shippingOption ?? null,
+            siteUrl:        emailSettings.storeUrl,
+            siteName:       emailSettings.siteName,
+            tagline:        emailSettings.seo.description,
+          })
+          await sendEmail({ to: order.email!, subject, html })
+        } catch (e) {
+          console.warn('[orders PATCH] status email failed (non-fatal):', e)
+        }
+      })()
     }
 
     if (body.status === 'SHIPPED') {

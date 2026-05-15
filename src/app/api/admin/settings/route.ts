@@ -1,11 +1,16 @@
 import { NextRequest } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { prisma }     from '@/lib/prisma'
+import { invalidateEmailConfigCache } from '@/lib/email'
+import { invalidateActiveVariantCache } from '@/lib/emails/registry'
+import { invalidatePaymentConfigCache } from '@/lib/payment'
 
 const SECRET_KEYS = new Set([
   'ANTHROPIC_API_KEY', 'GEMINI_API_KEY',
   'ESEWA_SECRET_KEY', 'KHALTI_SECRET_KEY',
   'WHATSAPP_ACCESS_TOKEN', 'FACEBOOK_PAGE_ACCESS_TOKEN',
+  'RESEND_API_KEY',
+  'OPENWEATHER_API_KEY',
 ])
 
 const PUBLIC_SITE_KEYS = new Set([
@@ -59,6 +64,15 @@ export async function POST(req: NextRequest) {
 
     if (entries.some(([k]) => PUBLIC_SITE_KEYS.has(k))) {
       revalidatePath('/', 'layout')
+    }
+    if (entries.some(([k]) => k.startsWith('RESEND_'))) {
+      invalidateEmailConfigCache()
+    }
+    if (entries.some(([k]) => k.startsWith('EMAIL_TEMPLATE_'))) {
+      invalidateActiveVariantCache()
+    }
+    if (entries.some(([k]) => k.startsWith('ESEWA_') || k.startsWith('KHALTI_'))) {
+      invalidatePaymentConfigCache()
     }
 
     return Response.json({ success: true, saved: entries.length })

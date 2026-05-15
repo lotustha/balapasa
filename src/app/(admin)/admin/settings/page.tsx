@@ -7,11 +7,12 @@ import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
-  MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus,
+  MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
 import { HERO_DEFAULTS, splitBrandName, cleanBrandName, type HeroBadge } from '@/lib/site-settings-shared'
+import GalleryPickerModal from '@/components/admin/GalleryPickerModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -22,8 +23,12 @@ interface StoreForm {
   STORE_URL: string
   SEO_TITLE: string; SEO_DESCRIPTION: string; SEO_KEYWORDS: string
 }
-interface PaymentForm { ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string; KHALTI_SECRET_KEY: string }
-interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string }
+interface PaymentForm {
+  ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string
+  ESEWA_BASE_URL:    string; ESEWA_STATUS_URL: string
+  KHALTI_SECRET_KEY: string; KHALTI_PUBLIC_KEY: string; KHALTI_BASE_URL: string
+}
+interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
 
 type TabId = 'store' | 'homepage' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
@@ -116,6 +121,7 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
 
 function LogoUploader({ url, onChange }: { url: string; onChange: (url: string) => void }) {
   const [uploading, setUploading] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -149,10 +155,16 @@ function LogoUploader({ url, onChange }: { url: string; onChange: (url: string) 
         {/* Actions */}
         <div className="flex-1">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
-            {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload logo</>}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+              {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload logo</>}
+            </button>
+            <button type="button" onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+              <Library size={14} /> From library
+            </button>
+          </div>
           <p className="text-[10px] text-slate-400 mt-1.5">PNG or SVG recommended · max 2MB</p>
           {url && (
             <input value={url} onChange={e => onChange(e.target.value)}
@@ -162,12 +174,22 @@ function LogoUploader({ url, onChange }: { url: string; onChange: (url: string) 
         </div>
       </div>
       <Hint>Used in shipping labels and email receipts</Hint>
+      <GalleryPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(urls) => { if (urls[0]) onChange(urls[0]) }}
+        mode="single"
+        kind="image"
+        initiallySelected={url ? [url] : []}
+        title="Pick a logo"
+      />
     </div>
   )
 }
 
 function FaviconUploader({ url, onChange }: { url: string; onChange: (url: string) => void }) {
   const [uploading, setUploading] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -187,14 +209,29 @@ function FaviconUploader({ url, onChange }: { url: string; onChange: (url: strin
   return (
     <div className="flex-1 space-y-2">
       <input ref={fileRef} type="file" accept="image/png,image/x-icon,image/svg+xml,image/jpeg" className="hidden" onChange={handleFile} />
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-        className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
-        {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload favicon</>}
-      </button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+          className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+          {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload favicon</>}
+        </button>
+        <button type="button" onClick={() => setPickerOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+          <Library size={14} /> From library
+        </button>
+      </div>
       {url && (
         <input value={url} onChange={e => onChange(e.target.value)} placeholder="or paste URL…"
           className="w-full px-3 py-1.5 text-[11px] font-mono border border-slate-100 rounded-lg bg-white text-slate-500 outline-none focus:border-primary focus:ring-1 focus:ring-primary/10" />
       )}
+      <GalleryPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(urls) => { if (urls[0]) onChange(urls[0]) }}
+        mode="single"
+        kind="image"
+        initiallySelected={url ? [url] : []}
+        title="Pick a favicon"
+      />
     </div>
   )
 }
@@ -952,8 +989,12 @@ export default function SettingsPage() {
     STORE_URL: '',
     SEO_TITLE: '', SEO_DESCRIPTION: '', SEO_KEYWORDS: '',
   })
-  const [payment, setPayment] = useState<PaymentForm>({ ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '', KHALTI_SECRET_KEY: '' })
-  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '' })
+  const [payment, setPayment] = useState<PaymentForm>({
+    ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '',
+    ESEWA_BASE_URL:    '', ESEWA_STATUS_URL: '',
+    KHALTI_SECRET_KEY: '', KHALTI_PUBLIC_KEY: '', KHALTI_BASE_URL: '',
+  })
+  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '' })
   const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
 
   useEffect(() => {
@@ -976,9 +1017,16 @@ export default function SettingsPage() {
       setPayment(p => ({
         ESEWA_MERCHANT_ID: settings.ESEWA_MERCHANT_ID ?? p.ESEWA_MERCHANT_ID,
         ESEWA_SECRET_KEY:  settings.ESEWA_SECRET_KEY  ?? p.ESEWA_SECRET_KEY,
+        ESEWA_BASE_URL:    settings.ESEWA_BASE_URL    ?? p.ESEWA_BASE_URL,
+        ESEWA_STATUS_URL:  settings.ESEWA_STATUS_URL  ?? p.ESEWA_STATUS_URL,
         KHALTI_SECRET_KEY: settings.KHALTI_SECRET_KEY ?? p.KHALTI_SECRET_KEY,
+        KHALTI_PUBLIC_KEY: settings.KHALTI_PUBLIC_KEY ?? p.KHALTI_PUBLIC_KEY,
+        KHALTI_BASE_URL:   settings.KHALTI_BASE_URL   ?? p.KHALTI_BASE_URL,
       }))
-      setNotif({ ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '' })
+      setNotif({
+        ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '',
+        OPENWEATHER_API_KEY:      settings.OPENWEATHER_API_KEY      ?? '',
+      })
       setAi(a => ({
         ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY ?? a.ANTHROPIC_API_KEY,
         GEMINI_API_KEY:    settings.GEMINI_API_KEY    ?? a.GEMINI_API_KEY,
@@ -1392,6 +1440,19 @@ export default function SettingsPage() {
                       <SecretInput label="Secret Key" value={payment.ESEWA_SECRET_KEY}
                         onChange={v => setPayment(p => ({ ...p, ESEWA_SECRET_KEY: v }))}
                         placeholder="8gBm/:&EnhH.1/q" />
+                      <div>
+                        <Label>Form Base URL</Label>
+                        <input value={payment.ESEWA_BASE_URL}
+                          onChange={e => setPayment(p => ({ ...p, ESEWA_BASE_URL: e.target.value }))}
+                          placeholder="https://rc-epay.esewa.com.np" className={`${inputCls} font-mono text-[11px]`} />
+                        <Hint>Sandbox: rc-epay.esewa.com.np · Live: epay.esewa.com.np</Hint>
+                      </div>
+                      <div>
+                        <Label>Status Check URL</Label>
+                        <input value={payment.ESEWA_STATUS_URL}
+                          onChange={e => setPayment(p => ({ ...p, ESEWA_STATUS_URL: e.target.value }))}
+                          placeholder="https://rc.esewa.com.np/api/epay/transaction/status/" className={`${inputCls} font-mono text-[11px]`} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1415,10 +1476,26 @@ export default function SettingsPage() {
                         Dashboard <ExternalLink size={11} />
                       </a>
                     </div>
-                    <SecretInput label="Secret Key" value={payment.KHALTI_SECRET_KEY}
-                      onChange={v => setPayment(p => ({ ...p, KHALTI_SECRET_KEY: v }))}
-                      placeholder="live_secret_key_..."
-                      hint="Use live_ prefix for production, test_secret_key_ for sandbox" />
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <SecretInput label="Secret Key" value={payment.KHALTI_SECRET_KEY}
+                        onChange={v => setPayment(p => ({ ...p, KHALTI_SECRET_KEY: v }))}
+                        placeholder="live_secret_key_..."
+                        hint="Use live_ prefix for production, test_secret_key_ for sandbox" />
+                      <div>
+                        <Label>Public Key</Label>
+                        <input value={payment.KHALTI_PUBLIC_KEY}
+                          onChange={e => setPayment(p => ({ ...p, KHALTI_PUBLIC_KEY: e.target.value }))}
+                          placeholder="live_public_key_..." className={`${inputCls} font-mono text-[11px]`} />
+                        <Hint>Used by client-side Khalti SDK initialisation.</Hint>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label>Base URL</Label>
+                        <input value={payment.KHALTI_BASE_URL}
+                          onChange={e => setPayment(p => ({ ...p, KHALTI_BASE_URL: e.target.value }))}
+                          placeholder="https://dev.khalti.com" className={`${inputCls} font-mono text-[11px]`} />
+                        <Hint>Sandbox: dev.khalti.com · Live: khalti.com</Hint>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1518,15 +1595,28 @@ export default function SettingsPage() {
           {/* ── Notifications tab ─────────────────────────────────── */}
           {tab === 'notifications' && (
             <form onSubmit={e => { e.preventDefault(); save('notif', notif as unknown as Record<string, string>) }}>
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
-                <SectionTitle>Email Alerts</SectionTitle>
-                <div className="max-w-md">
-                  <Label>Order Notification Email</Label>
-                  <input type="email" value={notif.ORDER_NOTIFICATION_EMAIL}
-                    onChange={e => setNotif({ ORDER_NOTIFICATION_EMAIL: e.target.value })}
-                    placeholder="admin@yourstore.com" className={inputCls} />
-                  <Hint>Receive an email whenever a new order is placed. Leave empty to disable.</Hint>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+                <div>
+                  <SectionTitle>Email Alerts</SectionTitle>
+                  <div className="max-w-md">
+                    <Label>Order Notification Email</Label>
+                    <input type="email" value={notif.ORDER_NOTIFICATION_EMAIL}
+                      onChange={e => setNotif(n => ({ ...n, ORDER_NOTIFICATION_EMAIL: e.target.value }))}
+                      placeholder="admin@yourstore.com" className={inputCls} />
+                    <Hint>Receive an email whenever a new order is placed. Leave empty to disable.</Hint>
+                  </div>
                 </div>
+
+                <div>
+                  <SectionTitle>Weather (checkout widget)</SectionTitle>
+                  <div className="max-w-md">
+                    <SecretInput label="OpenWeatherMap API Key" value={notif.OPENWEATHER_API_KEY}
+                      onChange={v => setNotif(n => ({ ...n, OPENWEATHER_API_KEY: v }))}
+                      placeholder="your-openweathermap-key"
+                      hint="Powers the live weather widget on the checkout page. Free tier is fine — get one at openweathermap.org/api." />
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-2 border-t border-slate-50">
                   <SaveBtn section="notif" saving={saving} saved={saved} />
                 </div>

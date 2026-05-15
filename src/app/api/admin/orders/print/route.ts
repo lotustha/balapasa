@@ -156,6 +156,135 @@ function shippingLabel(orders: Awaited<ReturnType<typeof fetchOrders>>) {
 </div>`).join('')
 }
 
+// Air Waybill — courier-style document with shipper/consignee/dimensions/COD.
+// One AWB per A5-ish page so it can be folded into the shipment envelope.
+function awb(orders: Awaited<ReturnType<typeof fetchOrders>>) {
+  return orders.map(order => {
+    const itemCount = order.items.reduce((s, i) => s + i.quantity, 0)
+    const codText = order.paymentMethod === 'COD'
+      ? `COD — NPR ${order.total.toLocaleString()}`
+      : order.paymentMethod === 'PARTIAL_COD'
+      ? `PARTIAL COD — NPR ${(order.codAmount ?? order.total).toLocaleString()}`
+      : `PREPAID`
+    const awbNo = order.pathaoOrderId || order.id.slice(0, 8).toUpperCase()
+    return `
+<div class="page awb-page">
+  <div class="awb-header">
+    <div>
+      <div class="brand">${STORE.name}</div>
+      <div class="muted">${STORE.phone} · ${STORE.address}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="doc-title" style="font-size:20px">AIR WAYBILL</div>
+      <div class="awb-no">${awbNo}</div>
+    </div>
+  </div>
+
+  <div class="awb-grid">
+    <div class="awb-box">
+      <div class="addr-label">Shipper</div>
+      <div class="addr-name">${STORE.name}</div>
+      <div class="addr-line">${STORE.address}</div>
+      <div class="addr-line">${STORE.phone}</div>
+      ${STORE.email ? `<div class="addr-line">${STORE.email}</div>` : ''}
+    </div>
+    <div class="awb-box">
+      <div class="addr-label">Consignee</div>
+      <div class="addr-name">${order.name}</div>
+      <div class="addr-line">${[order.house, order.road, order.address].filter(Boolean).join(', ')}</div>
+      <div class="addr-line">${order.city}</div>
+      <div class="addr-line"><strong>${order.phone}</strong></div>
+    </div>
+  </div>
+
+  <div class="awb-meta-row">
+    <div class="awb-meta-cell"><span class="addr-label">Pieces</span><span class="awb-meta-val">${itemCount}</span></div>
+    <div class="awb-meta-cell"><span class="addr-label">Payment</span><span class="awb-meta-val">${codText}</span></div>
+    <div class="awb-meta-cell"><span class="addr-label">Date</span><span class="awb-meta-val">${new Date(order.createdAt).toLocaleDateString('en-NP', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+    <div class="awb-meta-cell"><span class="addr-label">Service</span><span class="awb-meta-val">${order.shippingOption ?? order.shippingProvider ?? 'Standard'}</span></div>
+  </div>
+
+  <div class="awb-content">
+    <div class="addr-label">Description of contents</div>
+    <div class="awb-items">${order.items.map(it => `${it.quantity}× ${it.name}`).join('  ·  ')}</div>
+  </div>
+
+  ${order.notes ? `<div class="awb-notes"><strong>Instructions:</strong> ${order.notes}</div>` : ''}
+
+  <div class="awb-footer">
+    <div class="awb-sig">
+      <div class="awb-sig-label">Shipper signature</div>
+      <div class="awb-sig-line">_____________________</div>
+    </div>
+    <div class="awb-sig">
+      <div class="awb-sig-label">Receiver signature + date</div>
+      <div class="awb-sig-line">_____________________</div>
+    </div>
+  </div>
+
+  <div class="barcode-visual" aria-hidden="true">
+    ${Array.from({ length: 60 }).map((_, i) => `<div style="width:${[1,2,3,1,2,1,3,2,1][i%9]}px;height:100%;background:#111"></div>`).join('')}
+  </div>
+  <div class="awb-bcnum">${awbNo}</div>
+</div>`
+  }).join('')
+}
+
+// Compact list-style packing slip — multiple orders per A4 page, separated by
+// horizontal rules. Saves paper for batch picking sessions.
+function packingSlipCompact(orders: Awaited<ReturnType<typeof fetchOrders>>) {
+  const rows = orders.map((order, idx) => {
+    const itemCount = order.items.reduce((s, i) => s + i.quantity, 0)
+    const codText = order.paymentMethod === 'COD'
+      ? `COD ${order.total.toLocaleString()}`
+      : order.paymentMethod === 'PARTIAL_COD'
+      ? `PARTIAL COD ${(order.codAmount ?? order.total).toLocaleString()}`
+      : 'PREPAID'
+    return `
+    <div class="psc-row">
+      <div class="psc-head">
+        <div class="psc-idx">${idx + 1}</div>
+        <div class="psc-customer">
+          <div class="psc-name">${order.name} <span class="psc-phone">· ${order.phone}</span></div>
+          <div class="psc-addr">${[order.house, order.road, order.address].filter(Boolean).join(', ')} — <strong>${order.city.toUpperCase()}</strong></div>
+        </div>
+        <div class="psc-meta">
+          <div class="psc-order">#${order.id.slice(0, 8).toUpperCase()}</div>
+          <div class="psc-pay ${order.paymentMethod === 'COD' || order.paymentMethod === 'PARTIAL_COD' ? 'cod' : 'paid'}">${codText}</div>
+          ${order.pathaoOrderId ? `<div class="psc-track">${order.pathaoOrderId}</div>` : ''}
+        </div>
+      </div>
+      <div class="psc-items">
+        ${order.items.map(it => `<span class="psc-item"><strong>${it.quantity}×</strong> ${it.name}</span>`).join('')}
+      </div>
+      <div class="psc-foot">
+        <span>Total items: <strong>${itemCount}</strong></span>
+        <span class="psc-check">Packed ☐&nbsp;&nbsp;&nbsp;Checked ☐</span>
+      </div>
+    </div>`
+  }).join('')
+
+  return `
+<div class="page psc-page">
+  <div class="psc-pageheader">
+    <div>
+      <div class="brand">${STORE.name}</div>
+      <div class="muted">${STORE.address} · ${STORE.phone}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="doc-title" style="font-size:20px">PACKING LIST</div>
+      <div class="muted">${new Date().toLocaleDateString('en-NP', { day: 'numeric', month: 'short', year: 'numeric' })} · ${orders.length} order${orders.length !== 1 ? 's' : ''}</div>
+    </div>
+  </div>
+  ${rows}
+  <div class="psc-totals">
+    <strong>Total orders:</strong> ${orders.length}
+    &nbsp;·&nbsp;
+    <strong>Total items:</strong> ${orders.reduce((s, o) => s + o.items.reduce((x, i) => x + i.quantity, 0), 0)}
+  </div>
+</div>`
+}
+
 function packingSlip(orders: Awaited<ReturnType<typeof fetchOrders>>) {
   return orders.map(order => `
 <div class="page packing-page">
@@ -285,6 +414,49 @@ body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111;
 .muted-sm { font-size: 9px; color: #888; line-height: 1.6; }
 .barcode-visual { height: 10mm; display: flex; align-items: stretch; gap: 1px; margin-top: 2mm; opacity: 0.8; overflow: hidden; flex-shrink: 0; }
 
+/* Air Waybill */
+.awb-page { padding: 8mm; max-width: 210mm; margin: 0 auto; border: 2px solid #111; }
+.awb-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 4mm; border-bottom: 2px solid #111; margin-bottom: 4mm; }
+.awb-no { font-size: 18px; font-weight: 900; font-family: monospace; background: #111; color: #fff; padding: 2mm 4mm; margin-top: 2mm; display: inline-block; }
+.awb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid #111; margin-bottom: 4mm; }
+.awb-box { padding: 4mm; }
+.awb-box + .awb-box { border-left: 1.5px solid #111; background: #fafafa; }
+.awb-meta-row { display: grid; grid-template-columns: repeat(4, 1fr); border: 1.5px solid #111; border-top: 0; margin-bottom: 4mm; }
+.awb-meta-cell { padding: 3mm 4mm; border-right: 1px solid #ccc; }
+.awb-meta-cell:last-child { border-right: 0; }
+.awb-meta-val { display: block; font-size: 12px; font-weight: 700; margin-top: 2px; }
+.awb-content { border: 1.5px solid #111; padding: 4mm; margin-bottom: 4mm; min-height: 20mm; }
+.awb-items { font-size: 12px; line-height: 1.7; margin-top: 4px; }
+.awb-notes { background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 6px 10px; font-size: 11px; color: #92400e; margin-bottom: 4mm; }
+.awb-footer { display: flex; gap: 8mm; margin-bottom: 4mm; padding-top: 4mm; border-top: 1px solid #ccc; }
+.awb-sig { flex: 1; }
+.awb-sig-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 6mm; }
+.awb-sig-line { font-family: monospace; color: #999; }
+.awb-bcnum { text-align: center; font-family: monospace; font-size: 12px; font-weight: 700; letter-spacing: 2px; margin-top: 2mm; }
+
+/* Compact Packing List (multi-customer per A4) */
+.psc-page { padding: 10mm; max-width: 210mm; margin: 0 auto; }
+.psc-pageheader { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 4mm; margin-bottom: 4mm; }
+.psc-row { padding: 3mm 0; border-bottom: 1px dashed #999; page-break-inside: avoid; }
+.psc-row:last-of-type { border-bottom: 2px solid #111; }
+.psc-head { display: flex; gap: 4mm; align-items: flex-start; margin-bottom: 2mm; }
+.psc-idx { width: 8mm; height: 8mm; border: 1.5px solid #111; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; flex-shrink: 0; }
+.psc-customer { flex: 1; min-width: 0; }
+.psc-name { font-size: 13px; font-weight: 800; }
+.psc-phone { font-size: 11px; color: #666; font-weight: 600; }
+.psc-addr { font-size: 11px; color: #444; line-height: 1.4; }
+.psc-meta { text-align: right; flex-shrink: 0; min-width: 38mm; }
+.psc-order { font-family: monospace; font-weight: 800; font-size: 11px; }
+.psc-pay { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 800; margin-top: 2px; }
+.psc-pay.cod { background: #fef3c7; color: #92400e; }
+.psc-pay.paid { background: #d1fae5; color: #065f46; }
+.psc-track { font-family: monospace; font-size: 10px; color: #16A34A; font-weight: 700; margin-top: 2px; }
+.psc-items { padding-left: 12mm; font-size: 11px; line-height: 1.7; }
+.psc-item { display: inline-block; margin-right: 8mm; }
+.psc-foot { padding-left: 12mm; margin-top: 2mm; font-size: 10px; color: #555; display: flex; justify-content: space-between; }
+.psc-check { font-family: monospace; }
+.psc-totals { margin-top: 6mm; padding-top: 4mm; border-top: 2px solid #111; text-align: right; font-size: 13px; }
+
 /* Packing Slip */
 .packing-page { padding: 10mm; max-width: 180mm; margin: 0 auto; }
 .ps-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6mm; border-bottom: 2px solid #111; padding-bottom: 4mm; }
@@ -320,16 +492,25 @@ export async function POST(req: NextRequest) {
     const orders = await fetchOrders(ids)
 
     let body = ''
-    if (type === 'invoice')       body = invoice(orders)
-    else if (type === 'packing')  body = packingSlip(orders)
-    else if (type === 'all')      body = invoice(orders) + shippingLabel(orders) + packingSlip(orders)
-    else                          body = shippingLabel(orders)  // default: shipping
+    if (type === 'invoice')             body = invoice(orders)
+    else if (type === 'packing')        body = packingSlip(orders)
+    else if (type === 'packing-list')   body = packingSlipCompact(orders)
+    else if (type === 'awb')            body = awb(orders)
+    else if (type === 'all')            body = invoice(orders) + shippingLabel(orders) + packingSlip(orders)
+    else                                body = shippingLabel(orders)  // default: shipping
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>${STORE.name} — ${type === 'invoice' ? 'Invoice' : type === 'packing' ? 'Packing Slip' : type === 'all' ? 'All Documents' : 'Shipping Labels'}</title>
+<title>${STORE.name} — ${
+      type === 'invoice'      ? 'Invoice'
+    : type === 'packing'      ? 'Packing Slip'
+    : type === 'packing-list' ? 'Packing List'
+    : type === 'awb'          ? 'Air Waybill'
+    : type === 'all'          ? 'All Documents'
+    :                           'Shipping Labels'
+    }</title>
 <style>${CSS}</style>
 </head>
 <body>

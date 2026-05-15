@@ -13,12 +13,11 @@ export interface CoverageOption {
   meta?: Record<string, unknown>
 }
 
-// Dhaka area coordinates used for Pathao estimates.
-// Pathao is a Bangladesh service — the receiver lat/lng must be within Dhaka.
-// When the user provides custom coordinates (via env PATHAO_RECEIVER_LAT/LNG)
-// those override these defaults.
-const DHAKA_LAT = parseFloat(process.env.PATHAO_RECEIVER_DEFAULT_LAT ?? '23.73547839871336')
-const DHAKA_LNG = parseFloat(process.env.PATHAO_RECEIVER_DEFAULT_LNG ?? '90.38390121513216')
+// Kathmandu receiver default coords for Pathao Nepal estimates. Used only
+// for previews when no real customer address is known. (Variable name kept
+// as DHAKA_* for back-compat with downstream references.)
+const DHAKA_LAT = 27.7172
+const DHAKA_LNG = 85.3240
 
 const STORE_PICKUP_PRICE      = 50
 const FALLBACK_COURIER_PRICE  = 250
@@ -40,7 +39,7 @@ export async function POST(req: NextRequest) {
   // Load partner active status from logistics settings (with env fallback)
   const { getPathaoConfig, getPicknDropConfig } = await import('@/lib/logistics-config')
   const [pathaoConfig, pndConfig] = await Promise.all([
-    getPathaoConfig().catch(() => ({ isActive: false } as { isActive: boolean })),
+    getPathaoConfig().catch(() => ({ isActive: false, storeAddress: '', storeName: '' } as { isActive: boolean; storeAddress: string; storeName: string })),
     getPicknDropConfig().catch(() => ({ isActive: false } as { isActive: boolean })),
   ])
   const anyPartnerActive = pathaoConfig.isActive || pndConfig.isActive
@@ -152,7 +151,7 @@ export async function POST(req: NextRequest) {
       charge:        STORE_PICKUP_PRICE,
       dropoff_eta:   0,
       available:     true,
-      meta: { address: process.env.PATHAO_PICKUP_ADDRESS ?? 'Balapasa Store' },
+      meta: { address: pathaoConfig.storeAddress || pathaoConfig.storeName || 'Balapasa Store' },
     })
   }
 

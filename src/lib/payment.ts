@@ -1,34 +1,101 @@
+import 'server-only'
 import crypto from 'crypto'
+import { prisma } from '@/lib/prisma'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
+// ── DB-backed config ─────────────────────────────────────────────────────────
+// Payment provider credentials live in app_settings. The previous version read
+// them via process.env at module-startup which meant DB saves didn't take
+// effect until the next deploy. Cached 30s; busted on settings save.
+
+interface PaymentConfig {
+  esewa: {
+    merchantId: string
+    secretKey:  string
+    baseUrl:    string  // used to derive ESEWA_PAYMENT_URL
+    statusUrl:  string
+  }
+  khalti: {
+    secretKey:  string
+    baseUrl:    string
+    publicKey:  string  // exposed to client via /api/checkout/payment-config
+  }
+}
+
+// Sensible static defaults so dev environments work without DB rows yet. Live
+// credentials (merchantId, secretKey, etc.) MUST come from app_settings.
+const DEFAULTS = {
+  esewaMerchantId: 'EPAYTEST',
+  esewaSecretKey:  '8gBm/:&EnhH.1/q',
+  esewaBaseUrl:    'https://rc-epay.esewa.com.np',
+  esewaStatusUrl:  'https://rc.esewa.com.np/api/epay/transaction/status/',
+  khaltiSecretKey: 'test_secret_key_dc74e0fd57cb46cd93832aee0a390234',
+  khaltiBaseUrl:   'https://dev.khalti.com',
+  khaltiPublicKey: 'test_public_key_dc74e0fd57cb46cd93832aee0a390234',
+}
+
+const CACHE_TTL_MS = 30_000
+let cache: { value: PaymentConfig; expiresAt: number } | null = null
+
+export async function getPaymentConfig(): Promise<PaymentConfig> {
+  const now = Date.now()
+  if (cache && cache.expiresAt > now) return cache.value
+
+  let rows: { key: string; value: string }[] = []
+  try {
+    rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+      SELECT key, value FROM app_settings
+      WHERE key IN (
+        'ESEWA_MERCHANT_ID', 'ESEWA_SECRET_KEY', 'ESEWA_BASE_URL', 'ESEWA_STATUS_URL',
+        'KHALTI_SECRET_KEY', 'KHALTI_BASE_URL', 'KHALTI_PUBLIC_KEY'
+      )
+    `
+  } catch (e) {
+    console.warn('[payment] config DB read failed, using defaults:', e)
+  }
+  const db = Object.fromEntries(rows.map(r => [r.key, r.value]))
+
+  const config: PaymentConfig = {
+    esewa: {
+      merchantId: db.ESEWA_MERCHANT_ID || DEFAULTS.esewaMerchantId,
+      secretKey:  db.ESEWA_SECRET_KEY  || DEFAULTS.esewaSecretKey,
+      baseUrl:    db.ESEWA_BASE_URL    || DEFAULTS.esewaBaseUrl,
+      statusUrl:  db.ESEWA_STATUS_URL  || DEFAULTS.esewaStatusUrl,
+    },
+    khalti: {
+      secretKey:  db.KHALTI_SECRET_KEY || DEFAULTS.khaltiSecretKey,
+      baseUrl:    db.KHALTI_BASE_URL   || DEFAULTS.khaltiBaseUrl,
+      publicKey:  db.KHALTI_PUBLIC_KEY || DEFAULTS.khaltiPublicKey,
+    },
+  }
+  cache = { value: config, expiresAt: now + CACHE_TTL_MS }
+  return config
+}
+
+export function invalidatePaymentConfigCache(): void {
+  cache = null
+}
 
 // ── eSewa ─────────────────────────────────────────────────────────────────────
 // Docs: https://developer.esewa.com.np/pages/Epay#transactionflow
 
-const ESEWA_MERCHANT_ID = process.env.ESEWA_MERCHANT_ID ?? 'EPAYTEST'
-const ESEWA_SECRET_KEY  = process.env.ESEWA_SECRET_KEY  ?? '8gBm/:&EnhH.1/q'
+function esewaHmac(secret: string, message: string): string {
+  return crypto.createHmac('sha256', secret).update(message).digest('base64')
+}
 
-// Payment form endpoint
-export const ESEWA_PAYMENT_URL =
-  process.env.NEXT_PUBLIC_ESEWA_BASE_URL
-    ? `${process.env.NEXT_PUBLIC_ESEWA_BASE_URL}/api/epay/main/v2/form`
-    : 'https://rc-epay.esewa.com.np/api/epay/main/v2/form'
-
-// Transaction status check endpoint (different subdomain!)
-const ESEWA_STATUS_URL =
-  process.env.ESEWA_STATUS_URL ?? 'https://rc.esewa.com.np/api/epay/transaction/status/'
-
-/** Generate HMAC-SHA256 signature for the payment form */
-function esewaHmac(message: string): string {
-  return crypto.createHmac('sha256', ESEWA_SECRET_KEY).update(message).digest('base64')
+/** Returns the URL that the eSewa form POSTs to. */
+export async function getEsewaPaymentUrl(): Promise<string> {
+  const cfg = await getPaymentConfig()
+  return `${cfg.esewa.baseUrl}/api/epay/main/v2/form`
 }
 
 /** Build the hidden form fields POSTed to eSewa */
-export function esewaFormData(orderId: string, amount: number, deliveryCharge: number) {
+export async function esewaFormData(orderId: string, amount: number, deliveryCharge: number) {
+  const cfg          = await getPaymentConfig()
   const totalAmount  = Math.round(amount + deliveryCharge)
-  const productCode  = ESEWA_MERCHANT_ID
-  // Signature message: fields joined as "key=value,key=value,..."
-  const message  = `total_amount=${totalAmount},transaction_uuid=${orderId},product_code=${productCode}`
+  const productCode  = cfg.esewa.merchantId
+  const message      = `total_amount=${totalAmount},transaction_uuid=${orderId},product_code=${productCode}`
   return {
     amount:                  String(Math.round(amount)),
     tax_amount:              '0',
@@ -40,7 +107,7 @@ export function esewaFormData(orderId: string, amount: number, deliveryCharge: n
     success_url:             `${APP_URL}/checkout/verify?method=esewa`,
     failure_url:             `${APP_URL}/checkout/failed`,
     signed_field_names:      'total_amount,transaction_uuid,product_code',
-    signature:               esewaHmac(message),
+    signature:               esewaHmac(cfg.esewa.secretKey, message),
   }
 }
 
@@ -49,12 +116,11 @@ export function esewaFormData(orderId: string, amount: number, deliveryCharge: n
  * 1. Decodes the `data` query param
  * 2. Re-computes HMAC over the signed fields
  * 3. Compares signatures (prevents tampering)
- * Returns { valid, decoded } — never trust status without valid=true.
  */
-export function esewaVerifyCallback(dataB64: string): {
-  valid: boolean
+export async function esewaVerifyCallback(dataB64: string): Promise<{
+  valid:   boolean
   decoded: Record<string, string>
-} {
+}> {
   let decoded: Record<string, string>
   try {
     decoded = JSON.parse(Buffer.from(dataB64, 'base64').toString('utf-8'))
@@ -62,16 +128,16 @@ export function esewaVerifyCallback(dataB64: string): {
     return { valid: false, decoded: {} }
   }
 
-  const { signed_field_names, signature, ...rest } = decoded
+  const { signed_field_names, signature } = decoded
   if (!signed_field_names || !signature) return { valid: false, decoded }
 
-  // Re-build the message from the signed field names in their original order
+  const cfg     = await getPaymentConfig()
   const message = signed_field_names
     .split(',')
     .map(k => `${k}=${decoded[k]}`)
     .join(',')
 
-  const expected = esewaHmac(message)
+  const expected = esewaHmac(cfg.esewa.secretKey, message)
   const valid    = crypto.timingSafeEqual(
     Buffer.from(signature, 'base64'),
     Buffer.from(expected, 'base64'),
@@ -81,14 +147,14 @@ export function esewaVerifyCallback(dataB64: string): {
 
 /**
  * Double-check with eSewa's status API (call AFTER signature verification).
- * Only COMPLETE should be treated as success.
  */
 export async function esewaStatusCheck(
   transactionUuid: string,
-  totalAmount: number,
+  totalAmount:     number,
 ): Promise<{ status: string; ref_id?: string }> {
-  const url = new URL(ESEWA_STATUS_URL)
-  url.searchParams.set('product_code',     ESEWA_MERCHANT_ID)
+  const cfg = await getPaymentConfig()
+  const url = new URL(cfg.esewa.statusUrl)
+  url.searchParams.set('product_code',     cfg.esewa.merchantId)
   url.searchParams.set('transaction_uuid', transactionUuid)
   url.searchParams.set('total_amount',     String(totalAmount))
 
@@ -100,10 +166,6 @@ export async function esewaStatusCheck(
 // ── Khalti ────────────────────────────────────────────────────────────────────
 // Docs: https://docs.khalti.com/khalti-epayment/
 
-// Sandbox: https://dev.khalti.com  |  Production: https://khalti.com
-const KHALTI_BASE_URL  = process.env.KHALTI_BASE_URL  ?? 'https://dev.khalti.com'
-const KHALTI_SECRET    = process.env.KHALTI_SECRET_KEY ?? 'test_secret_key_dc74e0fd57cb46cd93832aee0a390234'
-
 /** Initiate a Khalti payment and return the payment_url to redirect the user to */
 export async function khaltiInitiate(params: {
   orderId:       string
@@ -113,16 +175,17 @@ export async function khaltiInitiate(params: {
   customerEmail: string
   customerPhone: string
 }): Promise<{ payment_url: string; pidx: string; error?: string }> {
-  const res = await fetch(`${KHALTI_BASE_URL}/api/v2/epayment/initiate/`, {
+  const cfg = await getPaymentConfig()
+  const res = await fetch(`${cfg.khalti.baseUrl}/api/v2/epayment/initiate/`, {
     method: 'POST',
     headers: {
-      Authorization:  `Key ${KHALTI_SECRET}`,
+      Authorization:  `Key ${cfg.khalti.secretKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       return_url:           `${APP_URL}/checkout/verify?method=khalti`,
       website_url:           APP_URL,
-      amount:                Math.round(params.amount * 100),  // paisa (min 1000 = Rs 10)
+      amount:                Math.round(params.amount * 100),
       purchase_order_id:     params.orderId,
       purchase_order_name:   params.orderName,
       customer_info: {
@@ -139,22 +202,19 @@ export async function khaltiInitiate(params: {
   return res.json()
 }
 
-/**
- * Lookup a Khalti payment by pidx.
- * ONLY 'Completed' status means success — verify before fulfilling orders.
- */
 export async function khaltiLookup(pidx: string): Promise<{
   pidx:           string
-  total_amount:   number   // in paisa
-  status:         string   // 'Completed' | 'Pending' | 'Refunded' | 'Expired' | 'User canceled'
+  total_amount:   number
+  status:         string
   transaction_id: string
   fee:            number
   refunded:       boolean
 }> {
-  const res = await fetch(`${KHALTI_BASE_URL}/api/v2/epayment/lookup/`, {
+  const cfg = await getPaymentConfig()
+  const res = await fetch(`${cfg.khalti.baseUrl}/api/v2/epayment/lookup/`, {
     method: 'POST',
     headers: {
-      Authorization:  `Key ${KHALTI_SECRET}`,
+      Authorization:  `Key ${cfg.khalti.secretKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ pidx }),

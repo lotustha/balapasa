@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, X, Link, Loader2, Star, GripVertical, Image as ImageIcon, Clipboard } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Upload, X, Link, Loader2, Star, GripVertical, Clipboard, Library } from 'lucide-react'
+import GalleryPickerModal from './GalleryPickerModal'
 
 interface Props {
   images:   string[]
@@ -25,6 +26,7 @@ export default function ImageUploader({ images, onChange, max = 10 }: Props) {
   const [showUrl,     setShowUrl]     = useState(false)
   const [pasteHint,   setPasteHint]   = useState(false)
   const [urlInput,    setUrlInput]    = useState('')
+  const [pickerOpen,  setPickerOpen]  = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const dragOver = useRef<number | null>(null)   // drag-over index for reordering
 
@@ -193,8 +195,14 @@ export default function ImageUploader({ images, onChange, max = 10 }: Props) {
         </div>
       )}
 
-      {/* URL input toggle */}
-      <div>
+      {/* Library + URL options */}
+      <div className="flex items-center gap-4 flex-wrap">
+        {canAdd && (
+          <button type="button" onClick={() => setPickerOpen(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer">
+            <Library size={12} /> Choose from library
+          </button>
+        )}
         {!showUrl ? (
           <button type="button" onClick={() => setShowUrl(true)}
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-primary transition-colors cursor-pointer">
@@ -221,6 +229,18 @@ export default function ImageUploader({ images, onChange, max = 10 }: Props) {
           {images.length}/{max} images · First image is the primary · Drag to reorder · ☆ to set primary
         </p>
       )}
+
+      <GalleryPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(urls) => {
+          const novel = urls.filter(u => !images.includes(u))
+          onChange([...images, ...novel].slice(0, max))
+        }}
+        mode="multi"
+        kind="image"
+        maxSelect={Math.max(0, max - images.length)}
+      />
     </div>
   )
 }

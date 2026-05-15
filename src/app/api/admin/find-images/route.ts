@@ -1,4 +1,4 @@
-import { saveFile } from '@/lib/upload'
+import { saveFile, recordMediaAsset } from '@/lib/upload'
 
 interface SearchItem {
   name:    string
@@ -75,7 +75,9 @@ async function uploadImageLocally(imgUrl: string): Promise<string> {
   for (const attempt of attempts) {
     try {
       const { buf, ct } = await attempt()
-      return saveFile(buf, ct)
+      const saved = await saveFile(buf, ct)
+      await recordMediaAsset(saved)
+      return saved.url
     } catch { /* try next */ }
   }
   throw new Error('All download attempts failed')

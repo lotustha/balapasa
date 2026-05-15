@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, LogOut, Ticket, Zap, MessageCircle, DollarSign, Monitor,
-  ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download,
+  ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
@@ -36,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/products',   icon: Package, label: 'Products',   minRole: 'MANAGER' },
       { href: '/admin/inventory',  icon: Boxes,   label: 'Inventory',  minRole: 'MANAGER' },
       { href: '/admin/categories', icon: Tag,     label: 'Categories', minRole: 'MANAGER' },
+      { href: '/admin/media',      icon: Library, label: 'Media',      minRole: 'MANAGER' },
       { href: '/admin/suppliers',  icon: Factory, label: 'Suppliers',  minRole: 'MANAGER' },
       { href: '/admin/plans',      icon: Repeat,  label: 'Plans',      minRole: 'MANAGER' },
     ],
@@ -58,9 +59,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Reports',
     items: [
-      { href: '/admin/analytics', icon: BarChart3,  label: 'Analytics', minRole: 'MANAGER' },
-      { href: '/admin/finance',   icon: DollarSign, label: 'Finance',   minRole: 'MANAGER' },
-      { href: '/admin/invoices',  icon: FileText,   label: 'Invoices',  minRole: 'MANAGER' },
+      { href: '/admin/analytics',  icon: BarChart3,  label: 'Analytics',  minRole: 'MANAGER' },
+      { href: '/admin/finance',    icon: DollarSign, label: 'Finance',    minRole: 'MANAGER' },
+      { href: '/admin/invoices',   icon: FileText,   label: 'Invoices',   minRole: 'MANAGER' },
+      { href: '/admin/seo-tools',  icon: Sparkles,   label: 'SEO Content', minRole: 'MANAGER' },
     ],
   },
   {
@@ -68,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/logistics', icon: Truck,         label: 'Logistics', minRole: 'ADMIN' },
       { href: '/admin/messaging', icon: MessageCircle, label: 'Messaging', minRole: 'STAFF' },
+      { href: '/admin/emails',    icon: Mail,          label: 'Emails',    minRole: 'ADMIN' },
       { href: '/admin/import',    icon: Download,      label: 'Import',    minRole: 'MANAGER' },
     ],
   },

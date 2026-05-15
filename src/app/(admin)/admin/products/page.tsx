@@ -174,11 +174,13 @@ export default function ProductsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Inventory adjustment
-  const [modal,   setModal]   = useState<Product | null>(null)
-  const [adjType, setAdjType] = useState<'PURCHASE' | 'ADJUSTMENT' | 'RETURN' | 'DAMAGE'>('PURCHASE')
-  const [adjQty,  setAdjQty]  = useState('')
-  const [adjNote, setAdjNote] = useState('')
-  const [saving,  setSaving]  = useState(false)
+  const [modal,    setModal]    = useState<Product | null>(null)
+  const [adjType,  setAdjType]  = useState<'PURCHASE' | 'ADJUSTMENT' | 'RETURN' | 'DAMAGE'>('PURCHASE')
+  const [adjQty,   setAdjQty]   = useState('')
+  const [adjNote,  setAdjNote]  = useState('')
+  const [saving,   setSaving]   = useState(false)
+  const [adjError, setAdjError] = useState<string | null>(null)
+  const [inlineError, setInlineError] = useState<string | null>(null)
 
   function buildUrl(overrides: Record<string, string | number> = {}) {
     const p = new URLSearchParams({
@@ -240,17 +242,26 @@ export default function ProductsPage() {
   async function submitAdjustment() {
     if (!modal || !adjQty) return
     setSaving(true)
-    const res = await fetch('/api/admin/inventory/adjust', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId: modal.id, type: adjType, quantity: Number(adjQty), note: adjNote }),
-    })
-    if (res.ok) {
-      setModal(null); setAdjQty(''); setAdjNote('')
-      setLogsLoaded(false)
-      load()
+    setAdjError(null)
+    try {
+      const res  = await fetch('/api/admin/inventory/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: modal.id, type: adjType, quantity: Number(adjQty), note: adjNote }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setAdjError(data.error || `Failed (HTTP ${res.status})`)
+      } else {
+        setModal(null); setAdjQty(''); setAdjNote('')
+        setLogsLoaded(false)
+        load()
+      }
+    } catch (e) {
+      setAdjError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function confirmDelete() {
@@ -306,14 +317,23 @@ export default function ProductsPage() {
   }
 
   async function patchProduct(id: string, data: Record<string, unknown>) {
-    const res = await fetch(`/api/products/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    if (res.ok) {
-      const updated = await res.json()
+    setInlineError(null)
+    try {
+      const res     = await fetch(`/api/products/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const updated = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setInlineError(updated.error || `Failed to save (HTTP ${res.status})`)
+        setTimeout(() => setInlineError(null), 4500)
+        return
+      }
       setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+    } catch (e) {
+      setInlineError(e instanceof Error ? e.message : String(e))
+      setTimeout(() => setInlineError(null), 4500)
     }
   }
 
@@ -822,11 +842,25 @@ export default function ProductsPage() {
                 placeholder="e.g. Received from supplier, PO #123"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
             </div>
+            {adjError && (
+              <div className="mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-semibold border border-red-200">
+                {adjError}
+              </div>
+            )}
             <button onClick={submitAdjustment} disabled={!adjQty || saving}
               className="w-full flex items-center justify-center gap-2 py-3 bg-primary hover:bg-primary-dark disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer">
               {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Apply Adjustment'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Inline-edit error toast (price/stock/cost double-click failures) */}
+      {inlineError && (
+        <div className="fixed bottom-6 right-6 z-[60] flex items-start gap-2 px-4 py-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl shadow-lg max-w-sm">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <p className="text-xs font-semibold leading-snug flex-1">{inlineError}</p>
+          <button onClick={() => setInlineError(null)} className="text-red-400 hover:text-red-600 cursor-pointer"><X size={14} /></button>
         </div>
       )}
 

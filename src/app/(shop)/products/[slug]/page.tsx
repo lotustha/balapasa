@@ -4,6 +4,12 @@ import type { Metadata } from 'next'
 import ProductDetailClient from './ProductDetailClient'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
 
+// ISR: cache product pages for 1 hour. Stock + price-sensitive content is
+// re-fetched on revalidation; admin updates show within an hour. Add
+// revalidatePath(`/products/${slug}`) in the product PATCH route for instant
+// propagation if needed.
+export const revalidate = 3600
+
 type PageProps = { params: Promise<{ slug: string }> }
 
 function stripHtml(html: string) {
@@ -81,6 +87,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
     rating: product.rating, reviewCount: product.reviewCount,
     isNew: product.isNew, isTaxable: product.isTaxable,
     videoUrl: product.videoUrl, weight: product.weight,
+    length: product.length, width: product.width, height: product.height,
+    faqs: Array.isArray(product.aiFaqJson)
+      ? (product.aiFaqJson as unknown as Array<{ q: string; a: string }>)
+          .filter(f => f && typeof f.q === 'string' && typeof f.a === 'string')
+      : null,
     salePriceExpiresAt: product.salePriceExpiresAt ? product.salePriceExpiresAt.toISOString() : null,
     tags: product.tags,
     category: { id: product.category.id, name: product.category.name, slug: product.category.slug, color: product.category.color, icon: product.category.icon, image: product.category.image },
@@ -111,9 +122,39 @@ export default async function ProductDetailPage({ params }: PageProps) {
     ...(product.reviewCount > 0 && { aggregateRating: { '@type': 'AggregateRating', ratingValue: product.rating, reviewCount: product.reviewCount, bestRating: 5, worstRating: 1 } }),
   } : null
 
+  // FAQPage JSON-LD — eligible for Google rich snippets if 2+ Q&A pairs exist.
+  const faqs = Array.isArray(product?.aiFaqJson)
+    ? (product.aiFaqJson as unknown as Array<{ q: string; a: string }>)
+        .filter(f => f && typeof f.q === 'string' && typeof f.a === 'string')
+    : []
+  const faqLd = faqs.length >= 2 ? {
+    '@context': 'https://schema.org',
+    '@type':    'FAQPage',
+    mainEntity: faqs.map(f => ({
+      '@type':          'Question',
+      name:             f.q,
+      acceptedAnswer:   { '@type': 'Answer', text: f.a },
+    })),
+  } : null
+
+  // BreadcrumbList helps Google show breadcrumb trails directly in search
+  // results instead of the raw URL.
+  const breadcrumbLd = product ? {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home',     item: appUrl },
+      { '@type': 'ListItem', position: 2, name: 'Products', item: `${appUrl}/products` },
+      { '@type': 'ListItem', position: 3, name: product.category.name, item: `${appUrl}/products?category=${product.category.slug}` },
+      { '@type': 'ListItem', position: 4, name: product.name, item: `${appUrl}/products/${slug}` },
+    ],
+  } : null
+
   return (
     <>
-      {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
+      {jsonLd       && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
+      {breadcrumbLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />}
+      {faqLd        && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />}
       <ProductDetailClient
         initialProduct={clientProduct}
         similar={similar as ClientSlimProduct[]}

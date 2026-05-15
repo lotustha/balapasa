@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { saveFile } from '@/lib/upload'
+import { saveFile, recordMediaAsset } from '@/lib/upload'
 
 async function reuploadImage(sourceUrl: string): Promise<string> {
   const res = await fetch(sourceUrl, {
@@ -9,8 +9,10 @@ async function reuploadImage(sourceUrl: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const contentType = res.headers.get('content-type') ?? 'image/jpeg'
-  const buf = await res.arrayBuffer()
-  return saveFile(buf, contentType)
+  const buf   = await res.arrayBuffer()
+  const saved = await saveFile(buf, contentType)
+  await recordMediaAsset(saved)
+  return saved.url
 }
 
 async function reuploadImages(urls: string[]): Promise<string[]> {

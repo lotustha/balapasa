@@ -16,15 +16,16 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, name, color, icon, image } = await req.json() as {
-      id: string; name?: string; color?: string; icon?: string; image?: string
+    const { id, name, color, icon, image, seoIntro } = await req.json() as {
+      id: string; name?: string; color?: string; icon?: string; image?: string; seoIntro?: string | null
     }
     if (!id) return Response.json({ error: 'id required' }, { status: 400 })
     const data: Record<string, unknown> = {}
-    if (name  !== undefined) data.name  = name
-    if (color !== undefined) data.color = color
-    if (icon  !== undefined) data.icon  = icon  || null
-    if (image !== undefined) data.image = image || null
+    if (name     !== undefined) data.name     = name
+    if (color    !== undefined) data.color    = color
+    if (icon     !== undefined) data.icon     = icon  || null
+    if (image    !== undefined) data.image    = image || null
+    if (seoIntro !== undefined) data.seoIntro = seoIntro ? seoIntro.trim() : null
     const category = await prisma.category.update({ where: { id }, data })
     return Response.json(category)
   } catch (e) {
