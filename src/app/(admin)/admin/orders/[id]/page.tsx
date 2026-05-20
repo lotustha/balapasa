@@ -22,7 +22,9 @@ interface Order {
   total: number; subtotal: number; deliveryCharge: number
   advancePaid: number | null; codAmount: number | null; advanceMethod: string | null
   notes: string | null; shippingOption: string | null; shippingProvider: string | null
-  pathaoOrderId: string | null; trackingUrl: string | null
+  pathaoOrderId: string | null; pndOrderId: string | null; trackingUrl: string | null
+  deliveryNote: string | null; deliveryMode: string | null
+  orderCode: string | null
   createdAt: string; items: OrderItem[]
 }
 
@@ -546,7 +548,7 @@ export default function OrderDetailPage() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-heading font-extrabold text-xl text-slate-900 font-mono">#{order.id.slice(0,8).toUpperCase()}</h1>
+            <h1 className="font-heading font-extrabold text-xl text-slate-900 font-mono">{order.orderCode ? order.orderCode : `#${order.id.slice(0,8).toUpperCase()}`}</h1>
             <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${STATUS_CLS[order.status]}`}>{order.status}</span>
             <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${PAY_CLS[order.paymentStatus]}`}>{order.paymentStatus}</span>
           </div>
@@ -857,11 +859,11 @@ export default function OrderDetailPage() {
                     <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shrink-0">
                       <Check size={14} className="text-white" />
                     </div>
-                    {(order.shippingProvider === 'PATHAO' || order.shippingOption?.toLowerCase().includes('pathao')) ? (
+                    {preferredProvider === 'PATHAO' ? (
                       <div className="relative bg-white rounded-lg px-3 py-1.5 border border-green-200" style={{ width: 80, height: 32 }}>
                         <Image src="/pathao.webp" alt="Pathao" fill className="object-contain" sizes="80px" />
                       </div>
-                    ) : (order.shippingProvider === 'PICKNDROP' || order.shippingOption?.toLowerCase().includes('pick')) ? (
+                    ) : preferredProvider === 'PICKNDROP' ? (
                       <div className="relative bg-white rounded-lg px-3 py-1.5 border border-green-200" style={{ width: 96, height: 32 }}>
                         <Image src="/pick_n_drop.webp" alt="Pick & Drop" fill className="object-contain" sizes="96px" />
                       </div>
@@ -871,7 +873,7 @@ export default function OrderDetailPage() {
                         <p className="text-[10px] text-green-600">{order.shippingOption ?? 'Delivery partner'}</p>
                       </div>
                     )}
-                    {(order.shippingProvider === 'PATHAO' || order.shippingProvider === 'PICKNDROP') && (
+                    {preferredProvider && (
                       <p className="text-[10px] text-green-600 ml-1">{order.shippingOption}</p>
                     )}
                   </div>
@@ -962,11 +964,15 @@ export default function OrderDetailPage() {
               </div>
             )}
 
-            {/* ── Delivery assignment ── */}
-            {!showModifyDelivery ? (
+            {/* ── Delivery assignment ─────────────────────────────────
+                Only show when delivery isn't dispatched yet. Once `hasDelivery`
+                is true the green "Delivery Assigned" card above owns the UX —
+                including Re-assign and Cancel Delivery — so this panel would
+                be a duplicate ask. */}
+            {!hasDelivery && (!showModifyDelivery ? (
               /* ── One-click: use customer's exact selection ── */
               <div className="space-y-3">
-                {order.shippingProvider && order.shippingOption ? (
+                {preferredProvider && order.shippingOption ? (
                   <>
                     {/* Show what customer selected */}
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
@@ -978,10 +984,10 @@ export default function OrderDetailPage() {
                             <p className="text-xs text-slate-500">Agreed price: <strong>{formatPrice(order.deliveryCharge)}</strong></p>
                           )}
                         </div>
-                        <div className="relative shrink-0" style={{ width: order.shippingProvider === 'PATHAO' ? 80 : 100, height: 36 }}>
+                        <div className="relative shrink-0" style={{ width: preferredProvider === 'PATHAO' ? 80 : 100, height: 36 }}>
                           <Image
-                            src={order.shippingProvider === 'PATHAO' ? '/pathao.webp' : '/pick_n_drop.webp'}
-                            alt={order.shippingProvider}
+                            src={preferredProvider === 'PATHAO' ? '/pathao.webp' : '/pick_n_drop.webp'}
+                            alt={preferredProvider}
                             fill className="object-contain object-right" sizes="100px"
                           />
                         </div>
@@ -991,7 +997,7 @@ export default function OrderDetailPage() {
                     {/* One-click assign */}
                     <button
                       disabled={assigning}
-                      onClick={order.shippingProvider === 'PATHAO' ? quickAssignPathao : quickAssignPnd}
+                      onClick={preferredProvider === 'PATHAO' ? quickAssignPathao : quickAssignPnd}
                       className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-extrabold text-sm rounded-2xl cursor-pointer transition-all shadow-md shadow-primary/20">
                       {assigning
                         ? <><Loader2 size={16} className="animate-spin" /> Getting rates…</>
@@ -1048,7 +1054,7 @@ export default function OrderDetailPage() {
                   ))}
                 </div>
               </div>
-            )}
+            ))}
 
 
             {/* Pathao */}
@@ -1277,6 +1283,27 @@ export default function OrderDetailPage() {
             )}
 
           </div>
+
+          {/* ── Customer delivery instructions (read-only) ── */}
+          {(order.deliveryNote || order.deliveryMode === 'FREE' || order.pndOrderId) && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2 mb-3">
+                <FileText size={14} className="text-primary" /> Delivery details
+              </h2>
+              {order.deliveryMode === 'FREE' && (
+                <p className="text-[11px] font-bold text-green-700 bg-green-50 inline-block px-2 py-0.5 rounded-full mb-2">FREE DELIVERY MODE</p>
+              )}
+              {order.deliveryNote && (
+                <div className="mb-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Customer note</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{order.deliveryNote}</p>
+                </div>
+              )}
+              {order.pndOrderId && (
+                <p className="text-[11px] text-slate-500">Pick & Drop tracking: <span className="font-semibold text-slate-800">{order.pndOrderId}</span></p>
+              )}
+            </div>
+          )}
 
           {/* ── Notes ── */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5">

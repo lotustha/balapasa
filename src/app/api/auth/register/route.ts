@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { signToken, AUTH_COOKIE, cookieOptions } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
-import { sendEmail } from '@/lib/email'
+import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { createVerifyEmailToken, verifyEmailUrl } from '@/lib/magic-link'
 import { getSiteSettings } from '@/lib/site-settings'
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         siteName:       settings.siteName,
         tagline:        settings.seo.description,
       })
-      await sendEmail({ to: profile.email, subject: welcome.subject, html: welcome.html })
+      await sendEmailLogged('signup-welcome', { to: profile.email, subject: welcome.subject, html: welcome.html, context: { profileId: profile.id } })
 
       const verifyToken = await createVerifyEmailToken(profile.email)
       const verUrl      = verifyEmailUrl(verifyToken, settings.storeUrl)
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         siteName:       settings.siteName,
         tagline:        settings.seo.description,
       })
-      await sendEmail({ to: profile.email, subject: ver.subject, html: ver.html })
+      await sendEmailLogged('email-verification', { to: profile.email, subject: ver.subject, html: ver.html, context: { profileId: profile.id } })
     } catch (e) {
       console.warn('[register] post-signup emails failed (non-fatal):', e)
     }

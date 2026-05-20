@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
   Save, Loader2, CheckCircle2, Eye, EyeOff,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
-  MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library,
+  MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library, Info,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
@@ -27,6 +27,9 @@ interface PaymentForm {
   ESEWA_MERCHANT_ID: string; ESEWA_SECRET_KEY: string
   ESEWA_BASE_URL:    string; ESEWA_STATUS_URL: string
   KHALTI_SECRET_KEY: string; KHALTI_PUBLIC_KEY: string; KHALTI_BASE_URL: string
+  // 'true' / 'false' string flags driving checkout's payment-method visibility.
+  PAYMENT_ESEWA_ENABLED:  string
+  PAYMENT_KHALTI_ENABLED: string
 }
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
@@ -116,6 +119,93 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'messaging',     icon: MessageCircle, label: 'Messaging',     desc: 'WhatsApp & Facebook'       },
   { id: 'danger',        icon: Shield,        label: 'Danger Zone',   desc: 'Destructive actions'       },
 ]
+
+// ── Email health card ─────────────────────────────────────────────────────
+
+interface EmailHealth {
+  ok:                 boolean
+  apiKeyPresent:      boolean
+  apiKeySource:       'db' | 'env' | 'none'
+  fromAddress:        string
+  fromDomain:         string | null
+  fromDomainListed:   boolean | null
+  fromDomainVerified: boolean | null
+  replyTo:            string | null
+  warnings:           string[]
+}
+
+function EmailHealthCard() {
+  const [health, setHealth]   = useState<EmailHealth | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+
+  const run = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const res = await fetch('/api/admin/emails/health')
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      setHealth(await res.json())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+  useEffect(() => { run() }, [run])
+
+  const tone =
+    !health           ? 'bg-slate-50 border-slate-200 text-slate-600'
+    : health.ok        ? 'bg-green-50 border-green-200 text-green-800'
+    : health.apiKeyPresent ? 'bg-amber-50 border-amber-200 text-amber-800'
+    :                    'bg-red-50 border-red-200 text-red-800'
+
+  return (
+    <div className={`rounded-2xl border p-4 ${tone}`}>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-white/60 flex items-center justify-center">
+            {loading ? <Loader2 size={14} className="animate-spin" />
+              : health?.ok ? <CheckCircle2 size={14} />
+              : <AlertCircle size={14} />}
+          </div>
+          <div>
+            <p className="text-sm font-bold">Email pipeline health</p>
+            <p className="text-[11px] opacity-80">
+              {loading           ? 'Probing Resend…'
+                : !health         ? 'Not checked yet.'
+                : health.ok        ? 'All good — customers will receive emails.'
+                : health.apiKeyPresent ? 'Configured but with issues.'
+                :                    'No Resend API key — emails are disabled.'}
+            </p>
+          </div>
+        </div>
+        <button type="button" onClick={run} disabled={loading}
+          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-white/70 hover:bg-white border border-current/20 cursor-pointer disabled:opacity-50">
+          Re-check
+        </button>
+      </div>
+      {error && <p className="text-xs mt-2 font-mono">{error}</p>}
+      {health && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+          <p><span className="opacity-60">From:</span> <span className="font-semibold">{health.fromAddress}</span></p>
+          <p><span className="opacity-60">API key:</span> {health.apiKeyPresent ? `present (${health.apiKeySource})` : 'missing'}</p>
+          <p><span className="opacity-60">Reply-to:</span> {health.replyTo ?? '—'}</p>
+          <p><span className="opacity-60">Domain verified:</span>{' '}
+            {health.fromDomainVerified === true ? 'yes'
+              : health.fromDomainVerified === false ? 'no'
+              : health.fromDomainListed === false ? 'not added to Resend'
+              : 'unknown'}
+          </p>
+        </div>
+      )}
+      {health && health.warnings.length > 0 && (
+        <ul className="mt-3 list-disc list-inside space-y-0.5 text-[11px]">
+          {health.warnings.map((w, i) => <li key={i}>{w}</li>)}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 // ── Logo uploader ─────────────────────────────────────────────────────────
 
@@ -412,6 +502,8 @@ function DeliverySettingsPanel() {
   const [saved,   setSaved]   = useState<string | null>(null)
   const [err,     setErr]     = useState('')
   const [pndVendor, setPndVendor] = useState<VendorSync | null>(null)
+  const [deliveryMode, setDeliveryMode] = useState<'FREE' | 'PAID'>('PAID')
+  const [modeSaving, setModeSaving] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/logistics').then(r => r.json()).then(j => {
@@ -426,7 +518,25 @@ function DeliverySettingsPanel() {
         }
       }
     }).catch(() => {}).finally(() => setLoading(false))
+
+    fetch('/api/admin/settings').then(r => r.json()).then(j => {
+      const v = j?.settings?.DELIVERY_MODE
+      if (v === 'FREE' || v === 'PAID') setDeliveryMode(v)
+    }).catch(() => {})
   }, [])
+
+  async function saveDeliveryMode(next: 'FREE' | 'PAID') {
+    setDeliveryMode(next)
+    setModeSaving(true)
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ DELIVERY_MODE: next }),
+      })
+    } catch (e) { setErr(String(e)) }
+    finally { setModeSaving(false) }
+  }
 
   async function saveProvider(data: ProviderRow) {
     setSaving(data.provider); setErr('')
@@ -465,6 +575,54 @@ function DeliverySettingsPanel() {
   return (
     <div className="space-y-6">
       {err && <p className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{err}</p>}
+
+      {/* Delivery mode (global) */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <Truck size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-800">Delivery mode</p>
+            <p className="text-[11px] text-slate-500">Controls whether checkout shows shipping carriers and charges.</p>
+          </div>
+          {modeSaving && <Loader2 size={14} className="ml-auto animate-spin text-slate-400" />}
+        </div>
+        <div className="p-6 grid sm:grid-cols-2 gap-3">
+          {([
+            { v: 'PAID', title: 'Paid delivery', sub: 'Charge per-order via Pick & Drop / Pathao.' },
+            { v: 'FREE', title: 'Free delivery', sub: 'Store builds shipping into product prices. Customers see no delivery charge.' },
+          ] as const).map(opt => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => saveDeliveryMode(opt.v)}
+              disabled={modeSaving}
+              className={`text-left p-4 rounded-xl border-2 transition-all cursor-pointer disabled:opacity-60 ${
+                deliveryMode === opt.v ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-sm text-slate-800">{opt.title}</span>
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${deliveryMode === opt.v ? 'border-emerald-500' : 'border-slate-300'}`}>
+                  {deliveryMode === opt.v && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-snug">{opt.sub}</p>
+            </button>
+          ))}
+        </div>
+        {deliveryMode === 'FREE' && (
+          <div className="px-6 pb-5">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
+              <Info size={13} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                Free-delivery mode is on. The carrier panels below stay configured but will not be shown to customers at checkout.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Pathao */}
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
@@ -514,7 +672,7 @@ function DeliverySettingsPanel() {
               disabled={saving === 'PATHAO'}
               className={`shrink-0 ml-4 w-11 h-6 rounded-full transition-colors cursor-pointer relative disabled:opacity-60 ${pathao.isMock ? 'bg-amber-500' : 'bg-slate-300'}`}
             >
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${pathao.isMock ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${pathao.isMock ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
             </button>
           </div>
 
@@ -633,8 +791,132 @@ function DeliverySettingsPanel() {
             </div>
           </div>
 
+          <PndWebhookSection />
+
           <div className="flex justify-end pt-2 border-t border-slate-50"><ProviderSaveBtn provider="PICKNDROP" /></div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Pick & Drop webhook registration ──────────────────────────────────────
+
+interface PndWebhookState {
+  url:            string
+  secretMasked:   string | null
+  hasSecret:      boolean
+  lastRegistered: string | null
+  pndBaseUrl:     string
+  pndActive:      boolean
+}
+
+function PndWebhookSection() {
+  const [state, setState] = useState<PndWebhookState | null>(null)
+  const [registering, setRegistering] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/logistics/pnd-webhook/register')
+      if (!res.ok) return
+      setState(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function register(rotate: boolean) {
+    setRegistering(true); setError(null); setSuccess(false)
+    try {
+      const res = await fetch('/api/admin/logistics/pnd-webhook/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ rotate }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setError(json.error ?? `HTTP ${res.status}`)
+      } else {
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 3000)
+        await load()
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionTitle>Webhook</SectionTitle>
+      <div className="rounded-2xl border border-slate-100 p-4 space-y-3 bg-slate-50/40">
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Pick &amp; Drop pushes status updates here. Your tracking page and customer emails update automatically the moment they fire.
+        </p>
+
+        <div>
+          <Label>Receiver URL</Label>
+          <input
+            readOnly
+            value={state?.url ?? 'Loading…'}
+            className={`${inputCls} font-mono text-[12px]`}
+            onFocus={e => e.target.select()}
+          />
+          <p className="text-[10px] text-slate-400 mt-1">
+            Paste into PnD&apos;s dashboard under Integration → Webhook Integration if the API push below isn&apos;t available in your environment.
+          </p>
+        </div>
+
+        <div>
+          <Label>Secret</Label>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={state?.secretMasked ?? (state?.hasSecret ? '••••' : 'Not generated yet')}
+              className={`${inputCls} font-mono`}
+            />
+            <button
+              type="button"
+              onClick={() => register(true)}
+              disabled={registering}
+              className="px-3 py-2.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+              title="Generate a new secret and re-register with PnD"
+            >
+              Rotate
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Signed with HMAC-SHA256 and validated by our receiver. We never display the full secret.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="text-[11px] text-slate-500">
+            {state?.lastRegistered
+              ? <>Last registered <span className="font-semibold text-slate-700">{new Date(state.lastRegistered).toLocaleString('en-NP', { dateStyle: 'medium', timeStyle: 'short' })}</span></>
+              : <>Not registered yet — click below.</>}
+          </div>
+          <button
+            type="button"
+            onClick={() => register(false)}
+            disabled={registering || !state}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-bold text-sm rounded-xl cursor-pointer shadow-md shadow-primary/15"
+          >
+            {registering ? <><Loader2 size={14} className="animate-spin" /> Registering…</>
+              : success    ? <><CheckCircle2 size={14} /> Registered</>
+              :              <><Bell size={14} /> {state?.lastRegistered ? 'Re-register' : 'Register webhook'}</>}
+          </button>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-100 text-[11px] text-red-700">
+            <AlertCircle size={12} className="mt-0.5 shrink-0" />
+            <span className="font-mono">{error}</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -993,6 +1275,8 @@ export default function SettingsPage() {
     ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '',
     ESEWA_BASE_URL:    '', ESEWA_STATUS_URL: '',
     KHALTI_SECRET_KEY: '', KHALTI_PUBLIC_KEY: '', KHALTI_BASE_URL: '',
+    PAYMENT_ESEWA_ENABLED:  'true',
+    PAYMENT_KHALTI_ENABLED: 'true',
   })
   const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '' })
   const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
@@ -1022,6 +1306,8 @@ export default function SettingsPage() {
         KHALTI_SECRET_KEY: settings.KHALTI_SECRET_KEY ?? p.KHALTI_SECRET_KEY,
         KHALTI_PUBLIC_KEY: settings.KHALTI_PUBLIC_KEY ?? p.KHALTI_PUBLIC_KEY,
         KHALTI_BASE_URL:   settings.KHALTI_BASE_URL   ?? p.KHALTI_BASE_URL,
+        PAYMENT_ESEWA_ENABLED:  settings.PAYMENT_ESEWA_ENABLED  ?? p.PAYMENT_ESEWA_ENABLED,
+        PAYMENT_KHALTI_ENABLED: settings.PAYMENT_KHALTI_ENABLED ?? p.PAYMENT_KHALTI_ENABLED,
       }))
       setNotif({
         ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '',
@@ -1425,10 +1711,27 @@ export default function SettingsPage() {
                           <p className="text-[10px] text-slate-400">merchant.esewa.com.np</p>
                         </div>
                       </div>
-                      <a href="https://merchant.esewa.com.np" target="_blank" rel="noopener"
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
-                        Dashboard <ExternalLink size={11} />
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={payment.PAYMENT_ESEWA_ENABLED === 'true'}
+                          aria-label="Offer eSewa at checkout"
+                          onClick={() => {
+                            const next = payment.PAYMENT_ESEWA_ENABLED === 'true' ? 'false' : 'true'
+                            setPayment(p => ({ ...p, PAYMENT_ESEWA_ENABLED: next }))
+                            save('payment', { PAYMENT_ESEWA_ENABLED: next })
+                          }}
+                          className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${payment.PAYMENT_ESEWA_ENABLED === 'true' ? 'bg-green-500' : 'bg-slate-300'}`}
+                          title={payment.PAYMENT_ESEWA_ENABLED === 'true' ? 'Hide eSewa from checkout' : 'Offer eSewa at checkout'}
+                        >
+                          <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${payment.PAYMENT_ESEWA_ENABLED === 'true' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                        </button>
+                        <a href="https://merchant.esewa.com.np" target="_blank" rel="noopener"
+                          className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                          Dashboard <ExternalLink size={11} />
+                        </a>
+                      </div>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-3">
                       <div>
@@ -1471,10 +1774,27 @@ export default function SettingsPage() {
                           <p className="text-[10px] text-slate-400">admin.khalti.com → Merchant → API Keys</p>
                         </div>
                       </div>
-                      <a href="https://admin.khalti.com" target="_blank" rel="noopener"
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
-                        Dashboard <ExternalLink size={11} />
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={payment.PAYMENT_KHALTI_ENABLED === 'true'}
+                          aria-label="Offer Khalti at checkout"
+                          onClick={() => {
+                            const next = payment.PAYMENT_KHALTI_ENABLED === 'true' ? 'false' : 'true'
+                            setPayment(p => ({ ...p, PAYMENT_KHALTI_ENABLED: next }))
+                            save('payment', { PAYMENT_KHALTI_ENABLED: next })
+                          }}
+                          className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${payment.PAYMENT_KHALTI_ENABLED === 'true' ? 'bg-purple-500' : 'bg-slate-300'}`}
+                          title={payment.PAYMENT_KHALTI_ENABLED === 'true' ? 'Hide Khalti from checkout' : 'Offer Khalti at checkout'}
+                        >
+                          <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${payment.PAYMENT_KHALTI_ENABLED === 'true' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                        </button>
+                        <a href="https://admin.khalti.com" target="_blank" rel="noopener"
+                          className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                          Dashboard <ExternalLink size={11} />
+                        </a>
+                      </div>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-3">
                       <SecretInput label="Secret Key" value={payment.KHALTI_SECRET_KEY}
@@ -1596,6 +1916,7 @@ export default function SettingsPage() {
           {tab === 'notifications' && (
             <form onSubmit={e => { e.preventDefault(); save('notif', notif as unknown as Record<string, string>) }}>
               <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+                <EmailHealthCard />
                 <div>
                   <SectionTitle>Email Alerts</SectionTitle>
                   <div className="max-w-md">

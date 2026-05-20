@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { pushOrderEvent } from '@/lib/push'
-import { sendEmail } from '@/lib/email'
+import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
+import { notifyPaymentReceipt } from '@/lib/notify-payment-receipt'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
             siteName:       emailSettings.siteName,
             tagline:        emailSettings.seo.description,
           })
-          await sendEmail({ to: order.email!, subject, html })
+          await sendEmailLogged('shipment-update', { to: order.email!, subject, html, context: { orderId: order.id, status } })
         } catch (e) {
           console.warn('[orders PATCH] status email failed (non-fatal):', e)
         }
@@ -87,6 +88,49 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         title:   '💳 Payment Confirmed',
         body:    `Rs. ${Math.round(order.total).toLocaleString('en-IN')} payment received for order #${order.id.slice(0, 8).toUpperCase()}.`,
       }).catch(() => {})
+      // Receipt email — fires for COD-collected-on-delivery and any other
+      // admin-driven mark-as-paid action. The dedicated wallet callback in
+      // /api/payment/verify already covers eSewa + Khalti synchronously, but
+      // this catches admin overrides too.
+      notifyPaymentReceipt({
+        orderId:       order.id,
+        method:        order.paymentMethod,
+        transactionId: order.transactionId,
+      })
+    }
+
+    // Pickup-ready email — only when this order is store-pickup AND status
+    // just transitioned to PROCESSING. We don't have a clean "previous status"
+    // in scope, so we fire whenever the PATCH explicitly set status=PROCESSING
+    // (idempotent: a duplicate click will send a duplicate email but that's
+    // rare enough to ignore for now).
+    if (body.status === 'PROCESSING' && order.shippingProvider === 'STORE_PICKUP' && order.email) {
+      ;(async () => {
+        try {
+          // STORE_ADDRESS isn't surfaced by getSiteSettings yet — pull directly
+          // from app_settings so the email shows the configured pickup point.
+          const rows = await prisma.$queryRaw<{ value: string }[]>`
+            SELECT value FROM app_settings WHERE key = 'STORE_ADDRESS' LIMIT 1
+          `
+          const storeAddress = rows[0]?.value?.trim() || 'Our store'
+          const code = order.orderCode ?? order.id.slice(0, 8).toUpperCase()
+          const { subject, html } = await renderEmail('pickup-ready', {
+            orderId:       order.id,
+            orderCode:     order.orderCode,
+            recipientName: order.name,
+            storeAddress,
+            storeHours:    null,
+            pickupWindow:  null,
+            orderUrl:      `${emailSettings.storeUrl}/track-order/${encodeURIComponent(code)}`,
+            siteUrl:       emailSettings.storeUrl,
+            siteName:      emailSettings.siteName,
+            tagline:       emailSettings.seo.description,
+          })
+          await sendEmailLogged('pickup-ready', { to: order.email!, subject, html, context: { orderId: order.id } })
+        } catch (e) {
+          console.warn('[orders PATCH] pickup-ready failed (non-fatal):', e)
+        }
+      })()
     }
 
     return Response.json({ ...order, createdAt: order.createdAt.toISOString(), updatedAt: order.updatedAt.toISOString() })

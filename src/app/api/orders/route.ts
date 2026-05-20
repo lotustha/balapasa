@@ -5,11 +5,13 @@ import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
 import { pushOrderEvent } from '@/lib/push'
 import { validateCoupon } from '@/lib/coupons'
 import { validateGiftCard } from '@/lib/gift-cards'
-import { ENABLED_PAYMENT_METHODS } from '@/lib/features'
+import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
 import { createMagicToken, magicLinkUrl } from '@/lib/magic-link'
-import { sendEmail } from '@/lib/email'
+import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
+import { createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
+import { resolveOrderCodePrefix, assignOrderCode } from '@/lib/order-code'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
 // can surface a 409 to the client instead of a 500.
@@ -42,14 +44,26 @@ export async function POST(req: NextRequest) {
       couponCode: rawCouponCode, autoDiscount,
       giftCardCode: rawGiftCardCode,
       // Structured Nepal address (used when saving address to a new/existing Profile)
-      province, district, municipality, ward, street, tole,
+      province, district, municipality, ward, street, tole, landmark: structuredLandmark,
       // Guest signup nudge — "Save my info for next time" checkbox
       createAccount,
+      // Delivery extras (landmark is also re-extracted from structured fields above)
+      deliveryNote, selectedBranchName,
     } = body
 
-    // Reject payment methods that are feature-flagged off for this release.
-    // Keeps eSewa/Khalti integration code dormant but live for post-launch flip.
-    if (!ENABLED_PAYMENT_METHODS.includes(paymentMethod)) {
+    // Read DELIVERY_MODE from app_settings at order time so the value is audited
+    // server-side (client can't lie about whether the store charged shipping).
+    const deliveryModeRow = await prisma.$queryRaw<{ value: string }[]>`
+      SELECT value FROM app_settings WHERE key = 'DELIVERY_MODE' LIMIT 1
+    `.catch(() => [] as { value: string }[])
+    const deliveryMode = (deliveryModeRow[0]?.value === 'FREE' ? 'FREE' : 'PAID') as 'FREE' | 'PAID'
+
+    // Reject payment methods that the admin has turned off. Resolved fresh
+    // from app_settings so a flip in Admin → Settings → Payments takes effect
+    // immediately for the next order.
+    const enabledMethods = await getEnabledPaymentMethods()
+    const normalizedMethod = paymentMethod === 'PARTIAL_COD' ? 'COD' : paymentMethod
+    if (!(enabledMethods as readonly string[]).includes(normalizedMethod)) {
       return Response.json(
         { error: `Payment method "${paymentMethod}" is temporarily unavailable. Please use Cash on Delivery.` },
         { status: 400 },
@@ -162,6 +176,8 @@ export async function POST(req: NextRequest) {
           couponCode:     couponCode,
           couponDiscount: serverCouponDiscount,
           autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
+          deliveryNote:   typeof deliveryNote === 'string' && deliveryNote.trim() ? deliveryNote.trim().slice(0, 500) : null,
+          deliveryMode,
           items: {
             create: (items as {
               id: string; name: string; price: number; salePrice?: number | null;
@@ -188,6 +204,75 @@ export async function POST(req: NextRequest) {
     })
 
     const total = serverTotal
+
+    // ── Human-readable order code ───────────────────────────────────────────
+    // Generated post-create from the first item's product SKU + a per-prefix
+    // sequence counter. Failure is non-fatal — the order still has its cuid id
+    // and we can fall back to that for display.
+    let orderCode: string | null = null
+    try {
+      const firstItem = (items as { id: string }[])[0]
+      const prefix = await resolveOrderCodePrefix(firstItem?.id ?? null)
+      orderCode = await assignOrderCode(order.id, prefix)
+    } catch (e) {
+      console.warn('[orders] orderCode assignment failed (non-fatal):', e)
+    }
+
+    // ── Pick & Drop dispatch ────────────────────────────────────────────────
+    // Fire-and-forget: if shipping went via Pick & Drop, hand the order off to
+    // their carrier API. Success → persist pndOrderId + trackingUrl. Failure →
+    // soft-record into Order.notes so admin can retry without blocking the
+    // customer-facing confirmation.
+    if (shippingProvider === 'PICKNDROP' && deliveryMode !== 'FREE') {
+      ;(async () => {
+        try {
+          let destinationBranch = (typeof selectedBranchName === 'string' && selectedBranchName.trim())
+            ? selectedBranchName.trim()
+            : ''
+          if (!destinationBranch) {
+            const resolved = await resolveBranchForArea(district ?? municipality ?? city ?? '')
+            destinationBranch = resolved?.branch_name ?? ''
+          }
+          if (!destinationBranch) throw new Error('no destination branch resolved')
+
+          const itemNames = (items as { name: string; quantity: number }[])
+            .map(i => `${i.quantity}× ${i.name}`).join(', ').slice(0, 120) || `Order ${order.id.slice(0, 8)}`
+          const isCod = paymentMethod === 'COD' || paymentMethod === 'PARTIAL_COD'
+          const pndCodAmount = isCod
+            ? Math.max(0, total - (advancePaid ? Number(advancePaid) : 0))
+            : 0
+
+          const result = await createPndOrder({
+            customerName:        name,
+            primaryMobileNo:     String(phone ?? '').replace(/\D/g, '').slice(-10),
+            destinationBranch,
+            destinationCityArea: municipality || district || city || '',
+            landmark:            typeof structuredLandmark === 'string' ? structuredLandmark : undefined,
+            codAmount:           pndCodAmount,
+            orderDescription:    itemNames,
+            customerLatitude:    lat ? Number(lat) : undefined,
+            customerLongitude:   lng ? Number(lng) : undefined,
+            vendorTrackingNumber: order.id,
+            orderType:           'Regular',
+          })
+
+          await prisma.order.update({
+            where: { id: order.id },
+            data: {
+              pndOrderId:  result.trackingId,
+              trackingUrl: result.trackingUrl,
+            },
+          })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.warn('[orders] PnD dispatch failed (non-fatal):', msg)
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { notes: `PND_DISPATCH_FAILED: ${msg.slice(0, 200)}` },
+          }).catch(() => {})
+        }
+      })()
+    }
 
     // ── Guest signup nudge: create a passwordless Profile + Address + magic-link token ──
     // Fires only when (1) request is guest (no auth cookie), (2) createAccount flag set,
@@ -226,12 +311,13 @@ export async function POST(req: NextRequest) {
                 lat:          lat ? Number(lat) : null,
                 lng:          lng ? Number(lng) : null,
                 isDefault:    true,
-                province:     province     ?? null,
-                district:     district     ?? null,
-                municipality: municipality ?? null,
-                ward:         ward         ?? null,
-                street:       street       ?? null,
-                tole:         tole         ?? null,
+                province:     province          ?? null,
+                district:     district          ?? null,
+                municipality: municipality      ?? null,
+                ward:         ward              ?? null,
+                street:       street            ?? null,
+                tole:         tole              ?? null,
+                landmark:     structuredLandmark ?? null,
               },
             }).catch(() => {})
           }
@@ -288,7 +374,7 @@ export async function POST(req: NextRequest) {
             tagline:      settings.seo.description,
           })
 
-          await sendEmail({ to: recipientEmail, subject, html })
+          await sendEmailLogged('order-confirmed', { to: recipientEmail, subject, html, context: { orderId: order.id, orderCode } })
         } catch (e) {
           console.warn('[orders] email send failed (non-fatal):', e)
         }
@@ -365,7 +451,7 @@ export async function POST(req: NextRequest) {
             siteName:       settings.siteName,
             tagline:        settings.seo.description,
           })
-          await sendEmail({ to: adminTo, subject: rendered.subject, html: rendered.html })
+          await sendEmailLogged('admin-new-order', { to: adminTo, subject: rendered.subject, html: rendered.html, context: { orderId: order.id } })
         }
 
         if (lowTo) {
@@ -382,7 +468,7 @@ export async function POST(req: NextRequest) {
               siteName:       settings.siteName,
               tagline:        settings.seo.description,
             })
-            await sendEmail({ to: lowTo, subject: rendered.subject, html: rendered.html })
+            await sendEmailLogged('low-stock', { to: lowTo, subject: rendered.subject, html: rendered.html, context: { productId: p.id, stock: p.stock } })
           }
         }
       } catch (e) {
@@ -393,7 +479,7 @@ export async function POST(req: NextRequest) {
     if (paymentMethod === 'ESEWA') {
       const esewaData = await esewaFormData(order.id, subtotal, deliveryCharge)
       const esewaUrl  = await getEsewaPaymentUrl()
-      return Response.json({ orderId: order.id, esewaData, esewaUrl })
+      return Response.json({ orderId: order.id, orderCode, esewaData, esewaUrl })
     }
 
     if (paymentMethod === 'KHALTI') {
@@ -419,11 +505,11 @@ export async function POST(req: NextRequest) {
         data: { transactionId: khalti.pidx },
       })
       // Return both paymentUrl (web redirect) and pidx (mobile SDK v3 needs this)
-      return Response.json({ orderId: order.id, paymentUrl: khalti.payment_url, pidx: khalti.pidx })
+      return Response.json({ orderId: order.id, orderCode, paymentUrl: khalti.payment_url, pidx: khalti.pidx })
     }
 
     return Response.json(
-      { orderId: order.id, status: 'success', magicLinkToken },
+      { orderId: order.id, orderCode, status: 'success', magicLinkToken },
       { status: 201 },
     )
   } catch (e) {

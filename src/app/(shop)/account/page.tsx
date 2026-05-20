@@ -245,7 +245,7 @@ export default async function AccountPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-bold text-slate-800 text-sm font-mono">#{order.id.slice(0, 8).toUpperCase()}</p>
+                            <p className="font-bold text-slate-800 text-sm font-mono">#{order.orderCode ?? order.id.slice(0, 8).toUpperCase()}</p>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusCls}`}>
                               {order.status}
                             </span>

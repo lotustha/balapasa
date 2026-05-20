@@ -21,6 +21,7 @@ export interface SavedAddress {
   ward:         string | null
   street:       string | null
   tole:         string | null
+  landmark:     string | null
 }
 
 interface Props {

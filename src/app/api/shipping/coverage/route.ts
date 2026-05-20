@@ -24,10 +24,14 @@ const FALLBACK_COURIER_PRICE  = 250
 
 export async function POST(req: NextRequest) {
   const {
-    province, district, municipality, ward, street,
+    province, district, municipality, ward, street, tole, landmark,
     subtotal = 1000,
     // Optional: if frontend passes receiver coords (future GPS integration)
     receiverLat, receiverLng,
+    // Optional: customer-selected PnD branch (locks destination directly)
+    destinationBranch,
+    // Optional: cart aggregates so the rate fetch reflects the real package
+    weightKg, lengthCm, widthCm, heightCm,
   } = await req.json()
 
   const fullAddress = [street, municipality, district, province]
@@ -101,7 +105,21 @@ export async function POST(req: NextRequest) {
   if (pndConfig.isActive) try {
     const fromCity = 'Kathmandu'
     const toCity   = district ?? municipality ?? 'Kathmandu'
-    const pndRates = await calculatePndRates(fromCity, toCity)
+    // Every customer address fragment becomes a matching atom against each
+    // branch's area[] list. Higher token overlap → that branch wins.
+    const destinationAtoms = [province, district, municipality, ward, street, tole, landmark]
+      .filter((s): s is string => typeof s === 'string' && !!s.trim())
+    const pndRates = await calculatePndRates(fromCity, toCity, {
+      destinationBranchOverride: typeof destinationBranch === 'string' && destinationBranch.trim() ? destinationBranch.trim() : undefined,
+      destinationAtoms,
+      // Per PnD spec: location = street/road, city_area = tole
+      location: typeof street === 'string' && street.trim() ? street.trim() : undefined,
+      cityArea: typeof tole   === 'string' && tole.trim()   ? tole.trim()   : undefined,
+      weightKg: typeof weightKg === 'number' && weightKg > 0 ? weightKg : undefined,
+      lengthCm: typeof lengthCm === 'number' && lengthCm > 0 ? lengthCm : undefined,
+      widthCm:  typeof widthCm  === 'number' && widthCm  > 0 ? widthCm  : undefined,
+      heightCm: typeof heightCm === 'number' && heightCm > 0 ? heightCm : undefined,
+    })
 
     for (const rate of pndRates) {
       options.push({

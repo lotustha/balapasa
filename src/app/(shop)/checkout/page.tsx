@@ -29,6 +29,7 @@ async function fetchAddresses(userId: string): Promise<SavedAddress[]> {
       ward:         r.ward,
       street:       r.street,
       tole:         r.tole,
+      landmark:     r.landmark,
     }))
   } catch {
     return []

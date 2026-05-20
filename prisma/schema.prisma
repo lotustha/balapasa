@@ -94,8 +94,9 @@ model Product {
   isActive          Boolean  @default(true) @map("is_active")
   isFeatured        Boolean  @default(false) @map("is_featured")
   isNew             Boolean  @default(false) @map("is_new")
-  isTaxable         Boolean  @default(true) @map("is_taxable")
+  isTaxable         Boolean  @default(false) @map("is_taxable")
   trackInventory    Boolean  @default(true) @map("track_inventory")
+  freeDelivery      Boolean  @default(false) @map("free_delivery")
   brand             String?
   sku               String?  @unique
   barcode           String?
@@ -181,6 +182,10 @@ enum InventoryType {
 
 model Order {
   id             String        @id @default(cuid())
+  // Human-readable order code (e.g. `BLP-AIRP-123-0001`). Generated post-create
+  // from the first item's product SKU + per-prefix sequence counter. Nullable
+  // for back-compat with orders placed before this column existed.
+  orderCode      String?       @unique @map("order_code")
   userId         String?       @map("user_id")
   status         OrderStatus   @default(PENDING)
   total          Float
@@ -203,6 +208,7 @@ model Order {
   advanceMethod  String?       @map("advance_method")    // 'ESEWA' | 'KHALTI'
   pathaoOrderId  String?       @map("pathao_order_id")
   pathaoHash     String?       @map("pathao_hash")
+  pndOrderId     String?       @map("pnd_order_id")
   trackingUrl    String?       @map("tracking_url")
   shippingOption   String?  @map("shipping_option")
   shippingProvider String?  @map("shipping_provider")
@@ -210,6 +216,8 @@ model Order {
   couponCode     String?       @map("coupon_code")
   couponDiscount Float?        @map("coupon_discount")
   autoDiscount   Float?        @map("auto_discount")
+  deliveryNote   String?       @db.Text @map("delivery_note")
+  deliveryMode   String        @default("PAID") @map("delivery_mode")
   notes          String?
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
@@ -219,6 +227,17 @@ model Order {
   items OrderItem[]
 
   @@map("orders")
+}
+
+// Atomic per-prefix counter that hands out the sequence number for orderCode.
+// Each prefix (typically a product SKU) gets its own row; `upsert` with
+// `increment` is race-safe under concurrent checkouts.
+model OrderCodeCounter {
+  prefix    String @id
+  nextValue Int    @default(1) @map("next_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("order_code_counters")
 }
 
 model OrderItem {
@@ -275,6 +294,7 @@ model Address {
   ward         String?
   street       String?
   tole         String?
+  landmark     String?
 
   user Profile @relation(fields: [userId], references: [id])
 
@@ -342,10 +362,33 @@ model LogisticsSettings {
   // Base URL override
   baseUrl      String?  @map("base_url")
 
+  // Inbound webhook secret used to validate signatures on PnD events. Per
+  // provider; rotated by the admin "Register Webhook" button.
+  webhookSecret      String?   @map("webhook_secret") @db.Text
+  webhookRegisteredAt DateTime? @map("webhook_registered_at")
+
   notes        String?  @db.Text
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("logistics_settings")
+}
+
+// Audit trail of every status event for an order — admin overrides, PnD
+// webhook pushes, Pathao callbacks, internal system changes. Drives the
+// /track-order timeline UI.
+model OrderStatusLog {
+  id           String   @id @default(cuid())
+  orderId      String   @map("order_id")
+  source       String                                  // 'PICKNDROP' | 'PATHAO' | 'ADMIN' | 'SYSTEM'
+  rawStatus    String   @map("raw_status")             // PnD status string verbatim, or admin action name
+  mappedStatus String?  @map("mapped_status")          // Our OrderStatus enum value when applicable
+  comment      String?  @db.Text                       // PnD `comments` field, admin note, etc.
+  epodUrl      String?  @map("epod_url")               // PnD proof-of-delivery image when present
+  payload      Json?                                   // full raw event for audit
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@map("order_status_logs")
 }
 
 model Expense {

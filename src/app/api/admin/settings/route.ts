@@ -4,6 +4,7 @@ import { prisma }     from '@/lib/prisma'
 import { invalidateEmailConfigCache } from '@/lib/email'
 import { invalidateActiveVariantCache } from '@/lib/emails/registry'
 import { invalidatePaymentConfigCache } from '@/lib/payment'
+import { invalidateEnabledPaymentMethodsCache } from '@/lib/payment-methods-server'
 
 const SECRET_KEYS = new Set([
   'ANTHROPIC_API_KEY', 'GEMINI_API_KEY',
@@ -20,6 +21,7 @@ const PUBLIC_SITE_KEYS = new Set([
   'HERO_CTA_PRIMARY_LABEL', 'HERO_CTA_PRIMARY_URL',
   'HERO_CTA_SECONDARY_LABEL', 'HERO_CTA_SECONDARY_URL',
   'HERO_BADGES_JSON',
+  'DELIVERY_MODE',
 ])
 
 function mask(key: string, value: string) {
@@ -73,6 +75,9 @@ export async function POST(req: NextRequest) {
     }
     if (entries.some(([k]) => k.startsWith('ESEWA_') || k.startsWith('KHALTI_'))) {
       invalidatePaymentConfigCache()
+    }
+    if (entries.some(([k]) => k === 'PAYMENT_ESEWA_ENABLED' || k === 'PAYMENT_KHALTI_ENABLED')) {
+      invalidateEnabledPaymentMethodsCache()
     }
 
     return Response.json({ success: true, saved: entries.length })

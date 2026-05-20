@@ -249,10 +249,13 @@ export default function Navbar({
           }}
         >
           <div className="flex items-center px-4 sm:px-5 h-14 gap-3">
-            {/* Logo */}
+            {/* Logo + name. Same typography on every viewport, including the
+                animated iridescent accent half. No `truncate` — it clips the
+                webkit-background-clip:text gradient on the accent span and
+                kills the color shift on tight screens. */}
             <Link href="/" className="flex items-center gap-2.5 shrink-0 cursor-pointer">
-              <Image src={logoUrl} alt={siteName} width={34} height={34} className="rounded-xl" unoptimized />
-              <BrandText name={siteName} split={brandSplit} className="font-heading font-bold text-lg text-slate-800 hidden sm:block" />
+              <Image src={logoUrl} alt={siteName} width={34} height={34} className="rounded-xl shrink-0" unoptimized />
+              <BrandText name={siteName} split={brandSplit} className="font-heading font-bold text-lg text-slate-800" />
             </Link>
 
             {/* Inline search (desktop) */}

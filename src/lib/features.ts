@@ -1,16 +1,20 @@
-// Feature flags for staged rollouts.
-// Flip values here to enable/disable features in checkout, orders API, etc.
-// Keep the underlying integration code intact so flipping back ON is one-line.
+// Feature flags + payment-method types.
+// Client-safe: this file is imported by both Server and Client components,
+// so it MUST NOT pull in prisma, pg, or any Node-only modules. The DB-backed
+// enabled-methods resolver lives in `payment-methods-server.ts`.
+//
+// PARTIAL_COD is intentionally dropped from the offered list. The Prisma
+// enum still has the value for back-compat with historical orders but it
+// is no longer offered at checkout.
 
-export const PAYMENT_METHODS = ['COD', 'PARTIAL_COD', 'ESEWA', 'KHALTI'] as const
+export const PAYMENT_METHODS = ['COD', 'ESEWA', 'KHALTI'] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
-// All payment methods enabled. eSewa + Khalti require working sandbox/prod
-// credentials in .env.local (ESEWA_MERCHANT_CODE, ESEWA_SECRET_KEY,
-// KHALTI_SECRET_KEY) — see src/lib/payment.ts for the contract. PARTIAL_COD
-// works because at least one wallet (ESEWA or KHALTI) is enabled.
-export const ENABLED_PAYMENT_METHODS: readonly PaymentMethod[] = ['COD', 'ESEWA', 'KHALTI', 'PARTIAL_COD']
+// Compile-time list of every method this build knows about. The actual list
+// shown to a customer is fetched at runtime from /api/store-config, which
+// reads admin toggles from app_settings.
+export const ENABLED_PAYMENT_METHODS: readonly PaymentMethod[] = PAYMENT_METHODS
 
 export function isPaymentMethodEnabled(m: string): m is PaymentMethod {
-  return (ENABLED_PAYMENT_METHODS as readonly string[]).includes(m)
+  return (PAYMENT_METHODS as readonly string[]).includes(m)
 }

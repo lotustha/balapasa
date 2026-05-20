@@ -97,3 +97,106 @@ function stripHtml(html: string): string {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+// Wrap sendEmail with structured logging so failures are greppable per event.
+// Use this from every send call site instead of bare sendEmail so we never
+// silently drop an email when Resend rejects it.
+export async function sendEmailLogged(
+  eventId: string,
+  args: SendArgs & { context?: Record<string, unknown> },
+): Promise<{ id: string | null; error: string | null }> {
+  const { context, ...sendArgs } = args
+  const res = await sendEmail(sendArgs)
+  if (res.error) {
+    const ctxBits = context
+      ? ' ' + Object.entries(context).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' ')
+      : ''
+    const toStr = Array.isArray(args.to) ? args.to.join(',') : args.to
+    console.warn(`[email:${eventId}] failed to=${toStr} err=${JSON.stringify(res.error)}${ctxBits}`)
+  } else {
+    const toStr = Array.isArray(args.to) ? args.to.join(',') : args.to
+    console.log(`[email:${eventId}] ok to=${toStr} id=${res.id ?? 'n/a'}`)
+  }
+  return res
+}
+
+// ── Health probe ────────────────────────────────────────────────────────────
+// Returns a snapshot of email-config readiness. Used by the admin Notifications
+// panel to surface "why aren't customers receiving emails?" without leaking
+// secrets. Domain verification status is reported best-effort via Resend's
+// `/domains` API — falls back to `fromDomainListed: null` if the SDK doesn't
+// expose it on this Resend version.
+export interface EmailHealth {
+  ok:                 boolean
+  apiKeyPresent:      boolean
+  apiKeySource:       'db' | 'env' | 'none'
+  fromAddress:        string
+  fromDomain:         string | null
+  fromDomainListed:   boolean | null
+  fromDomainVerified: boolean | null
+  replyTo:            string | null
+  warnings:           string[]
+}
+
+export async function getEmailHealth(): Promise<EmailHealth> {
+  const warnings: string[] = []
+  let apiKeySource: 'db' | 'env' | 'none' = 'none'
+  let dbApiKey = ''
+  try {
+    const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+      SELECT key, value FROM app_settings WHERE key = 'RESEND_API_KEY'
+    `
+    dbApiKey = rows[0]?.value ?? ''
+  } catch { /* DB unavailable */ }
+
+  const cfg = await getEmailConfig()
+  if (cfg.apiKey) apiKeySource = dbApiKey ? 'db' : 'env'
+
+  const fromDomain = extractDomain(cfg.from)
+  if (!cfg.apiKey)  warnings.push('RESEND_API_KEY is not set in Admin → Settings → Notifications or in .env.local.')
+  if (!fromDomain)  warnings.push(`Could not parse a domain from RESEND_FROM ("${cfg.from}").`)
+
+  let fromDomainListed: boolean | null = null
+  let fromDomainVerified: boolean | null = null
+  if (cfg.apiKey && fromDomain) {
+    try {
+      const res = await fetch('https://api.resend.com/domains', {
+        headers: { Authorization: `Bearer ${cfg.apiKey}` },
+      })
+      if (res.ok) {
+        const json = await res.json() as { data?: Array<{ name?: string; status?: string }> }
+        const match = (json.data ?? []).find(d => (d.name ?? '').toLowerCase() === fromDomain.toLowerCase())
+        fromDomainListed = !!match
+        fromDomainVerified = match?.status === 'verified'
+        if (!fromDomainListed)        warnings.push(`Domain "${fromDomain}" is not added to your Resend account.`)
+        else if (!fromDomainVerified) warnings.push(`Domain "${fromDomain}" is added but not verified — Resend will reject sends.`)
+      } else if (res.status === 401) {
+        warnings.push('Resend API key is invalid or revoked (got 401).')
+      }
+    } catch (e) {
+      // network or SDK issue — leave verified=null so UI shows "could not verify"
+      console.warn('[email:health] could not check Resend domains:', e)
+    }
+  }
+
+  return {
+    ok: cfg.apiKey != null && fromDomainVerified !== false && warnings.length === 0,
+    apiKeyPresent:      cfg.apiKey != null,
+    apiKeySource,
+    fromAddress:        cfg.from,
+    fromDomain,
+    fromDomainListed,
+    fromDomainVerified,
+    replyTo:            cfg.replyTo ?? null,
+    warnings,
+  }
+}
+
+function extractDomain(from: string): string | null {
+  // Accepts "Name <addr@domain>" or "addr@domain".
+  const m = from.match(/<([^>]+)>/)
+  const addr = (m?.[1] ?? from).trim()
+  const at = addr.lastIndexOf('@')
+  if (at < 0) return null
+  return addr.slice(at + 1).toLowerCase()
+}

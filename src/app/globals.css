@@ -49,8 +49,10 @@
 }
 
 * { box-sizing: border-box; }
+/* overflow-x: clip on <html> only — putting it on <body> too traps every
+   descendant `position: sticky` inside the body box, which silently breaks
+   sticky columns on product detail. */
 html { scroll-behavior: smooth; scrollbar-gutter: stable; overflow-x: clip; }
-body { overflow-x: clip; }
 
 body {
   font-family: var(--font-body);

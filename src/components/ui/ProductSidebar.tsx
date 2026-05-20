@@ -329,21 +329,33 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
 
   return (
     <>
-      {/* ── Mobile filter button ──────────────────────────────── */}
-      <div className="lg:hidden flex items-center gap-3 mb-5">
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="flex items-center gap-2 px-4 py-3 glass-card rounded-2xl text-sm font-semibold text-slate-700 hover:bg-white/90 cursor-pointer transition-all shadow-sm min-h-[44px]"
-        >
-          <SlidersHorizontal size={15} className="text-primary" />
-          Filters {filterCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-primary text-white text-[10px] font-bold rounded-full">
-              {filterCount}
-            </span>
-          )}
-        </button>
-        <span className="text-sm text-slate-400">{totalCount} products</span>
-      </div>
+      {/* ── Mobile filter FAB ─────────────────────────────────────
+          Anchored bottom-LEFT so it doesn't collide with the WhatsApp button
+          on the right edge. Floats above the BottomNav (which occupies the
+          bottom ~64px) via bottom-24. Hidden ≥ lg where the desktop sidebar
+          takes over. */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label={filterCount > 0 ? `Filters (${filterCount} active)` : 'Filters'}
+        className="lg:hidden fixed bottom-24 left-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-slate-800 hover:text-primary active:scale-95 cursor-pointer transition-all duration-200 shadow-[0_8px_24px_rgba(15,23,42,0.18)]"
+        style={{
+          background:       'rgba(255,255,255,0.65)',
+          backdropFilter:   'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          border:           '1px solid rgba(255,255,255,0.85)',
+        }}
+      >
+        <SlidersHorizontal size={20} className="text-primary" />
+        {filterCount > 0 && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-primary text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-md"
+          >
+            {filterCount}
+          </span>
+        )}
+      </button>
 
       {/* ── Mobile drawer ─────────────────────────────────────── */}
       {mobileOpen && (

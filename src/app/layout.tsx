@@ -93,7 +93,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${jakartaSans.variable} ${inter.variable} ${playfair.variable}`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen flex flex-col font-body antialiased" style={{ background: '#F4F6FF' }}>
+      <body
+        className="min-h-screen flex flex-col font-body antialiased"
+        style={{ background: '#F4F6FF' }}
+        suppressHydrationWarning
+      >
         {/* Blocking script sets CSS vars before first paint — no hydration mismatch */}
         {themeScript && (
           <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeScript }} />

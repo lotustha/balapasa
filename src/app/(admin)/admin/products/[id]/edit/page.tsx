@@ -39,6 +39,7 @@ export default function EditProductPage() {
           isActive:          p.isActive    ?? true,
           isFeatured:        p.isFeatured  ?? false,
           isNew:             p.isNew       ?? false,
+          freeDelivery:      p.freeDelivery ?? false,
           videoUrl:          p.videoUrl    ?? '',
           boughtTogetherIds: p.boughtTogetherIds ?? [],
         })

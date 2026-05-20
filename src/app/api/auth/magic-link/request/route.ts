@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createMagicToken, loginLinkUrl } from '@/lib/magic-link'
-import { sendEmail } from '@/lib/email'
+import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
         siteName:       settings.siteName,
         tagline:        settings.seo.description,
       })
-      await sendEmail({ to: profile.email, subject: rendered.subject, html: rendered.html })
+      await sendEmailLogged('magic-link', { to: profile.email, subject: rendered.subject, html: rendered.html, context: { email: profile.email } })
     } catch (e) {
       console.warn('[magic-link request] non-fatal failure:', e)
     }

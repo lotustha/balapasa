@@ -15,12 +15,13 @@ import {
 import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/NepalAddressSelector'
 import WeatherWidget, { type WeatherData } from '@/components/checkout/WeatherWidget'
 import type { CoverageOption } from '@/app/api/shipping/coverage/route'
-import { ENABLED_PAYMENT_METHODS } from '@/lib/features'
+import type { PaymentMethod as KnownPaymentMethod } from '@/lib/features'
 import SavedAddressPicker, { type SavedAddress } from '@/components/checkout/SavedAddressPicker'
 import SaveMyInfoCheckbox from '@/components/checkout/SaveMyInfoCheckbox'
 import LoginPromptLink from '@/components/checkout/LoginPromptLink'
+import { matchBranchForAddress, rankBranches, type PndBranchLite } from '@/lib/pndBranchMatch'
 
-type PaymentMethod = 'COD' | 'PARTIAL_COD' | 'ESEWA' | 'KHALTI'
+// PaymentMethod union lives in @/lib/features now; we import it as KnownPaymentMethod.
 
 interface CheckoutClientProps {
   user: { sub: string; email: string; name: string | null } | null
@@ -31,14 +32,13 @@ const EMPTY_ADDRESS: NepalAddress = {
   province: '', district: '', municipality: '', ward: '', street: '', tole: '',
 }
 
-const ALL_PAYMENT_OPTS: { value: PaymentMethod; label: string; sub: string; borderCls: string; bgCls: string }[] = [
+const ALL_PAYMENT_OPTS: { value: KnownPaymentMethod; label: string; sub: string; borderCls: string; bgCls: string }[] = [
   { value: 'COD',    label: 'Cash on Delivery', sub: 'Pay when delivered',      borderCls: 'border-slate-300',   bgCls: 'bg-slate-50'   },
   { value: 'ESEWA',  label: 'eSewa',            sub: 'Instant digital wallet',  borderCls: 'border-green-400',  bgCls: 'bg-green-50'  },
   { value: 'KHALTI', label: 'Khalti',           sub: 'Fast & secure wallet',    borderCls: 'border-purple-400', bgCls: 'bg-purple-50' },
 ]
-const PAYMENT_OPTS = ALL_PAYMENT_OPTS.filter(o => ENABLED_PAYMENT_METHODS.includes(o.value))
-const PARTIAL_COD_ENABLED = ENABLED_PAYMENT_METHODS.includes('PARTIAL_COD') &&
-  (ENABLED_PAYMENT_METHODS.includes('ESEWA') || ENABLED_PAYMENT_METHODS.includes('KHALTI'))
+// The actual list of methods OFFERED to the customer is fetched at runtime
+// from /api/store-config (which reads admin toggles in app_settings).
 
 const PROVIDER_META: Record<string, {
   icon: React.ReactNode; badge: string; badgeCls: string; logo?: string
@@ -125,6 +125,9 @@ function savedToNepalAddress(addr: SavedAddress): NepalAddress {
     ward:         addr.ward         ?? '',
     street:       addr.street       ?? addr.road ?? '',
     tole:         addr.tole         ?? '',
+    landmark:     addr.landmark     ?? undefined,
+    lat:          addr.lat,
+    lng:          addr.lng,
   }
 }
 
@@ -155,7 +158,11 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   // deciding the cart is "empty", otherwise we flash the empty state on every load.
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
-  const isEmpty = mounted && !isBuyNow && items.length === 0
+  // While we're navigating to /checkout/success after a submit, the cart has
+  // already been cleared but the success route hasn't mounted yet — without
+  // this gate the layout briefly flashes the "Your cart is empty" screen.
+  const [navigatingAway, setNavigatingAway] = useState(false)
+  const isEmpty = mounted && !isBuyNow && items.length === 0 && !navigatingAway
 
   // Saved-address state (logged-in users only)
   const defaultSaved = initialAddresses.find(a => a.isDefault) ?? initialAddresses[0] ?? null
@@ -181,6 +188,19 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const abortRef          = useRef<AbortController | null>(null)
   const lastCoverageKey   = useRef('')
 
+  // Pick & Drop branch dropdown
+  const [branches, setBranches]               = useState<PndBranchLite[]>([])
+  const [selectedBranchName, setBranchName]   = useState('')
+  const [branchQuery, setBranchQuery]         = useState('')
+  const [branchOpen, setBranchOpen]           = useState(false)
+  const branchAutoSetRef = useRef(false)
+  useEffect(() => {
+    fetch('/api/shipping/branches')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.branches)) setBranches(d.branches) })
+      .catch(() => {})
+  }, [])
+
   const [weatherData,    setWeatherData]    = useState<{ store: WeatherData | null; destination: WeatherData | null; storeLabel?: string } | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
   const lastWeatherKey = useRef('')
@@ -203,10 +223,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
     }
   }
 
-  const [payment, setPayment]         = useState<PaymentMethod>('COD')
-  const [partialCod, setPartialCod]   = useState(false)
-  const [advancePct, setAdvancePct]   = useState(30)
-  const [advanceMethod, setAdvanceMethod] = useState<'ESEWA'|'KHALTI'>('ESEWA')
+  const [payment, setPayment]         = useState<KnownPaymentMethod>('COD')
   const [placing, setPlacing]         = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const errorDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -277,14 +294,46 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
 
   const [freeThreshold, setFreeThreshold] = useState(5000)
   const [autoRules, setAutoRules] = useState<import('@/app/api/discount-rules/route').DiscountRule[]>([])
+  const [deliveryMode, setDeliveryMode] = useState<'FREE' | 'PAID'>('PAID')
+  const [deliveryNote, setDeliveryNote] = useState('')
+  const [freeDeliveryFlags, setFreeDeliveryFlags] = useState<Record<string, boolean>>({})
+  const [taxableFlags, setTaxableFlags] = useState<Record<string, boolean>>({})
+  // Initialise with COD only so we never momentarily show eSewa/Khalti tiles
+  // that then disappear when /api/store-config resolves with them disabled.
+  // The fetch below adds wallets if the admin has them enabled.
+  const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<readonly KnownPaymentMethod[]>(['COD'])
   useEffect(() => {
     fetch('/api/store-config').then(r => r.json())
-      .then(d => setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000))
+      .then(d => {
+        setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000)
+        if (d.DELIVERY_MODE === 'FREE' || d.DELIVERY_MODE === 'PAID') setDeliveryMode(d.DELIVERY_MODE)
+        if (Array.isArray(d.enabledPaymentMethods)) {
+          setEnabledPaymentMethods(
+            d.enabledPaymentMethods.filter((m: string): m is KnownPaymentMethod =>
+              m === 'COD' || m === 'ESEWA' || m === 'KHALTI'),
+          )
+        }
+      })
       .catch(() => {})
     fetch('/api/discount-rules').then(r => r.json())
       .then(d => setAutoRules(d.rules ?? []))
       .catch(() => {})
   }, [])
+
+  // Resolve per-item freeDelivery so checkout can prorate or zero out the
+  // delivery charge in PAID mode.
+  useEffect(() => {
+    const ids = items.map(i => i.id)
+    if (ids.length === 0) { setFreeDeliveryFlags({}); return }
+    fetch('/api/products/cart-flags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    }).then(r => r.json()).then(d => {
+      setFreeDeliveryFlags(d.flags ?? {})
+      setTaxableFlags(d.taxable ?? {})
+    }).catch(() => {})
+  }, [items])
 
   const { deliverySubsidy, orderDiscount: autoDiscount } = (() => {
     const active = autoRules.filter(r => r.isActive && subtotal >= r.minOrder)
@@ -298,15 +347,32 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   })()
 
   const FREE_DELIVERY_THRESHOLD = freeThreshold
-  const freeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD
-  const rawDelivery  = freeDelivery ? 0 : (selectedOption?.charge ?? 0)
-  const deliveryCharge = Math.max(0, rawDelivery - deliverySubsidy)
+
+  // Per-item free-delivery proration: if all items are flagged free, ship for
+  // 0. Mixed cart → charge the carrier rate × (non-free subtotal / subtotal).
+  const nonFreeSubtotal = items.reduce((s, i) => {
+    const isFree = freeDeliveryFlags[i.id]
+    if (isFree) return s
+    return s + (i.salePrice ?? i.price) * i.quantity
+  }, 0)
+  const allItemsFree = subtotal > 0 && nonFreeSubtotal === 0
+  const proratedFactor = subtotal > 0 ? nonFreeSubtotal / subtotal : 1
+
+  const carrierCharge = selectedOption?.charge ?? 0
+  const freeByGlobalMode      = deliveryMode === 'FREE'
+  const freeByThreshold       = subtotal >= FREE_DELIVERY_THRESHOLD
+  const freeByAllItemsFlagged = allItemsFree
+  const freeDelivery          = freeByGlobalMode || freeByThreshold || freeByAllItemsFlagged
+  const rawDelivery           = freeDelivery
+    ? 0
+    : Math.round(carrierCharge * proratedFactor)
+  const deliveryCharge        = Math.max(0, rawDelivery - deliverySubsidy)
   const totalBeforeGiftCard = Math.max(0, subtotal + deliveryCharge - couponDiscount - autoDiscount)
   // Gift card is applied last — uses whatever's left, up to its balance
   const giftCardDiscount = giftCardApplied ? Math.min(giftCardBalance, totalBeforeGiftCard) : 0
   const total = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
 
-  const fetchCoverage = useCallback(async (addr: NepalAddress) => {
+  const fetchCoverage = useCallback(async (addr: NepalAddress, branchName?: string) => {
     if (!addr.province || !addr.district || !addr.municipality) return
     abortRef.current?.abort()
     const ctrl = new AbortController()
@@ -319,7 +385,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: ctrl.signal,
-        body: JSON.stringify({ ...addr, subtotal }),
+        body: JSON.stringify({ ...addr, subtotal, destinationBranch: branchName || undefined }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Coverage check failed')
@@ -336,13 +402,74 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
     }
   }, [subtotal])
 
+  // Auto-suggest a PnD branch from the customer's full address (multi-atom
+  // match against each branch's area[] tokens — the branch with the most
+  // overlap wins). Runs once per address change; user can still pick another.
+  useEffect(() => {
+    if (branches.length === 0) return
+    if (selectedBranchName && branchAutoSetRef.current) return
+    const atoms = [
+      address.province, address.district, address.municipality,
+      address.ward, address.street, address.tole, address.landmark,
+    ].filter((s): s is string => typeof s === 'string' && !!s.trim())
+    if (atoms.length === 0) return
+    const m = matchBranchForAddress(branches, atoms)
+    if (m && m.branch.branch_name !== selectedBranchName) {
+      setBranchName(m.branch.branch_name)
+      branchAutoSetRef.current = true
+      // Re-fetch the rate with the freshly matched branch so the displayed
+      // delivery charge reflects the actual destination zone.
+      if (address.province && address.district && address.municipality) {
+        lastCoverageKey.current = ''
+        fetchCoverage(address, m.branch.branch_name)
+      }
+    }
+  }, [
+    branches,
+    address.province, address.district, address.municipality,
+    address.ward, address.street, address.tole, address.landmark,
+    selectedBranchName,
+  ])
+
+  function handleBranchPick(name: string) {
+    setBranchName(name)
+    setBranchQuery('')
+    setBranchOpen(false)
+    branchAutoSetRef.current = true
+    if (address.province && address.district && address.municipality) {
+      lastCoverageKey.current = ''
+      fetchCoverage(address, name)
+    }
+  }
+
+  function clearBranch() {
+    setBranchName('')
+    branchAutoSetRef.current = false
+    lastCoverageKey.current = ''
+    fetchCoverage(address)
+  }
+
   function maybeFetchCoverage(addr: NepalAddress) {
+    if (deliveryMode === 'FREE') return
     if (!addr.province || !addr.district || !addr.municipality) return
     const key = `${addr.province}:${addr.district}:${addr.municipality}`
     if (key === lastCoverageKey.current) return
     lastCoverageKey.current = key
+    // Reset auto-pick so the new address gets a fresh branch suggestion
+    branchAutoSetRef.current = false
+    setBranchName('')
     fetchCoverage(addr)
   }
+
+  // Clear shipping state when the store switches to FREE mode mid-session.
+  useEffect(() => {
+    if (deliveryMode === 'FREE') {
+      setOptions([])
+      setSelected(null)
+      setShipErr('')
+      lastCoverageKey.current = ''
+    }
+  }, [deliveryMode])
 
   // Pre-load coverage + weather for default saved address on mount
   useEffect(() => {
@@ -425,7 +552,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
       showError('Please fill in Street / Road and Tole / Locality before placing your order.')
       return
     }
-    if (!selectedOption) return
+    if (deliveryMode !== 'FREE' && !selectedOption) return
     setPlacing(true)
     try {
       const fullAddress = [
@@ -444,13 +571,12 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
           couponDiscount: couponApplied ? couponDiscount : undefined,
           autoDiscount:   autoDiscount > 0 ? autoDiscount : undefined,
           giftCardCode:   giftCardApplied ? giftCard.trim().toUpperCase() : undefined,
-          paymentMethod: (payment === 'COD' && partialCod) ? 'PARTIAL_COD' : payment,
-          advancePaid:   (payment === 'COD' && partialCod) ? Math.round(total * advancePct / 100) : undefined,
-          codAmount:     (payment === 'COD' && partialCod) ? Math.round(total * (100 - advancePct) / 100) : undefined,
-          advanceMethod: (payment === 'COD' && partialCod) ? advanceMethod : undefined,
-          shippingOption: selectedOption.name,
-          shippingProvider: selectedOption.provider,
-          shippingMeta: selectedOption.meta,
+          paymentMethod: payment,
+          shippingOption:   deliveryMode === 'FREE' ? 'FREE_DELIVERY' : selectedOption!.name,
+          shippingProvider: deliveryMode === 'FREE' ? null : selectedOption!.provider,
+          shippingMeta:     deliveryMode === 'FREE' ? null : selectedOption!.meta,
+          selectedBranchName: deliveryMode === 'FREE' ? undefined : (selectedBranchName || undefined),
+          deliveryNote:     deliveryNote.trim() || undefined,
           name: recipientName, phone: recipientPhone, email: recipientEmail || undefined,
           address: fullAddress, city: address.municipality,
           house: address.ward ? `Ward ${address.ward}` : '',
@@ -462,6 +588,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
           ward:         address.ward         || undefined,
           street:       address.street       || undefined,
           tole:         address.tole         || undefined,
+          landmark:     address.landmark     || undefined,
           // Prefer the user-pinned location from the map picker; fall back to the
           // shipping option's geocoded coords so we always send *some* lat/lng.
           lat: typeof address.lat === 'number'
@@ -524,10 +651,15 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
               ward:         address.ward,
               street:       address.street,
               tole:         address.tole,
+              landmark:     address.landmark,
             }),
           })
         } catch { /* non-blocking */ }
       }
+
+      // Suppress the "your cart is empty" render between clearCart() and the
+      // success route mounting — the cart state is about to flip to empty.
+      setNavigatingAway(true)
 
       if (isBuyNow) {
         clearBuyNow()
@@ -579,7 +711,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
 
   return (
     <div className="min-h-screen pt-6 pb-8 relative"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)' }}>
+      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)', overflowX: 'clip' }}>
 
       <div
         className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] w-full max-w-lg px-4 transition-all duration-300"
@@ -706,9 +838,9 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid lg:grid-cols-3 gap-7">
+          <div className="grid lg:grid-cols-3 gap-7 min-w-0">
 
-            <div className="lg:col-span-2 space-y-5">
+            <div className="lg:col-span-2 min-w-0 space-y-5">
 
               {/* ── Saved addresses (logged-in only) ───────────────────── */}
               {user && savedAddresses.length > 0 && (
@@ -809,7 +941,25 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                 </div>
               )}
 
+              {/* ── Delivery note (always available) ────────────────── */}
+              <div className="glass-card p-6">
+                <h2 className="font-heading font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <Info size={16} className="text-primary" /> Delivery instructions
+                  <span className="text-[10px] text-slate-400 font-normal normal-case tracking-normal">(optional)</span>
+                </h2>
+                <textarea
+                  value={deliveryNote}
+                  onChange={e => setDeliveryNote(e.target.value.slice(0, 500))}
+                  rows={3}
+                  placeholder="Anything the rider should know? Gate code, landmark, time window, special handling…"
+                  className="w-full px-4 py-3 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-none"
+                  style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }}
+                />
+                <p className="text-[11px] text-slate-400 mt-1.5">{deliveryNote.length}/500</p>
+              </div>
+
               {/* ── Shipping Options ───────────────────────────────── */}
+              {deliveryMode !== 'FREE' && (
               <div className="glass-card overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
                   <h2 className="font-heading font-bold text-slate-900 flex items-center gap-3">
@@ -1055,6 +1205,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                   )}
                 </div>
               </div>
+              )}
 
               {weatherLoading && (
                 <div className="glass-card p-5 flex items-center gap-3 animate-fade-in">
@@ -1074,7 +1225,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                   <CreditCard size={18} className="text-primary" /> Payment Method
                 </h2>
                 <div className="grid sm:grid-cols-3 gap-3">
-                  {PAYMENT_OPTS.map(opt => (
+                  {ALL_PAYMENT_OPTS.filter(o => enabledPaymentMethods.includes(o.value)).map(opt => (
                     <label key={opt.value}
                       className={`relative flex flex-col items-center justify-center gap-1.5 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
                         payment === opt.value ? `${opt.borderCls} ${opt.bgCls}` : 'border-slate-100 hover:border-slate-200'
@@ -1112,73 +1263,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                 {payment === 'ESEWA'  && <p className="mt-3 text-xs text-slate-500 bg-green-50 rounded-xl px-4 py-2.5">You&apos;ll be redirected to eSewa after placing your order.</p>}
                 {payment === 'KHALTI' && <p className="mt-3 text-xs text-slate-500 bg-purple-50 rounded-xl px-4 py-2.5">You&apos;ll be redirected to Khalti after placing your order.</p>}
                 {payment === 'COD' && (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-2.5">Pay in cash when your delivery arrives at your door.</p>
-
-                    {PARTIAL_COD_ENABLED && (
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={partialCod}
-                      aria-label="Pay advance now"
-                      onClick={() => setPartialCod(p => !p)}
-                      className="w-full flex items-center justify-between text-left px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer hover:bg-amber-100/60 transition-colors"
-                    >
-                      <div>
-                        <p className="text-sm font-bold text-amber-800">Pay advance now</p>
-                        <p className="text-[11px] text-amber-600 mt-0.5">Secure your order with a partial payment, rest on delivery</p>
-                      </div>
-                      <span
-                        aria-hidden="true"
-                        className={`shrink-0 ml-3 w-11 h-6 p-0 rounded-full transition-colors duration-200 relative ${partialCod ? 'bg-amber-500' : 'bg-slate-300'}`}
-                      >
-                        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${partialCod ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                      </span>
-                    </button>
-                    )}
-
-                    {PARTIAL_COD_ENABLED && partialCod && (
-                      <div className="px-4 py-4 bg-white border border-amber-200 rounded-xl space-y-4">
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs font-bold text-slate-600">Advance amount</label>
-                            <span className="text-sm font-extrabold text-amber-700">NPR {Math.round(total * advancePct / 100).toLocaleString()}</span>
-                          </div>
-                          <div className="flex gap-2 flex-wrap">
-                            {[20, 30, 50].map(pct => (
-                              <button key={pct} type="button" onClick={() => setAdvancePct(pct)}
-                                className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${advancePct === pct ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-amber-300'}`}>
-                                {pct}% — NPR {Math.round(total * pct / 100).toLocaleString()}
-                              </button>
-                            ))}
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-2">
-                            Pay <strong>NPR {Math.round(total * advancePct / 100).toLocaleString()}</strong> now +{' '}
-                            <strong>NPR {Math.round(total * (100 - advancePct) / 100).toLocaleString()}</strong> on delivery
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-bold text-slate-600 mb-2 block">Pay advance via</label>
-                          <div className="flex gap-2">
-                            {(['ESEWA', 'KHALTI'] as const).map(m => (
-                              <label key={m} className={`flex-1 flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${advanceMethod === m ? (m==='ESEWA'?'border-green-400 bg-green-50':'border-purple-400 bg-purple-50') : 'border-slate-200 hover:border-slate-300'}`}>
-                                <input type="radio" name="advanceMethod" value={m} checked={advanceMethod === m} onChange={() => setAdvanceMethod(m)} className="sr-only" />
-                                <div className="relative" style={{ width: m==='ESEWA'?70:60, height:28 }}>
-                                  <Image src={m==='ESEWA'?'/esewa.png':'/khalti.png'} alt={m} fill className="object-contain" sizes="70px" />
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl">
-                          <svg viewBox="0 0 20 20" className="w-4 h-4 fill-amber-500 shrink-0"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
-                          <p className="text-[11px] text-amber-800">You&apos;ll be redirected to {advanceMethod === 'ESEWA' ? 'eSewa' : 'Khalti'} to complete the advance payment.</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <p className="mt-3 text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-2.5">Pay in cash when your delivery arrives at your door.</p>
                 )}
               </div>
 
@@ -1192,7 +1277,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
               )}
             </div>
 
-            <div>
+            <div className="min-w-0">
               <div className="glass-card p-6 sticky top-20">
                 <h2 className="font-heading font-bold text-slate-900 mb-5">Order Summary</h2>
 
@@ -1310,33 +1395,31 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                     <span>Subtotal</span>
                     <span className="font-semibold text-slate-900">{formatPrice(subtotal)}</span>
                   </div>
-                  <div className="flex items-start justify-between text-slate-500">
-                    <div className="flex flex-col gap-1">
-                      <span>Delivery</span>
-                      {selectedOption && (() => {
-                        const m = PROVIDER_META[selectedOption.provider]
-                        return m?.logo ? (
-                          <div className="relative" style={{ width: selectedOption.provider === 'PATHAO' ? 46 : 52, height: 14 }}>
-                            <Image src={m.logo} alt={m.badge} fill className="object-contain object-left" sizes="60px" />
-                          </div>
-                        ) : m?.badge ? (
-                          <span className="text-[10px] text-slate-400">via {m.badge}</span>
-                        ) : null
-                      })()}
+                  {/* Delivery row hidden entirely when the store is covering
+                      shipping — no carrier label, no "FREE NPR 170" crossed-out
+                      noise. Customer just sees the total. */}
+                  {!freeDelivery && (
+                    <div className="flex items-start justify-between text-slate-500">
+                      <div className="flex flex-col gap-1">
+                        <span>Delivery</span>
+                        {selectedOption && (() => {
+                          const m = PROVIDER_META[selectedOption.provider]
+                          return m?.logo ? (
+                            <div className="relative" style={{ width: selectedOption.provider === 'PATHAO' ? 46 : 52, height: 14 }}>
+                              <Image src={m.logo} alt={m.badge} fill className="object-contain object-left" sizes="60px" />
+                            </div>
+                          ) : m?.badge ? (
+                            <span className="text-[10px] text-slate-400">via {m.badge}</span>
+                          ) : null
+                        })()}
+                      </div>
+                      <div className="text-right">
+                        <span className={`font-semibold ${selectedOption ? 'text-slate-900' : 'text-slate-400'}`}>
+                          {selectedOption ? (selectedOption.charge === 0 ? 'FREE' : formatPrice(selectedOption.charge)) : '—'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`font-semibold ${freeDelivery ? 'text-green-600' : selectedOption ? 'text-slate-900' : 'text-slate-400'}`}>
-                        {freeDelivery
-                          ? 'FREE'
-                          : selectedOption
-                          ? selectedOption.charge === 0 ? 'FREE' : formatPrice(selectedOption.charge)
-                          : '—'}
-                      </span>
-                      {freeDelivery && selectedOption && selectedOption.charge > 0 && (
-                        <p className="text-[10px] text-slate-400 line-through">{formatPrice(selectedOption.charge)}</p>
-                      )}
-                    </div>
-                  </div>
+                  )}
                   {autoDiscount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span className="flex items-center gap-1.5"><Zap size={12} /> Auto discount</span>
@@ -1361,41 +1444,55 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                       <span className="font-semibold">− {formatPrice(giftCardDiscount)}</span>
                     </div>
                   )}
-                  {freeDelivery && selectedOption && (
+                  {/* Free-delivery banner — only when the threshold unlocked it
+                      AND there's an actual carrier rate the threshold is
+                      crossing out. Suppressed when the store is in FREE mode
+                      (no carrier in the picture at all) or when every item
+                      qualifies via the per-product flag. */}
+                  {freeDelivery && selectedOption && deliveryMode !== 'FREE' && !allItemsFree && (
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-50 border border-green-100">
                       <Truck size={12} className="text-green-600 shrink-0" />
                       <p className="text-[11px] font-bold text-green-700">Free delivery applied on orders over {formatPrice(FREE_DELIVERY_THRESHOLD)}</p>
                     </div>
                   )}
-                  {selectedOption && (
-                    <div className="flex justify-between text-xs text-slate-400">
-                      <span>VAT (13%) incl.</span>
-                      <span>{formatPrice(Math.round(total - total / 1.13))}</span>
-                    </div>
-                  )}
+                  {(() => {
+                    // Only show VAT when the cart actually contains taxable
+                    // items. Taxable subtotal is the gross of those items;
+                    // we display the VAT slice baked into their tax-inclusive
+                    // prices (price = base × 1.13 → VAT = gross − gross/1.13).
+                    const taxableSubtotal = items.reduce((s, i) =>
+                      taxableFlags[i.id] ? s + (i.salePrice ?? i.price) * i.quantity : s, 0)
+                    if (taxableSubtotal <= 0) return null
+                    return (
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>VAT (13%) incl.</span>
+                        <span>{formatPrice(Math.round(taxableSubtotal - taxableSubtotal / 1.13))}</span>
+                      </div>
+                    )
+                  })()}
                   <div className="border-t border-slate-100 pt-3 flex justify-between">
                     <span className="font-heading font-bold text-slate-900">Total</span>
                     <span className="font-heading font-extrabold text-xl text-primary">
-                      {selectedOption ? formatPrice(total) : '—'}
+                      {(deliveryMode === 'FREE' || selectedOption) ? formatPrice(total) : '—'}
                     </span>
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={placing || items.length === 0 || !selectedOption || !recipientName || !recipientPhone}
+                  disabled={placing || items.length === 0 || (deliveryMode !== 'FREE' && !selectedOption) || !recipientName || !recipientPhone}
                   className="w-full mt-5 flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary-dark disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-2xl transition-all cursor-pointer shadow-lg shadow-primary/20"
                 >
                   {placing ? (
                     <><Loader2 size={18} className="animate-spin" /> Processing…</>
-                  ) : !selectedOption ? (
+                  ) : (deliveryMode !== 'FREE' && !selectedOption) ? (
                     'Select delivery option'
                   ) : (
                     `Place Order — ${formatPrice(total)}`
                   )}
                 </button>
 
-                {!address.municipality && (
+                {deliveryMode !== 'FREE' && !address.municipality && (
                   <p className="mt-2 text-center text-xs text-slate-400">
                     Select your address to unlock delivery options
                   </p>

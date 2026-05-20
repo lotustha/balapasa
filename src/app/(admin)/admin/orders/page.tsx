@@ -7,7 +7,8 @@ import { formatPrice } from '@/lib/utils'
 
 interface OrderItem { id: string; name: string; quantity: number; price: number; image?: string }
 interface Order {
-  id: string; name: string; phone: string; email: string | null
+  id: string; orderCode: string | null
+  name: string; phone: string; email: string | null
   address: string; city: string; paymentMethod: string
   status: string; paymentStatus: string; total: number; subtotal: number
   deliveryCharge: number; notes: string | null; createdAt: string
@@ -77,7 +78,7 @@ function OrderDetail({ order, onClose, onUpdate }: { order: Order; onClose: () =
       <div className="relative ml-auto w-full max-w-lg bg-white h-full overflow-y-auto shadow-2xl animate-fade-in-up flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
           <div>
-            <p className="font-mono font-bold text-primary text-sm">#{order.id.slice(0,8).toUpperCase()}</p>
+            <p className="font-mono font-bold text-primary text-sm">#{order.orderCode ?? order.id.slice(0,8).toUpperCase()}</p>
             <p className="text-xs text-slate-400">{new Date(order.createdAt).toLocaleString('en-NP', {dateStyle:'medium',timeStyle:'short'})}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 cursor-pointer">
@@ -304,7 +305,7 @@ export default function OrdersPage() {
                       onChange={e => { const s=new Set(selected); e.target.checked?s.add(order.id):s.delete(order.id); setSelected(s) }} />
                   </td>
                   <td className="px-2 py-4">
-                    <p className="font-mono font-bold text-primary text-xs">#{order.id.slice(0,8).toUpperCase()}</p>
+                    <p className="font-mono font-bold text-primary text-xs">#{order.orderCode ?? order.id.slice(0,8).toUpperCase()}</p>
                   </td>
                   <td className="px-4 py-4">
                     <p className="font-semibold text-slate-800 text-sm">{order.name}</p>

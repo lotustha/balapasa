@@ -17,10 +17,10 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <ScrollReset />
       <Navbar siteName={settings.siteName} logoUrl={settings.logoUrl} brandSplit={settings.brandSplit} />
       {/* pt-20 clears floating navbar; pb-20 clears bottom nav on mobile.
-          min-w-0 + overflow-x-hidden so inner content wider than viewport
-          (long product names, breadcrumbs, tables) doesn't blow out the layout
-          and leave the page looking shifted on mobile. */}
-      <main className="flex-1 min-w-0 overflow-x-hidden pt-20 pb-20 md:pb-0">
+          html has overflow-x: clip so the viewport is always bounded; we keep
+          this element overflow-visible so sticky descendants (product gallery)
+          can pin against the viewport. */}
+      <main className="flex-1 min-w-0 pt-20 pb-20 md:pb-0">
         {children}
       </main>
       {/* Footer hidden on mobile — bottom nav replaces it */}

@@ -39,7 +39,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
     }
   }
 
-  const orderShort = order.id.slice(0, 8).toUpperCase()
+  const orderShort = order.orderCode ?? order.id.slice(0, 8).toUpperCase()
   const itemCount  = order.items.reduce((s, i) => s + i.quantity, 0)
 
   return (

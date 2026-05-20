@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       address: string; house: string; road: string; city: string
       lat: number; lng: number; isDefault: boolean
       province: string; district: string; municipality: string
-      ward: string; street: string; tole: string
+      ward: string; street: string; tole: string; landmark: string
     }>
 
     const data: Record<string, unknown> = {}
@@ -40,6 +40,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (body.ward         !== undefined) data.ward         = body.ward?.trim()         || null
     if (body.street       !== undefined) data.street       = body.street?.trim()       || null
     if (body.tole         !== undefined) data.tole         = body.tole?.trim()         || null
+    if (body.landmark     !== undefined) data.landmark     = body.landmark?.trim()     || null
 
     // Setting default is special — clear other defaults first
     if (body.isDefault === true && !owned.isDefault) {

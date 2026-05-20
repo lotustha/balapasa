@@ -132,13 +132,11 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   // ── Active image ────────────────────────────────────────────────────────
   const images = p?.images.length ? p.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&h=700&fit=crop']
   const [activeImg,  setActiveImg]  = useState(0)
-  const [imgVisible, setImgVisible] = useState(true)
   const [mediaMode,  setMediaMode]  = useState<'image' | 'video'>('image')
   const [activeVideo,setActiveVideo]= useState<string | null>(null)
   function switchImg(idx: number) {
     if (idx === activeImg) return
-    setImgVisible(false)
-    setTimeout(() => { setActiveImg(idx); setImgVisible(true) }, 220)
+    setActiveImg(idx)
   }
 
   // ── Blob background ─────────────────────────────────────────────────────
@@ -398,7 +396,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
   return (
     <div className="min-h-screen relative"
-      style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)', overflowX: 'clip' }}>
+      style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)' }}>
 
       {/* Blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex:0 }}>
@@ -427,14 +425,21 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
         </nav>
 
         {/* ── Hero — sticky-left gallery / scrolling-right info ───────────────────── */}
-        <div className="grid lg:grid-cols-12 gap-8 items-start animate-fade-in-up">
+        {/* No transform-based animation on this grid: `transform` on an ancestor
+            (including a final `translateY(0)` from fadeInUp) creates a containing
+            block that breaks `position: sticky` on the left column. Opacity-only
+            fade is safe. */}
+        <div className="grid lg:grid-cols-12 gap-8 items-start animate-fade-in">
 
           {/* LEFT — Gallery (sticky on lg). All images visible at once: vertical thumbnail strip + main image. */}
-          <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-            <div className="flex flex-col-reverse lg:flex-row gap-3">
+          <div className="lg:col-span-7 lg:sticky lg:top-24 min-w-0">
+            <div className="flex flex-col-reverse lg:flex-row gap-3 min-w-0">
 
-              {/* Vertical thumbnail strip (desktop) / horizontal (mobile) */}
-              <div className="lg:w-20 shrink-0 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:max-h-[calc(100vh-7rem)] pb-1 lg:pb-0" style={{ scrollbarWidth: 'none' }}>
+              {/* Vertical thumbnail strip (desktop) / horizontal scroll (mobile).
+                  shrink-0 ONLY at lg; on mobile we need min-w-0 + max-w-full
+                  so the row scrolls internally instead of pushing the page wide
+                  when there are 4+ thumbnails. */}
+              <div className="lg:w-20 lg:shrink-0 min-w-0 max-w-full flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:max-h-[calc(100vh-7rem)] pb-1 lg:pb-0" style={{ scrollbarWidth: 'none' }}>
                 {images.map((img, i) => (
                   <button key={i} onClick={() => { switchImg(i); setMediaMode('image'); setActiveVideo(null) }}
                     aria-label={`View image ${i+1}`}
@@ -455,7 +460,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               </div>
 
               {/* Main image (flex-1, square, glass framed) */}
-              <div className="flex-1 relative overflow-hidden"
+              <div className="flex-1 min-w-0 relative overflow-hidden"
                 style={{ borderRadius:'2rem', background:'rgba(255,255,255,0.50)', backdropFilter:'blur(24px) saturate(200%)', border:'1px solid rgba(255,255,255,0.78)', boxShadow:'0 24px 64px rgba(0,0,0,0.10)' }}>
                 <div className="relative aspect-square">
                   {mediaMode === 'video' && activeVideo ? (
@@ -469,9 +474,20 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       </button>
                     </>
                   ) : (
-                    <Image src={images[activeImg]} alt={`${p.name} — image ${activeImg+1}`} fill
-                      className="object-cover" sizes="(max-width:1024px) 100vw, 50vw" priority
-                      style={{ opacity: imgVisible ? 1 : 0, transition: 'opacity 0.22s ease' }} />
+                    // Crossfade gallery: every image stays mounted, only the
+                    // active one is at opacity-100. No remounts → no white
+                    // flash, no flicker.
+                    images.map((img, i) => (
+                      <Image
+                        key={img}
+                        src={img}
+                        alt={`${p.name} — image ${i+1}`}
+                        fill
+                        className={`object-cover transition-opacity duration-300 ${i === activeImg ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        sizes="(max-width:1024px) 100vw, 50vw"
+                        priority={i === 0}
+                      />
+                    ))
                   )}
                   <div className="absolute top-4 left-4 flex flex-col gap-2">
                     {discount > 0 && <span className="px-3 py-1 text-white text-sm font-extrabold rounded-xl shadow-lg bg-accent">-{discount}% OFF</span>}
@@ -497,7 +513,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
           </div>
 
           {/* RIGHT — Info (scrolls naturally; usually taller than gallery → left stays sticky) */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-5 min-w-0 space-y-4">
 
             {/* Name + rating */}
             <div className="glass-panel p-5">

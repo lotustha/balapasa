@@ -46,3 +46,50 @@ export interface LowStockData extends BrandFields {
   productUrl:     string
   recipientEmail: string
 }
+
+export interface PaymentReceiptData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  amount:        number
+  method:        string                  // 'COD' | 'ESEWA' | 'KHALTI' (display label)
+  transactionId: string | null
+  itemsSummary:  string                  // short line, e.g. "Wireless Earbuds Pro + 2 more"
+  orderUrl:      string                  // link back to /track-order/<code>
+}
+
+export interface DeliveryDispatchedData extends BrandFields {
+  orderId:        string
+  orderCode:      string | null
+  recipientName:  string
+  courierName:    string                 // 'Pick & Drop' | 'Pathao' | 'Store Rider' | etc.
+  trackingNumber: string | null
+  etaText:        string | null          // friendly window, e.g. "Same day, by 6 PM"
+  orderUrl:       string
+}
+
+export type DeliveryExceptionKind =
+  | 'PICKUP_FAILED'
+  | 'DELIVERY_ATTEMPT_FAILED'
+  | 'REDELIVERY'
+  | 'REATTEMPTS_FAILED'
+  | 'CANCELLED'
+
+export interface DeliveryExceptionData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  kind:          DeliveryExceptionKind
+  comment:       string | null           // PnD `comments` field verbatim
+  orderUrl:      string
+}
+
+export interface PickupReadyData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  storeAddress:  string
+  storeHours:    string | null
+  pickupWindow:  string | null
+  orderUrl:      string
+}

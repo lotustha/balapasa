@@ -18,10 +18,10 @@ export interface NepalAddress {
   province:     string
   district:     string
   municipality: string
-  ward:         string
+  ward:         string       // legacy — kept for back-compat with saved addresses; no longer collected at checkout
   street:       string
   tole:         string
-  landmark?:    string  // Optional. Shown outside KTM Valley in place of Ward.
+  landmark?:    string       // Always collected; Pick & Drop's branch matcher relies heavily on this
   lat?:         number | null
   lng?:         number | null
 }
@@ -34,21 +34,11 @@ interface Props {
 
 const PROVINCES = NEPAL_PROVINCES.map(p => p.name)
 
-// Wards only meaningfully help inside the Kathmandu Valley where ward boundaries
-// are dense and riders use them to disambiguate addresses. Outside the valley
-// the field is more noise than signal, so we hide it.
-const VALLEY_DISTRICTS = new Set(['Kathmandu', 'Lalitpur', 'Bhaktapur'])
-
 export default function NepalAddressSelector({ value, onChange, onComplete }: Props) {
   const districts      = value.province ? getDistricts(value.province).map(d => d.name) : []
   const municipalities = (value.province && value.district)
     ? getMunicipalities(value.province, value.district).map(m => m.name)
     : []
-  const maxWards = value.province && value.district && value.municipality
-    ? (getMunicipalities(value.province, value.district)
-        .find(m => m.name === value.municipality)?.wards ?? 33)
-    : 33
-  const wardOptions = Array.from({ length: maxWards }, (_, i) => `Ward ${i + 1}`)
 
   // ── Touched state for required text fields ──────────────────────────────────
   const [streetTouched, setStreetTouched] = useState(false)
@@ -103,9 +93,8 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
 
   function set(key: keyof NepalAddress, val: string) {
     const next: NepalAddress = { ...value, [key]: val }
-    if (key === 'province')     { next.district = ''; next.municipality = ''; next.ward = '' }
-    if (key === 'district')     { next.municipality = ''; next.ward = '' }
-    if (key === 'municipality') { next.ward = '' }
+    if (key === 'province') { next.district = ''; next.municipality = '' }
+    if (key === 'district') { next.municipality = '' }
     onChange(next)
     if (next.province && next.district && next.municipality) onComplete?.(next)
   }
@@ -162,38 +151,31 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
           disabled={!value.province} />
       </div>
 
-      {/* Municipality (+ Ward inside KTM Valley · Landmark elsewhere) */}
+      {/* Municipality + Landmark — landmark is the key signal Pick & Drop
+          uses to align the destination branch, so we always collect it. */}
       <div className="grid sm:grid-cols-2 gap-4">
         <SearchableSelect label="Municipality / City" value={value.municipality} options={municipalities}
           onChange={v => set('municipality', v)}
           placeholder={value.district ? 'Select Municipality' : 'Select District first'}
           disabled={!value.district} />
-        {VALLEY_DISTRICTS.has(value.district) ? (
-          <SearchableSelect label="Ward No." hint="optional · helps the rider"
-            value={value.ward} options={wardOptions}
-            onChange={v => set('ward', v)}
-            placeholder={value.municipality ? 'Select Ward (optional)' : 'Select Municipality first'}
-            disabled={!value.municipality} />
-        ) : (
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Landmark
-              <span className="ml-2 text-slate-300 font-normal normal-case text-[10px]">optional · helps the rider</span>
-            </label>
-            <input
-              type="text"
-              value={value.landmark ?? ''}
-              onChange={e => set('landmark', e.target.value)}
-              placeholder={value.municipality ? 'e.g. near XYZ school' : 'Select Municipality first'}
-              disabled={!value.municipality}
-              className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-white text-slate-800 outline-none focus:ring-2 transition-all
-                ${!value.municipality
-                  ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
-                  : 'border-slate-200 focus:border-primary focus:ring-primary/15'
-                }`}
-            />
-          </div>
-        )}
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Landmark
+            <span className="ml-2 text-slate-300 font-normal normal-case text-[10px]">optional · helps the rider find you</span>
+          </label>
+          <input
+            type="text"
+            value={value.landmark ?? ''}
+            onChange={e => set('landmark', e.target.value)}
+            placeholder={value.municipality ? 'e.g. near XYZ school' : 'Select Municipality first'}
+            disabled={!value.municipality}
+            className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-white text-slate-800 outline-none focus:ring-2 transition-all
+              ${!value.municipality
+                ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                : 'border-slate-200 focus:border-primary focus:ring-primary/15'
+              }`}
+          />
+        </div>
       </div>
 
       {/* Street + Tole — overflow-visible so dropdown is not clipped by grid */}
@@ -328,7 +310,6 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
             {[
               value.tole,
               value.street,
-              value.ward && `Ward ${value.ward.replace(/^Ward\s+/, '')}`,
               value.landmark && `near ${value.landmark}`,
               value.municipality, value.district, value.province,
             ].filter(Boolean).join(', ')}

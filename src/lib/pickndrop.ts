@@ -6,6 +6,12 @@
 // via getPicknDropConfig() so admin saves take effect without a restart.
 
 import { getPicknDropConfig } from '@/lib/logistics-config'
+import { matchBranchForAddress, normPnd } from '@/lib/pndBranchMatch'
+
+// Default package dims/weight when caller doesn't supply them. PnD rate is
+// usually weight-zone driven, so a sensible mid-sized box (10×10×10 cm @ 1 kg)
+// gives a representative estimate without under-billing tiny accessories.
+const DEFAULT_PKG = { lengthCm: 10, widthCm: 10, heightCm: 10, weightKg: 1 }
 
 function authHeader(apiKey: string, apiSecret: string) { return `token ${apiKey}:${apiSecret}` }
 
@@ -86,8 +92,12 @@ const RATE_TTL = 60 * 60 * 1000   // 1h
 export async function getDeliveryRate(input: PndRateInput): Promise<PndRateResult> {
   const cfg    = await getPicknDropConfig()
   const pickup = input.pickupBranch ?? cfg.pickupBranch
-  const dims   = `${input.lengthCm ?? 1}x${input.widthCm ?? 1}x${input.heightCm ?? 1}@${input.weightKg ?? 1}`
-  const key    = `${pickup}|${input.destinationBranch}|${input.cityArea}|${dims}`
+  const length = input.lengthCm ?? DEFAULT_PKG.lengthCm
+  const width  = input.widthCm  ?? DEFAULT_PKG.widthCm
+  const height = input.heightCm ?? DEFAULT_PKG.heightCm
+  const weight = input.weightKg ?? DEFAULT_PKG.weightKg
+  const dims   = `${length}x${width}x${height}@${weight}`
+  const key    = `${pickup}|${input.destinationBranch}|${input.cityArea}|${input.location ?? ''}|${dims}`
 
   const hit = rateCache.get(key)
   if (hit && Date.now() - hit.at < RATE_TTL) return hit.data
@@ -98,12 +108,15 @@ export async function getDeliveryRate(input: PndRateInput): Promise<PndRateResul
     body: JSON.stringify({
       pickup_branch:      pickup,
       destination_branch: input.destinationBranch,
-      location:           input.location ?? cfg.pickupLocation,
-      city_area:          input.cityArea,
-      package_width:      input.widthCm  ?? 1,
-      package_height:     input.heightCm ?? 1,
-      package_length:     input.lengthCm ?? 1,
-      package_weight:     input.weightKg ?? 1,
+      // Per PnD, `location` and `city_area` describe the destination drop-off
+      // context (customer's street/road and tole). Fall back to vendor pickup
+      // config only when the caller didn't supply either.
+      location:           input.location  ?? cfg.pickupLocation,
+      city_area:          input.cityArea  ?? cfg.pickupArea,
+      package_width:      width,
+      package_height:     height,
+      package_length:     length,
+      package_weight:     weight,
       size_uom:           'cm',
       weight_uom:         'kg',
     }),
@@ -138,13 +151,28 @@ export interface PndServiceOption {
   meta: { destinationBranch: string; surgePrice: number }
 }
 
-// Resolves the destination branch from the customer's city/area, then asks PnD
-// for the live delivery rate. Falls back to a hand-tuned matrix if either step
-// fails (no creds, API outage, unmappable city) so checkout never breaks.
+// Resolves the destination branch from the customer's address (multi-atom
+// match against each branch's area[] tokens — highest overlap wins), then
+// asks PnD for the live delivery rate. Falls back to a hand-tuned matrix if
+// the API call fails so checkout never breaks.
+//
+// `opts.destinationAtoms` — list of customer address fragments (province,
+//    district, municipality, ward, street, tole, landmark). Used for branch
+//    matching. The toCity string is folded into this list as a fallback.
+// `opts.destinationBranchOverride` — explicit branch name (skips matching).
+// `opts.location` / `opts.cityArea` — strings sent in the rate-API body's
+//    `location` and `city_area` fields. Per integration spec these carry the
+//    customer's street/road and tole respectively.
 export async function calculatePndRates(
   _fromCity: string,
   toCity: string,
-  opts?: { weightKg?: number; lengthCm?: number; widthCm?: number; heightCm?: number; location?: string },
+  opts?: {
+    weightKg?: number; lengthCm?: number; widthCm?: number; heightCm?: number
+    location?: string
+    cityArea?: string
+    destinationAtoms?: string[]
+    destinationBranchOverride?: string
+  },
 ): Promise<PndServiceOption[]> {
   let branchName = ''
   let charge     = 0
@@ -156,13 +184,30 @@ export async function calculatePndRates(
   try {
     const cfg    = await getPicknDropConfig()
     const isTest = /app-t\.pickndropnepal\.com/i.test(cfg.baseUrl)
-    const branch = await resolveBranchForArea(toCity)
+    let branch: PndBranch | null = null
+
+    if (opts?.destinationBranchOverride) {
+      const all = await getBranches()
+      const needle = normPnd(opts.destinationBranchOverride)
+      branch = all.find(b => b.status === 'Active' && normPnd(b.branch_name) === needle) ?? null
+    }
+
+    if (!branch && opts?.destinationAtoms && opts.destinationAtoms.length > 0) {
+      const all = await getBranches()
+      const active = all.filter(b => b.status === 'Active')
+      const atoms = [...opts.destinationAtoms, toCity].filter(Boolean)
+      const m = matchBranchForAddress(active, atoms)
+      branch = m?.branch ?? null
+    }
+
+    if (!branch) branch = await resolveBranchForArea(toCity)
+
     if (branch) {
       branchName  = branch.branch_name
       branchAreas = branch.area ?? []
       const rate = await getDeliveryRate({
         destinationBranch: branchName,
-        cityArea: toCity,
+        cityArea:  opts?.cityArea ?? toCity,
         location:  opts?.location,
         weightKg:  opts?.weightKg,
         lengthCm:  opts?.lengthCm,

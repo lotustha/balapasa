@@ -12,7 +12,8 @@ import { formatPrice } from '@/lib/utils'
 
 interface OrderItem { name: string; quantity: number; price: number; image?: string | null }
 interface Order {
-  id: string; status: string; paymentStatus: string; paymentMethod: string
+  id: string; orderCode: string | null
+  status: string; paymentStatus: string; paymentMethod: string
   total: number; subtotal: number; deliveryCharge: number
   name: string; address: string; city: string
   shippingOption?: string | null; createdAt: string; items: OrderItem[]
@@ -160,7 +161,7 @@ function OrdersContent() {
                   <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
                     <div>
                       <p className="font-bold text-slate-800 text-sm">
-                        Order <span className="font-mono text-primary">#{order.id.slice(0, 8).toUpperCase()}</span>
+                        Order <span className="font-mono text-primary">#{order.orderCode ?? order.id.slice(0, 8).toUpperCase()}</span>
                       </p>
                       <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                         <Clock size={10} /> {timeAgo(order.createdAt)}

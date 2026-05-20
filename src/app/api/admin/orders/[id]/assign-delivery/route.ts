@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { estimateDelivery, createParcel } from '@/lib/pathao'
 import { calculatePndRates, createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
 import { getPicknDropConfig } from '@/lib/logistics-config'
+import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -104,6 +105,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         },
         include: { items: true },
       })
+      notifyDeliveryDispatched({
+        orderId:        updated.id,
+        courierName:    'Pathao',
+        trackingNumber: updated.pathaoOrderId,
+      })
       return Response.json({ ok: true, order: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() }, pathao: d })
     }
 
@@ -171,6 +177,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         },
         include: { items: true },
       })
+      notifyDeliveryDispatched({
+        orderId:        updated.id,
+        courierName:    'Pick & Drop',
+        trackingNumber: result.trackingId,
+      })
       return Response.json({ ok: true, order: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() }, pnd: result })
     }
 
@@ -187,6 +198,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },
         include: { items: true },
+      })
+      notifyDeliveryDispatched({
+        orderId:        updated.id,
+        courierName:    updated.shippingOption ?? 'Manual courier',
+        trackingNumber: trackingNumber ?? null,
       })
       return Response.json({ ok: true, order: { ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } })
     }

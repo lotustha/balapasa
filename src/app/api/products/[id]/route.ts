@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     const {
       name, slug, description, price, salePrice, costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
-      tags, isActive, isFeatured, isNew, isTaxable, trackInventory,
+      tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, boughtTogetherIds,
       variantOptions, variants,
     } = body as Record<string, unknown> & {
@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     if (isNew             !== undefined) data.isNew             = isNew
     if (isTaxable         !== undefined) data.isTaxable         = isTaxable
     if (trackInventory    !== undefined) data.trackInventory    = trackInventory
+    if (freeDelivery      !== undefined) data.freeDelivery      = freeDelivery === true || freeDelivery === 'true'
     if (brand             !== undefined) data.brand             = brand   || null
     if (sku               !== undefined) data.sku               = sku     || null
     if (barcode           !== undefined) data.barcode           = barcode || null

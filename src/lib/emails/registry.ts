@@ -8,6 +8,10 @@ import type {
   SignupWelcomeData,
   EmailVerificationData,
   LowStockData,
+  PaymentReceiptData,
+  DeliveryDispatchedData,
+  DeliveryExceptionData,
+  PickupReadyData,
 } from './types'
 
 import { orderConfirmedBranded } from './templates/order-confirmed/branded'
@@ -37,6 +41,22 @@ import { emailVerificationCompact } from './templates/email-verification/compact
 import { lowStockBranded } from './templates/low-stock/branded'
 import { lowStockMinimal } from './templates/low-stock/minimal'
 import { lowStockCompact } from './templates/low-stock/compact'
+
+import { paymentReceiptBranded } from './templates/payment-receipt/branded'
+import { paymentReceiptMinimal } from './templates/payment-receipt/minimal'
+import { paymentReceiptCompact } from './templates/payment-receipt/compact'
+
+import { deliveryDispatchedBranded } from './templates/delivery-dispatched/branded'
+import { deliveryDispatchedMinimal } from './templates/delivery-dispatched/minimal'
+import { deliveryDispatchedCompact } from './templates/delivery-dispatched/compact'
+
+import { deliveryExceptionBranded } from './templates/delivery-exception/branded'
+import { deliveryExceptionMinimal } from './templates/delivery-exception/minimal'
+import { deliveryExceptionCompact } from './templates/delivery-exception/compact'
+
+import { pickupReadyBranded } from './templates/pickup-ready/branded'
+import { pickupReadyMinimal } from './templates/pickup-ready/minimal'
+import { pickupReadyCompact } from './templates/pickup-ready/compact'
 
 export type RenderResult = { subject: string; html: string }
 
@@ -79,13 +99,17 @@ type AnyEmailEvent = {
 }
 
 export interface EventDataMap {
-  'order-confirmed':    OrderConfirmationData
-  'shipment-update':    ShipmentEmailData
-  'magic-link':         MagicLinkData
-  'admin-new-order':    AdminNewOrderData
-  'signup-welcome':     SignupWelcomeData
-  'email-verification': EmailVerificationData
-  'low-stock':          LowStockData
+  'order-confirmed':     OrderConfirmationData
+  'shipment-update':     ShipmentEmailData
+  'magic-link':          MagicLinkData
+  'admin-new-order':     AdminNewOrderData
+  'signup-welcome':      SignupWelcomeData
+  'email-verification':  EmailVerificationData
+  'low-stock':           LowStockData
+  'payment-receipt':     PaymentReceiptData
+  'delivery-dispatched': DeliveryDispatchedData
+  'delivery-exception':  DeliveryExceptionData
+  'pickup-ready':        PickupReadyData
 }
 
 export type EventId = keyof EventDataMap
@@ -177,6 +201,50 @@ const SAMPLE_LOW_STOCK: LowStockData = {
   ...SAMPLE_BRAND,
 }
 
+const SAMPLE_PAYMENT_RECEIPT: PaymentReceiptData = {
+  orderId:       'previewid12345678',
+  orderCode:     'BLP-AIRP-123-0001',
+  recipientName: 'Aarav Sharma',
+  amount:        4050,
+  method:        'eSewa',
+  transactionId: 'TXN-7K8N2L-MQP',
+  itemsSummary:  'Wireless Earbuds Pro + 2 more',
+  orderUrl:      'https://balapasa.com/track-order/BLP-AIRP-123-0001',
+  ...SAMPLE_BRAND,
+}
+
+const SAMPLE_DELIVERY_DISPATCHED: DeliveryDispatchedData = {
+  orderId:        'previewid12345678',
+  orderCode:      'BLP-AIRP-123-0001',
+  recipientName:  'Aarav Sharma',
+  courierName:    'Pick & Drop',
+  trackingNumber: 'PND-NP-000659692',
+  etaText:        'Same day, by 6 PM',
+  orderUrl:       'https://balapasa.com/track-order/BLP-AIRP-123-0001',
+  ...SAMPLE_BRAND,
+}
+
+const SAMPLE_DELIVERY_EXCEPTION: DeliveryExceptionData = {
+  orderId:       'previewid12345678',
+  orderCode:     'BLP-AIRP-123-0001',
+  recipientName: 'Aarav Sharma',
+  kind:          'DELIVERY_ATTEMPT_FAILED',
+  comment:       'Customer not reachable',
+  orderUrl:      'https://balapasa.com/track-order/BLP-AIRP-123-0001',
+  ...SAMPLE_BRAND,
+}
+
+const SAMPLE_PICKUP_READY: PickupReadyData = {
+  orderId:       'previewid12345678',
+  orderCode:     'BLP-AIRP-123-0001',
+  recipientName: 'Aarav Sharma',
+  storeAddress:  'Balapasa Store, Balaju, Kathmandu',
+  storeHours:    'Sun–Fri, 10 AM – 8 PM',
+  pickupWindow:  'Today or tomorrow',
+  orderUrl:      'https://balapasa.com/track-order/BLP-AIRP-123-0001',
+  ...SAMPLE_BRAND,
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Registry — central map of event → variants. Adding a new event here +
 // shipping its variant modules is all that's needed; the gallery, render(),
@@ -246,6 +314,38 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     sampleData:  SAMPLE_LOW_STOCK,
     variants:    [lowStockBranded, lowStockMinimal, lowStockCompact],
     customerFacing: false,
+  }),
+  'payment-receipt': defineEvent<PaymentReceiptData>({
+    id:          'payment-receipt',
+    label:       'Payment receipt',
+    description: 'Fires when paymentStatus → PAID (eSewa, Khalti, or COD collected on delivery).',
+    sampleData:  SAMPLE_PAYMENT_RECEIPT,
+    variants:    [paymentReceiptBranded, paymentReceiptMinimal, paymentReceiptCompact],
+    customerFacing: true,
+  }),
+  'delivery-dispatched': defineEvent<DeliveryDispatchedData>({
+    id:          'delivery-dispatched',
+    label:       'Delivery dispatched',
+    description: 'Customer email when a courier is assigned or PnD reports successful pickup.',
+    sampleData:  SAMPLE_DELIVERY_DISPATCHED,
+    variants:    [deliveryDispatchedBranded, deliveryDispatchedMinimal, deliveryDispatchedCompact],
+    customerFacing: true,
+  }),
+  'delivery-exception': defineEvent<DeliveryExceptionData>({
+    id:          'delivery-exception',
+    label:       'Delivery exception',
+    description: 'Webhook-driven email when a delivery attempt fails, is postponed, or cancelled.',
+    sampleData:  SAMPLE_DELIVERY_EXCEPTION,
+    variants:    [deliveryExceptionBranded, deliveryExceptionMinimal, deliveryExceptionCompact],
+    customerFacing: true,
+  }),
+  'pickup-ready': defineEvent<PickupReadyData>({
+    id:          'pickup-ready',
+    label:       'Ready for pickup',
+    description: 'Sent for store-pickup orders when admin marks them ready.',
+    sampleData:  SAMPLE_PICKUP_READY,
+    variants:    [pickupReadyBranded, pickupReadyMinimal, pickupReadyCompact],
+    customerFacing: true,
   }),
 }
 

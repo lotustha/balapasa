@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     const {
       name, slug, description, price, salePrice, salePriceExpiresAt, costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
-      tags, isActive, isFeatured, isNew, isTaxable, trackInventory,
+      tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, videoUrl, boughtTogetherIds,
     } = body
 
@@ -136,8 +136,9 @@ export async function POST(req: NextRequest) {
         isActive:          isActive  ?? true,
         isFeatured:        isFeatured ?? false,
         isNew:             isNew      ?? false,
-        isTaxable:         isTaxable  ?? true,
+        isTaxable:         isTaxable  ?? false,
         trackInventory:    trackInventory ?? true,
+        freeDelivery:      freeDelivery === true || freeDelivery === 'true',
         brand:             brand    || null,
         sku:               sku      || null,
         barcode:           barcode  || null,

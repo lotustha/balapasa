@@ -27,7 +27,7 @@ export interface ProductData {
   barcode: string; weight: string
   length: string; width: string; height: string
   categoryId: string; supplierId: string; brand: string; tags: string[]
-  isActive: boolean; isFeatured: boolean; isNew: boolean
+  isActive: boolean; isFeatured: boolean; isNew: boolean; freeDelivery: boolean
   boughtTogetherIds: string[]
 }
 
@@ -38,7 +38,7 @@ const EMPTY: ProductData = {
   barcode: '', weight: '',
   length: '', width: '', height: '',
   categoryId: '', supplierId: '', brand: '', tags: [],
-  isActive: true, isFeatured: false, isNew: true,
+  isActive: true, isFeatured: false, isNew: true, freeDelivery: false,
   boughtTogetherIds: [],
 }
 
@@ -986,7 +986,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       brand: form.brand || null, tags: form.tags,
       videoUrl: form.videoUrl || null,
       sku: form.sku || null, isActive: form.isActive,
-      isFeatured: form.isFeatured, isNew: form.isNew,
+      isFeatured: form.isFeatured, isNew: form.isNew, freeDelivery: form.freeDelivery,
       boughtTogetherIds: form.boughtTogetherIds,
       variantOptions: variantOptions.length ? variantOptions : undefined,
       variants: variants.length ? variants.map(v => ({
@@ -1362,6 +1362,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
               <Toggle label="Active" desc="Visible to customers" value={form.isActive} onChange={v => set('isActive', v)} />
               <Toggle label="Featured" desc="Show in featured sections" value={form.isFeatured} onChange={v => set('isFeatured', v)} />
               <Toggle label="Mark as New" desc="Show 'New' badge on product" value={form.isNew} onChange={v => set('isNew', v)} />
+              <Toggle label="Free delivery" desc="Customer pays no shipping for this item (only in Paid mode)" value={form.freeDelivery} onChange={v => set('freeDelivery', v)} />
             </div>
 
             {/* Actions */}

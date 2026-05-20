@@ -80,15 +80,37 @@ export async function getPicknDropConfig(): Promise<PicknDropConfig> {
 
   const row = await getRow('PICKNDROP')
 
+  // Env fallback (dev convenience). DB wins when set; env fills in any
+  // empty field. Remove once the DB row is the canonical source on prod.
+  const envBaseUrl        = process.env.PICKNDROP_BASE_URL        ?? ''
+  const envApiKey         = process.env.PICKNDROP_API_KEY         ?? ''
+  const envApiSecret      = process.env.PICKNDROP_API_SECRET      ?? ''
+  const envPickupBranch   = process.env.PICKNDROP_PICKUP_BRANCH   ?? ''
+  const envPickupArea     = process.env.PICKNDROP_PICKUP_AREA     ?? ''
+  const envPickupLocation = process.env.PICKNDROP_PICKUP_LOCATION ?? ''
+
+  const baseUrl    = (row?.baseUrl    && row.baseUrl.trim())    || envBaseUrl   || 'https://app-t.pickndropnepal.com'
+  const apiKey     = (row?.apiKey     && row.apiKey.trim())     || envApiKey
+  const apiSecret  = (row?.apiSecret  && row.apiSecret.trim())  || envApiSecret
+  const pickupBranch   = (row?.pickupBranch   && row.pickupBranch.trim())   || envPickupBranch   || 'KATHMANDU VALLEY'
+  const pickupArea     = (row?.pickupArea     && row.pickupArea.trim())     || envPickupArea     || 'Kathmandu'
+  const pickupLocation = (row?.pickupLocation && row.pickupLocation.trim()) || envPickupLocation || 'Balaju'
+
+  // Auto-activate when creds are present (DB or env). Explicit DB isActive=false
+  // still wins so admins can disable without clearing credentials.
+  const hasCreds  = Boolean(apiKey && apiSecret)
+  const dbActive  = row?.isActive
+  const isActive  = dbActive === false ? false : (dbActive === true || (row === null && hasCreds))
+
   const cfg: PicknDropConfig = {
-    baseUrl:        row?.baseUrl        ?? 'https://app-t.pickndropnepal.com',
-    apiKey:         row?.apiKey         ?? '',
-    apiSecret:      row?.apiSecret      ?? '',
-    pickupBranch:   row?.pickupBranch   ?? 'KATHMANDU VALLEY',
-    pickupArea:     row?.pickupArea     ?? 'Kathmandu',
-    pickupLocation: row?.pickupLocation ?? 'Balaju',
-    maxSurgeNpr:    row?.maxSurgeNpr    ?? 0,
-    isActive:       row !== null ? row.isActive : true,
+    baseUrl,
+    apiKey,
+    apiSecret,
+    pickupBranch,
+    pickupArea,
+    pickupLocation,
+    maxSurgeNpr: row?.maxSurgeNpr ?? 0,
+    isActive,
   }
 
   _pndCache = { data: cfg, at: Date.now() }

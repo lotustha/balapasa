@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       address: string; house: string; road: string; city: string
       lat: number; lng: number; isDefault: boolean
       province: string; district: string; municipality: string
-      ward: string; street: string; tole: string
+      ward: string; street: string; tole: string; landmark: string
     }>
 
     if (!body.name?.trim() || !body.phone?.trim() || !body.address?.trim()) {
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
         ward:         body.ward?.trim()         || null,
         street:       body.street?.trim()       || null,
         tole:         body.tole?.trim()         || null,
+        landmark:     body.landmark?.trim()     || null,
       },
     })
     return Response.json({ address: created }, { status: 201 })

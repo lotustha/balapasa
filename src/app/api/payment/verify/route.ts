@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { esewaVerifyCallback, esewaStatusCheck, khaltiLookup } from '@/lib/payment'
+import { notifyPaymentReceipt } from '@/lib/notify-payment-receipt'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
@@ -45,14 +46,16 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 4: Update order in DB
+    const esewaTxn = transaction_code ?? statusCheck.ref_id ?? transaction_uuid
     try {
       await prisma.order.update({
         where: { id: transaction_uuid },
         data: {
           paymentStatus: 'PAID',
-          transactionId: transaction_code ?? statusCheck.ref_id ?? transaction_uuid,
+          transactionId: esewaTxn,
         },
       })
+      notifyPaymentReceipt({ orderId: transaction_uuid, method: 'ESEWA', transactionId: esewaTxn })
     } catch (e) {
       console.error('[eSewa] Failed to update order:', e)
     }
@@ -90,15 +93,17 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 3: Update order in DB
+    const khaltiTxn = lookup.transaction_id ?? pidx
     try {
       if (purchaseOrderId) {
         await prisma.order.update({
           where: { id: purchaseOrderId },
           data: {
             paymentStatus: 'PAID',
-            transactionId: lookup.transaction_id ?? pidx,
+            transactionId: khaltiTxn,
           },
         })
+        notifyPaymentReceipt({ orderId: purchaseOrderId, method: 'KHALTI', transactionId: khaltiTxn })
       }
     } catch (e) {
       console.error('[Khalti] Failed to update order:', e)
