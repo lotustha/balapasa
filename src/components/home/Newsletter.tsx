@@ -32,7 +32,7 @@ export default function Newsletter() {
           <Mail size={28} className="text-slate-700" />
         </div>
 
-        <h2 className="font-heading font-extrabold text-4xl sm:text-5xl text-slate-900">
+        <h2 className="font-heading font-extrabold text-3xl sm:text-5xl text-slate-900">
           Stay in the{' '}
           <span className="iridescent-text">Loop</span>
         </h2>

@@ -104,7 +104,7 @@ export default function DealsSection() {
               <Zap size={13} className="fill-gold-bright text-gold-bright" />
               <span className="text-xs font-bold text-slate-700">Flash Deals</span>
             </div>
-            <h2 className="font-heading font-extrabold text-4xl sm:text-5xl text-slate-900">
+            <h2 className="font-heading font-extrabold text-3xl sm:text-5xl text-slate-900">
               Deals of the <span className="gradient-text">Day</span>
             </h2>
           </div>
@@ -166,10 +166,10 @@ export default function DealsSection() {
                 </div>
 
                 <div className="p-5">
-                  <h3 className="font-heading font-bold text-slate-900 text-lg line-clamp-1">{deal.name}</h3>
+                  <h3 className="font-heading font-bold text-slate-900 text-sm sm:text-lg line-clamp-1">{deal.name}</h3>
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="font-heading font-extrabold text-2xl text-primary">{formatPrice(deal.salePrice)}</span>
-                    <span className="text-slate-400 line-through text-sm">{formatPrice(deal.price)}</span>
+                    <span className="font-heading font-extrabold text-lg sm:text-2xl text-primary">{formatPrice(deal.salePrice)}</span>
+                    <span className="text-slate-400 line-through text-xs sm:text-sm">{formatPrice(deal.price)}</span>
                   </div>
 
                   {/* Stock progress bar — real % claimed when we have a baseline,

@@ -173,12 +173,12 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
           </div>
 
           <h1 className="font-heading font-extrabold leading-[1.07] text-slate-900">
-            <span className="block text-5xl sm:text-6xl lg:text-[4.25rem]">{hero.headline1}</span>
-            <span className="block text-5xl sm:text-6xl lg:text-[4.25rem]">
+            <span className="block text-4xl sm:text-6xl lg:text-[4.25rem]">{hero.headline1}</span>
+            <span className="block text-4xl sm:text-6xl lg:text-[4.25rem]">
               {hero.headline2} <span className="gradient-text-warm">{hero.accentWord}</span>
             </span>
             {hero.tagline && (
-              <span className="block text-3xl sm:text-4xl lg:text-[2.6rem] mt-2 text-slate-400 font-medium">
+              <span className="block text-2xl sm:text-4xl lg:text-[2.6rem] mt-2 text-slate-400 font-medium">
                 {hero.tagline}
               </span>
             )}

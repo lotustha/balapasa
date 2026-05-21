@@ -121,16 +121,16 @@ export default function HeroDealOfTheDay() {
               {deal.brand && (
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{deal.brand}</p>
               )}
-              <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-slate-900 leading-tight line-clamp-3">
+              <h2 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-slate-900 leading-tight line-clamp-3">
                 {deal.name}
               </h2>
 
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="font-heading font-extrabold text-4xl text-primary">
+                <span className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-primary">
                   {formatPrice(deal.salePrice)}
                 </span>
-                <span className="text-slate-400 line-through text-lg">{formatPrice(deal.price)}</span>
-                <span className="text-emerald-600 font-bold text-sm">Save {formatPrice(deal.price - deal.salePrice)}</span>
+                <span className="text-slate-400 line-through text-sm sm:text-base md:text-lg">{formatPrice(deal.price)}</span>
+                <span className="text-emerald-600 font-bold text-xs sm:text-sm">Save {formatPrice(deal.price - deal.salePrice)}</span>
               </div>
 
               {/* Countdown */}

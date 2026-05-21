@@ -133,7 +133,7 @@ export default function CategorySection() {
             <LayoutGrid size={13} className="text-primary" />
             <span className="text-xs font-bold text-slate-700 tracking-wide">Browse All Categories</span>
           </div>
-          <h2 className="font-heading font-extrabold text-4xl sm:text-5xl text-slate-900">
+          <h2 className="font-heading font-extrabold text-3xl sm:text-5xl text-slate-900">
             Shop by <span className="gradient-text">Category</span>
           </h2>
           <p className="text-slate-500 mt-4 max-w-lg mx-auto text-sm sm:text-base">
