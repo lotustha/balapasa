@@ -39,8 +39,8 @@ export default function ProductCard({ product: p }: { product: Product }) {
   }
 
   return (
-    <Link href={`/products/${p.slug}`} className="group block cursor-pointer">
-      <div className="relative rounded-3xl overflow-hidden card-hover"
+    <Link href={`/products/${p.slug}`} className="group block cursor-pointer h-full">
+      <div className="relative h-full flex flex-col rounded-3xl overflow-hidden card-hover"
         style={{
           background: 'rgba(255,255,255,0.78)',
           backdropFilter: 'blur(16px) saturate(180%)',
@@ -106,24 +106,34 @@ export default function ProductCard({ product: p }: { product: Product }) {
           </div>
         </div>
 
-        {/* Info */}
-        <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.45)' }}>
-          {p.brand && (
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{p.brand}</p>
-          )}
-          <h3 className="font-heading font-semibold text-slate-800 text-sm leading-snug line-clamp-2 break-words group-hover:text-primary transition-colors duration-200">
+        {/* Info — flex-col with mt-auto on the price row pins all card prices
+            to the bottom regardless of whether brand / rating render. */}
+        <div className="p-4 border-t flex-1 flex flex-col min-w-0" style={{ borderColor: 'rgba(255,255,255,0.45)' }}>
+          {/* Brand row — always reserves a slot so cards align even if the
+              brand is missing on some products. */}
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 min-h-[12px]">
+            {p.brand ?? ' '}
+          </p>
+          {/* Name — always 2-line tall via min-height so single-line and
+              two-line names don't push the price block to different heights. */}
+          <h3 className="font-heading font-semibold text-slate-800 text-sm leading-snug line-clamp-2 break-words min-h-[2.5em] group-hover:text-primary transition-colors duration-200">
             {p.name}
           </h3>
 
-          {p.reviewCount > 0 && (
-            <div className="flex items-center gap-1 mt-1.5">
-              <Star size={11} className="fill-gold-bright text-gold-bright" />
-              <span className="text-[11px] font-semibold text-slate-600">{p.rating.toFixed(1)}</span>
-              <span className="text-[11px] text-slate-400">({p.reviewCount})</span>
-            </div>
-          )}
+          {/* Rating slot — placeholder when no reviews keeps height stable. */}
+          <div className="flex items-center gap-1 mt-1.5 min-h-[14px]">
+            {p.reviewCount > 0 ? (
+              <>
+                <Star size={11} className="fill-gold-bright text-gold-bright" />
+                <span className="text-[11px] font-semibold text-slate-600">{p.rating.toFixed(1)}</span>
+                <span className="text-[11px] text-slate-400">({p.reviewCount})</span>
+              </>
+            ) : (
+              <span className="text-[11px] text-slate-300">No reviews yet</span>
+            )}
+          </div>
 
-          <div className="flex items-center gap-2 mt-2.5">
+          <div className="flex items-center gap-2 mt-auto pt-2.5">
             <span className="font-heading font-bold text-slate-900 text-base">{formatPrice(effectivePrice)}</span>
             {p.salePrice && (
               <span className="text-xs text-slate-400 line-through">{formatPrice(p.price)}</span>

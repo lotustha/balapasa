@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -62,6 +63,15 @@ const PAYMENT_PILL: Record<string, string> = {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function TrackOrderPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>}>
+      <TrackOrderInner />
+    </Suspense>
+  )
+}
+
+function TrackOrderInner() {
+  const searchParams = useSearchParams()
   const [view, setView]       = useState<View>({ kind: 'lookup' })
   const [mode, setMode]       = useState<Mode>('code')
   const [query, setQuery]     = useState('')
@@ -125,6 +135,17 @@ export default function TrackOrderPage() {
     })
     setQuery('')
   }
+
+  // Deep-link: when this page is opened with ?code=… or ?id=… (e.g. from the
+  // customer's order detail page), skip the lookup form and resolve the order
+  // straight away. /api/track/{value} accepts either a real orderCode or a
+  // cuid prefix, so both shapes work.
+  useEffect(() => {
+    const auto = searchParams.get('code') ?? searchParams.get('id')
+    if (!auto) return
+    openOrder(auto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen pt-6 pb-16 relative" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)' }}>

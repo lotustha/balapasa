@@ -15,6 +15,9 @@ interface FooterProps {
   instagramUrl?:   string
   xUrl?:           string
   youtubeUrl?:     string
+  /** Active payment methods (e.g. ['COD','ESEWA','KHALTI']) — drives the
+   *  "We accept" badge row at the bottom of the footer. */
+  paymentMethods?: string[]
 }
 
 function FacebookIcon() {
@@ -64,7 +67,11 @@ export default function Footer({
   instagramUrl   = '',
   xUrl           = '',
   youtubeUrl     = '',
+  paymentMethods = ['COD', 'ESEWA', 'KHALTI'],
 }: FooterProps = {}) {
+  const acceptCod    = paymentMethods.includes('COD')
+  const acceptEsewa  = paymentMethods.includes('ESEWA')
+  const acceptKhalti = paymentMethods.includes('KHALTI')
   const socials = [
     { href: facebookPageId ? `https://facebook.com/${facebookPageId}` : '', icon: FacebookIcon,  label: 'Facebook'  },
     { href: instagramUrl,                                                   icon: InstagramIcon, label: 'Instagram' },
@@ -151,23 +158,28 @@ export default function Footer({
             Made with <Heart size={10} className="text-pink-500 fill-pink-500" /> in Nepal &middot;
             &copy; {new Date().getFullYear()} {siteName}
           </p>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 mr-1">We accept</span>
-            {/* eSewa logo */}
-            <div className="px-2 py-1 glass rounded-lg shadow-sm flex items-center" style={{ height: 28 }}>
-              <div className="relative" style={{ width: 52, height: 18 }}>
-                <Image src="/esewa.png" alt="eSewa" fill className="object-contain" sizes="52px" />
-              </div>
+          {paymentMethods.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 mr-1">We accept</span>
+              {acceptEsewa && (
+                <div className="px-2 py-1 glass rounded-lg shadow-sm flex items-center" style={{ height: 28 }}>
+                  <div className="relative" style={{ width: 52, height: 18 }}>
+                    <Image src="/esewa.png" alt="eSewa" fill className="object-contain" sizes="52px" />
+                  </div>
+                </div>
+              )}
+              {acceptKhalti && (
+                <div className="px-2 py-1 glass rounded-lg shadow-sm flex items-center" style={{ height: 28 }}>
+                  <div className="relative" style={{ width: 46, height: 18 }}>
+                    <Image src="/khalti.png" alt="Khalti" fill className="object-contain" sizes="46px" />
+                  </div>
+                </div>
+              )}
+              {acceptCod && (
+                <span className="px-2.5 py-1 glass rounded-lg text-[10px] font-bold text-slate-600 shadow-sm">COD</span>
+              )}
             </div>
-            {/* Khalti logo */}
-            <div className="px-2 py-1 glass rounded-lg shadow-sm flex items-center" style={{ height: 28 }}>
-              <div className="relative" style={{ width: 46, height: 18 }}>
-                <Image src="/khalti.png" alt="Khalti" fill className="object-contain" sizes="46px" />
-              </div>
-            </div>
-            {/* COD text badge */}
-            <span className="px-2.5 py-1 glass rounded-lg text-[10px] font-bold text-slate-600 shadow-sm">COD</span>
-          </div>
+          )}
         </div>
       </div>
     </footer>

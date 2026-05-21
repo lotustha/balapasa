@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Flame, Clock } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import { getSiteSettings } from '@/lib/site-settings'
-import ProductCard from '@/components/ui/ProductCard'
+import DealsGrid from './DealsGrid'
 
 export const revalidate = 60   // refresh every minute so live deals stay fresh
 
@@ -36,11 +36,18 @@ export default async function DealsPage() {
     ],
     select: {
       id: true, name: true, slug: true, price: true, salePrice: true,
+      salePriceExpiresAt: true,
       images: true, brand: true, stock: true, rating: true, reviewCount: true,
       isNew: true, isFeatured: true,
     },
     take: 60,
   }).catch(() => [])
+
+  // Serialise dates for the client grid.
+  const serialised = deals.map(p => ({
+    ...p,
+    salePriceExpiresAt: p.salePriceExpiresAt ? p.salePriceExpiresAt.toISOString() : null,
+  }))
 
   return (
     <section
@@ -82,11 +89,7 @@ export default async function DealsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-            {deals.map(p => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <DealsGrid deals={serialised} />
         )}
       </div>
     </section>

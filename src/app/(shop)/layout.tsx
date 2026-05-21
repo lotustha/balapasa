@@ -7,9 +7,13 @@ import FacebookPixel from '@/components/layout/FacebookPixel'
 import WhatsAppButton from '@/components/layout/WhatsAppButton'
 import { ProductContextProvider } from '@/context/ProductContext'
 import { getSiteSettings } from '@/lib/site-settings'
+import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
-  const settings = await getSiteSettings()
+  const [settings, paymentMethods] = await Promise.all([
+    getSiteSettings(),
+    getEnabledPaymentMethods().catch(() => ['COD'] as string[]),
+  ])
   return (
     <ProductContextProvider>
       <ThemeApplicator />
@@ -37,6 +41,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           instagramUrl={settings.content.contact.instagram}
           xUrl={settings.content.contact.x}
           youtubeUrl={settings.content.contact.youtube}
+          paymentMethods={paymentMethods}
         />
       </div>
       <BottomNav />

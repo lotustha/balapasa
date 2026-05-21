@@ -318,7 +318,65 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   // ── Cart ────────────────────────────────────────────────────────────────
   const [qty,   setQty]   = useState(1)
   const [added, setAdded] = useState(false)
-  const [wished,setWished]= useState(false)
+  const [wished, setWished] = useState(false)
+  const [wishLoading, setWishLoading] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  // Hydrate wishlist state on mount so the heart shows the right colour
+  // immediately when the user revisits a product they already saved.
+  useEffect(() => {
+    if (!p?.id) return
+    fetch('/api/wishlist')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.wishlist && Array.isArray(d.wishlist)) {
+          setWished(d.wishlist.some((w: { id: string }) => w.id === p.id))
+        }
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?.id])
+
+  async function toggleWishlist() {
+    if (!p?.id || wishLoading) return
+    const prev = wished
+    setWished(!prev) // optimistic
+    setWishLoading(true)
+    try {
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: p.id }),
+      })
+      if (res.status === 401) {
+        setWished(prev)
+        router.push(`/login?next=${encodeURIComponent(`/products/${p.slug}`)}`)
+        return
+      }
+      if (!res.ok) setWished(prev)
+    } catch {
+      setWished(prev)
+    } finally {
+      setWishLoading(false)
+    }
+  }
+
+  async function copyToClipboard(text: string, label: string) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Insecure-context fallback
+        const ta = document.createElement('textarea')
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
+        document.body.appendChild(ta); ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+      setCopied(label)
+      setTimeout(() => setCopied(c => c === label ? null : c), 1800)
+    } catch { /* silent */ }
+  }
   function handleAdd() {
     if (!p) return
     addItem({ id: p.id, name: p.name, price: originalPrice, salePrice: effectivePrice, image: images[0], slug: p.slug, codAvailable: true }, qty)
@@ -587,15 +645,17 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     {p.isNew && <span className="px-3 py-1 bg-gradient-to-r from-cyan-500 to-primary text-white text-sm font-extrabold rounded-xl shadow-lg">New</span>}
                   </div>
                   <div className="absolute top-4 right-4 flex flex-col gap-2">
-                    <button onClick={() => setWished(w => !w)} aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-all cursor-pointer ${wished?'bg-red-500 text-white':'text-slate-400 hover:text-red-500'}`}
+                    <button onClick={toggleWishlist} disabled={wishLoading} aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-all cursor-pointer disabled:opacity-60 ${wished?'bg-red-500 text-white':'text-slate-400 hover:text-red-500'}`}
                       style={!wished ? { background:'rgba(255,255,255,0.52)', backdropFilter:'blur(12px)' } : {}}>
                       <svg viewBox="0 0 24 24" className={`w-4 h-4 ${wished?'fill-white':'fill-none stroke-current'}`} strokeWidth={2}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                     </button>
-                    <button aria-label="Share product" onClick={() => navigator.clipboard?.writeText(window.location.href)}
-                      className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
+                    <button aria-label="Copy product link" onClick={() => copyToClipboard(window.location.href, 'gallery-link')}
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm text-slate-400 hover:text-slate-700 transition-all cursor-pointer relative"
                       style={{ background:'rgba(255,255,255,0.52)', backdropFilter:'blur(12px)' }}>
-                      <Link2 size={16} />
+                      {copied === 'gallery-link'
+                        ? <CheckCircle size={16} className="text-emerald-500" />
+                        : <Link2 size={16} />}
                     </button>
                   </div>
                 </div>
@@ -772,17 +832,31 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Share</p>
                 <div className="flex items-center gap-2">
                   {[
-                    { icon: Link2,         label: 'Copy link', action: () => navigator.clipboard?.writeText(window.location.href) },
-                    { icon: MessageCircle, label: 'WhatsApp',  action: () => window.open(`https://wa.me/?text=${encodeURIComponent(p.name+' '+window.location.href)}`) },
-                    { icon: Copy,          label: 'Copy name', action: () => navigator.clipboard?.writeText(p.name) },
-                  ].map(({ icon: Icon, label, action }) => (
-                    <button key={label} onClick={action} aria-label={label}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-primary hover:scale-110 transition-all cursor-pointer"
-                      style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.78)' }}>
-                      <Icon size={15} aria-hidden="true" />
-                    </button>
-                  ))}
+                    { icon: Link2,         label: 'Copy link', successKey: 'share-link',
+                      action: () => copyToClipboard(window.location.href, 'share-link') },
+                    { icon: MessageCircle, label: 'WhatsApp',  successKey: null,
+                      action: () => window.open(
+                        `https://wa.me/?text=${encodeURIComponent(`${p.name} — ${window.location.href}`)}`,
+                        '_blank', 'noopener,noreferrer',
+                      ) },
+                    { icon: Copy,          label: 'Copy name', successKey: 'share-name',
+                      action: () => copyToClipboard(p.name, 'share-name') },
+                  ].map(({ icon: Icon, label, action, successKey }) => {
+                    const justCopied = successKey && copied === successKey
+                    return (
+                      <button key={label} onClick={action} aria-label={label} title={label}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-primary hover:scale-110 transition-all cursor-pointer"
+                        style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.78)' }}>
+                        {justCopied
+                          ? <CheckCircle size={15} className="text-emerald-500" aria-hidden="true" />
+                          : <Icon size={15} aria-hidden="true" />}
+                      </button>
+                    )
+                  })}
                 </div>
+                {copied && (
+                  <span className="text-[10px] font-bold text-emerald-600 animate-fade-in">Copied!</span>
+                )}
                 <p className="text-xs text-slate-400 ml-auto">{p.reviewCount} love this</p>
               </div>
             </div>

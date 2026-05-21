@@ -202,6 +202,18 @@ interface NavbarProps {
   brandSplit?: { primary: string; accent: string }
 }
 
+interface NavProfile {
+  name:   string | null
+  email:  string
+  avatar: string | null
+}
+
+function navInitials(p: NavProfile): string {
+  const src = (p.name && p.name.trim()) || p.email
+  const parts = src.trim().split(/\s+/).slice(0, 2)
+  return parts.map(s => s[0]?.toUpperCase() ?? '').join('') || src[0].toUpperCase()
+}
+
 export default function Navbar({
   siteName,
   logoUrl,
@@ -214,6 +226,16 @@ export default function Navbar({
   const [mobileOpen,  setMobileOpen]  = useState(false)
   const [mobileSearch, setMobileSearch] = useState(false)
   const [mobileQ,     setMobileQ]     = useState('')
+  const [profile,    setProfile]     = useState<NavProfile | null>(null)
+
+  // Lightweight client-side auth check — fetched once. /api/account/profile
+  // returns the signed-in user's name/email/avatar, or 401 for guests.
+  useEffect(() => {
+    fetch('/api/account/profile', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.profile) setProfile(d.profile) })
+      .catch(() => {})
+  }, [pathname])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -305,9 +327,25 @@ export default function Navbar({
                 className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex cursor-pointer">
                 <Heart size={18} />
               </Link>
-              <Link href="/account" aria-label="Account"
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex cursor-pointer">
-                <User size={18} />
+              <Link href="/account" aria-label={profile ? `Account · ${profile.name ?? profile.email}` : 'Account'}
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex cursor-pointer">
+                {profile?.avatar ? (
+                  <Image
+                    src={profile.avatar}
+                    alt={profile.name ?? profile.email}
+                    width={28}
+                    height={28}
+                    className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/80"
+                    unoptimized
+                  />
+                ) : profile ? (
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-extrabold shadow-sm"
+                    style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
+                    {navInitials(profile)}
+                  </span>
+                ) : (
+                  <User size={18} />
+                )}
               </Link>
 
               {/* Cart */}
