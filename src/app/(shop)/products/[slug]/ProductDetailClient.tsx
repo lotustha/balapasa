@@ -230,7 +230,14 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       })
       .catch(() => {})
   }, [])
-  useEffect(() => { applyBlob(images[activeImg]) }, [activeImg, applyBlob, images])
+  // Extract the dominant colour ONCE from the first image. Re-running on every
+  // thumbnail change made the fixed-position blob aurora flicker every time the
+  // user swapped photos — distracting on mobile where the blobs sit directly
+  // behind the gallery.
+  useEffect(() => {
+    if (images[0]) applyBlob(images[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Sticky bar ──────────────────────────────────────────────────────────
   // Visible whenever the main Add-to-Cart button is NOT in the viewport —
@@ -482,8 +489,10 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     <div className="min-h-screen relative"
       style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)' }}>
 
-      {/* Blobs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex:0 }}>
+      {/* Blobs — desktop-only. On mobile they sat behind the gallery and any
+          recolour repaint read as a flicker. The base gradient is enough at
+          small viewports. */}
+      <div className="hidden sm:block fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex:0 }}>
         {[
           { b:blobs[0], w:540, op:0.18, delay:'0s',   cls:'animate-blob-float-a', pos:'-top-24 -left-24' },
           { b:blobs[1], w:420, op:0.14, delay:'2s',   cls:'animate-blob-float-b', pos:'top-1/3 -right-20' },
@@ -498,7 +507,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full min-w-0">
 
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-y-1 gap-x-1.5 text-xs text-slate-500 mb-6 animate-fade-in min-w-0">
+        <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-y-1 gap-x-1.5 text-xs text-slate-500 mb-6 min-w-0">
           {[['/', 'Home'], ['/products','Products'], [`/products?category=${p.category.slug}`, p.category.name]].map(([href,label]) => (
             <span key={href} className="flex items-center gap-1.5 min-w-0">
               <Link href={href} className="hover:text-primary transition-colors capitalize truncate">{label}</Link>
@@ -513,7 +522,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             (including a final `translateY(0)` from fadeInUp) creates a containing
             block that breaks `position: sticky` on the left column. Opacity-only
             fade is safe. */}
-        <div className="grid lg:grid-cols-12 gap-8 items-start animate-fade-in">
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
 
           {/* LEFT — Gallery (sticky on lg). All images visible at once: vertical thumbnail strip + main image. */}
           <div className="lg:col-span-7 lg:sticky lg:top-24 min-w-0">
