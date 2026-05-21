@@ -4,9 +4,17 @@ import { MapPin, Phone, Mail, Heart } from 'lucide-react'
 import BrandText from '@/components/ui/BrandText'
 
 interface FooterProps {
-  siteName?:   string
-  brandSplit?: { primary: string; accent: string }
-  logoUrl?:    string
+  siteName?:       string
+  brandSplit?:     { primary: string; accent: string }
+  logoUrl?:        string
+  storeEmail?:     string
+  storePhone?:     string
+  storeAddress?:   string
+  whatsappNumber?: string
+  facebookPageId?: string
+  instagramUrl?:   string
+  xUrl?:           string
+  youtubeUrl?:     string
 }
 
 function FacebookIcon() {
@@ -30,31 +38,46 @@ const LINKS = {
     { href: '/products',                      label: 'All Products' },
   ],
   Support: [
-    { href: '/faq',      label: 'FAQ' },
-    { href: '/shipping', label: 'Shipping Info' },
-    { href: '/returns',  label: 'Returns' },
-    { href: '/contact',  label: 'Contact Us' },
+    { href: '/faq',              label: 'FAQ' },
+    { href: '/deals',            label: 'Flash Deals' },
+    { href: '/shipping-policy',  label: 'Shipping Info' },
+    { href: '/refund-policy',    label: 'Returns' },
+    { href: '/contact',          label: 'Contact Us' },
   ],
   Company: [
-    { href: '/about',   label: 'About Us' },
-    { href: '/blog',    label: 'Blog' },
-    { href: '/privacy', label: 'Privacy Policy' },
-    { href: '/terms',   label: 'Terms of Service' },
+    { href: '/about',               label: 'About Us' },
+    { href: '/privacy',             label: 'Privacy Policy' },
+    { href: '/terms',               label: 'Terms of Service' },
+    { href: '/cancellation-policy', label: 'Cancellation Policy' },
   ],
 }
 
-const SOCIALS = [
-  { href: '#', icon: FacebookIcon,  label: 'Facebook'  },
-  { href: '#', icon: InstagramIcon, label: 'Instagram' },
-  { href: '#', icon: XIcon,         label: 'X'         },
-  { href: '#', icon: YoutubeIcon,   label: 'YouTube'   },
-]
-
 export default function Footer({
-  siteName   = 'Balapasa',
-  brandSplit = { primary: 'Bala', accent: 'pasa' },
-  logoUrl    = '/logo.png',
+  siteName       = 'Balapasa',
+  brandSplit     = { primary: 'Bala', accent: 'pasa' },
+  logoUrl        = '/logo.png',
+  storeEmail     = '',
+  storePhone     = '',
+  storeAddress   = '',
+  whatsappNumber = '',
+  facebookPageId = '',
+  instagramUrl   = '',
+  xUrl           = '',
+  youtubeUrl     = '',
 }: FooterProps = {}) {
+  const socials = [
+    { href: facebookPageId ? `https://facebook.com/${facebookPageId}` : '', icon: FacebookIcon,  label: 'Facebook'  },
+    { href: instagramUrl,                                                   icon: InstagramIcon, label: 'Instagram' },
+    { href: xUrl,                                                           icon: XIcon,         label: 'X'         },
+    { href: youtubeUrl,                                                     icon: YoutubeIcon,   label: 'YouTube'   },
+  ].filter(s => s.href)
+
+  const contactRows = [
+    { icon: MapPin, text: storeAddress },
+    { icon: Phone,  text: storePhone, href: storePhone ? `tel:${storePhone}` : '' },
+    { icon: Mail,   text: storeEmail, href: storeEmail ? `mailto:${storeEmail}` : '' },
+  ].filter(r => r.text)
+
   return (
     <footer
       className="relative overflow-hidden"
@@ -77,25 +100,31 @@ export default function Footer({
             <p className="text-sm text-slate-500 leading-relaxed max-w-xs">
               Your one-stop destination for premium electronics, gadgets, and beauty products — delivered fast across Nepal.
             </p>
-            <div className="flex gap-2.5 mt-6">
-              {SOCIALS.map(({ href, icon: Icon, label }) => (
-                <a key={label} href={href} aria-label={label}
-                  className="w-9 h-9 glass rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-white/80 transition-all duration-200 cursor-pointer">
-                  <Icon />
-                </a>
-              ))}
-            </div>
-            <div className="mt-6 space-y-2.5">
-              {[
-                { icon: MapPin, text: 'Kathmandu, Nepal' },
-                { icon: Phone,  text: '+977 98XXXXXXXX' },
-                { icon: Mail,   text: 'hello@balapasa.com' },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-2 text-sm text-slate-500">
-                  <Icon size={13} className="text-primary shrink-0" /> {text}
-                </div>
-              ))}
-            </div>
+            {socials.length > 0 && (
+              <div className="flex gap-2.5 mt-6">
+                {socials.map(({ href, icon: Icon, label }) => (
+                  <a key={label} href={href} aria-label={label}
+                    target="_blank" rel="noopener noreferrer"
+                    className="w-9 h-9 glass rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-white/80 transition-all duration-200 cursor-pointer">
+                    <Icon />
+                  </a>
+                ))}
+              </div>
+            )}
+            {contactRows.length > 0 && (
+              <div className="mt-6 space-y-2.5">
+                {contactRows.map(({ icon: Icon, text, href }) => {
+                  const row = (
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <Icon size={13} className="text-primary shrink-0" /> {text}
+                    </div>
+                  )
+                  return href
+                    ? <a key={text} href={href} className="block hover:text-slate-700 transition-colors">{row}</a>
+                    : <div key={text}>{row}</div>
+                })}
+              </div>
+            )}
           </div>
 
           {/* Links */}

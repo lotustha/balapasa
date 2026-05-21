@@ -23,18 +23,26 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
   const canonical = params.category ? `/products?category=${params.category}` : '/products'
 
+  // Resolve the live store identity so OG titles match whichever brand the
+  // admin saved most recently (multi-tenant safe).
+  const { getSiteSettings } = await import('@/lib/site-settings')
+  const s = await getSiteSettings()
+  const brand    = s.siteName
+  const ogImage  = s.logoUrl || '/logo.png'
+
   return {
     title,
     description,
     alternates: { canonical },
     openGraph: {
-      title: `${title} | Balapasa`,
+      title: `${title} | ${brand}`,
       description,
       url: canonical,
+      siteName: brand,
       type: 'website',
-      images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Balapasa Products' }],
+      images: [{ url: ogImage, width: 512, height: 512, alt: `${brand} Products` }],
     },
-    twitter: { card: 'summary', title: `${title} | Balapasa`, description },
+    twitter: { card: 'summary', title: `${title} | ${brand}`, description },
   }
 }
 
@@ -63,7 +71,7 @@ const ALL_MOCK: Product[] = [
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Params {
   category?: string; search?: string; sort?: string; featured?: string
-  minPrice?: string; maxPrice?: string; onSale?: string; isNew?: string
+  minPrice?: string; maxPrice?: string; onSale?: string; flash?: string; isNew?: string
   page?: string
 }
 
@@ -82,6 +90,14 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
     if (params.featured === 'true') where.isFeatured = true
     if (params.isNew    === 'true') where.isNew     = true
     if (params.onSale   === 'true') where.salePrice = { not: null }
+    if (params.flash    === 'true') {
+      const now = new Date()
+      where.salePrice = { not: null }
+      where.AND = [
+        { OR: [{ salePriceExpiresAt: null }, { salePriceExpiresAt: { gt:  now } }] },
+        { OR: [{ salePriceStartsAt:  null }, { salePriceStartsAt:  { lte: now } }] },
+      ]
+    }
     if (params.search) {
       where.OR = [
         { name:        { contains: params.search, mode: 'insensitive' } },
@@ -116,6 +132,7 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
     }
     if (params.isNew  === 'true') list = list.filter(p => p.isNew)
     if (params.onSale === 'true') list = list.filter(p => p.salePrice != null)
+    if (params.flash  === 'true') list = list.filter(p => p.salePrice != null)
     if (minP > 0)     list = list.filter(p => (p.salePrice ?? p.price) >= minP)
     if (maxP < 50000) list = list.filter(p => (p.salePrice ?? p.price) <= maxP)
     if (params.sort === 'price-asc')  list = list.sort((a, b) => (a.salePrice ?? a.price) - (b.salePrice ?? b.price))
@@ -157,6 +174,7 @@ function ActiveFilters({ params }: { params: Params }) {
   if (params.category)            chips.push({ label: params.category,                                key: 'category' })
   if (params.isNew   === 'true')  chips.push({ label: 'New Arrivals',                                 key: 'isNew'    })
   if (params.onSale  === 'true')  chips.push({ label: 'On Sale',                                      key: 'onSale'   })
+  if (params.flash   === 'true')  chips.push({ label: 'Flash Deals',                                  key: 'flash'    })
   if (Number(params.minPrice) > 0)       chips.push({ label: `From NPR ${Number(params.minPrice).toLocaleString()}`, key: 'minPrice' })
   if (Number(params.maxPrice) < 50000)   chips.push({ label: `To NPR ${Number(params.maxPrice).toLocaleString()}`,   key: 'maxPrice' })
 
@@ -164,7 +182,7 @@ function ActiveFilters({ params }: { params: Params }) {
 
   function removeUrl(key: string) {
     const sp = new URLSearchParams()
-    const keys = ['category','search','sort','featured','minPrice','maxPrice','onSale','isNew'] as const
+    const keys = ['category','search','sort','featured','minPrice','maxPrice','onSale','flash','isNew'] as const
     for (const k of keys) {
       if (k !== key && params[k]) sp.set(k, params[k]!)
     }
@@ -197,6 +215,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
     if (params.minPrice) sp.set('minPrice', params.minPrice)
     if (params.maxPrice) sp.set('maxPrice', params.maxPrice)
     if (params.onSale)   sp.set('onSale',   params.onSale)
+    if (params.flash)    sp.set('flash',    params.flash)
     if (params.isNew)    sp.set('isNew',    params.isNew)
     if (p > 1)           sp.set('page',     String(p))
     const q = sp.toString()

@@ -151,6 +151,7 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
   const activeCategory = searchParams.get('category') ?? ''
   const activeSort     = searchParams.get('sort') ?? 'newest'
   const onSale         = searchParams.get('onSale') === 'true'
+  const flash          = searchParams.get('flash')  === 'true'
   const isNew          = searchParams.get('isNew')  === 'true'
 
   // Count active filters for badge
@@ -158,7 +159,7 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
     activeCategory, searchParams.get('search'),
     priceRange[0] > 0 ? '1' : '',
     priceRange[1] < PRICE_MAX ? '1' : '',
-    onSale ? '1' : '', isNew ? '1' : '',
+    onSale ? '1' : '', flash ? '1' : '', isNew ? '1' : '',
   ].filter(Boolean).length
 
   // Navigate with merged params — resets page to 1 on any filter change
@@ -287,8 +288,9 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
       <Section title="Quick Filters" defaultOpen={false} accent="#F59E0B">
         <div className="space-y-2.5">
           {[
+            { key: 'flash',  label: 'Flash Deals',  icon: Zap,   color: '#F59E0B', val: flash  },
             { key: 'isNew',  label: 'New Arrivals', icon: Star,  color: '#06B6D4', val: isNew  },
-            { key: 'onSale', label: 'On Sale',       icon: Tag,   color: '#EC4899', val: onSale },
+            { key: 'onSale', label: 'On Sale',      icon: Tag,   color: '#EC4899', val: onSale },
           ].map(({ key, label, icon: Icon, color, val }) => (
             <button
               key={key}

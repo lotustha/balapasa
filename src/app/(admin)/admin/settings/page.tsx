@@ -11,7 +11,10 @@ import {
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
-import { HERO_DEFAULTS, splitBrandName, cleanBrandName, type HeroBadge } from '@/lib/site-settings-shared'
+import {
+  HERO_DEFAULTS, FAQ_DEFAULTS, splitBrandName, cleanBrandName,
+  type HeroBadge, type FaqItem,
+} from '@/lib/site-settings-shared'
 import GalleryPickerModal from '@/components/admin/GalleryPickerModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -21,6 +24,7 @@ interface StoreForm {
   STORE_ADDRESS: string; FREE_DELIVERY_THRESHOLD: string; STORE_LOGO_URL: string
   STORE_THEME: string; STORE_FAVICON_URL: string
   STORE_URL: string
+  RETURN_WINDOW_DAYS: string
   SEO_TITLE: string; SEO_DESCRIPTION: string; SEO_KEYWORDS: string
 }
 interface PaymentForm {
@@ -33,8 +37,22 @@ interface PaymentForm {
 }
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
+interface ContentForm {
+  LEGAL_PRIVACY_BODY:      string
+  LEGAL_TERMS_BODY:        string
+  LEGAL_REFUND_BODY:       string
+  LEGAL_SHIPPING_BODY:     string
+  LEGAL_CANCELLATION_BODY: string
+  ABOUT_TITLE:             string
+  ABOUT_BODY:              string
+  CONTACT_INSTAGRAM:       string
+  CONTACT_X:               string
+  CONTACT_YOUTUBE:         string
+  CONTACT_HOURS:           string
+  CONTACT_MAP_EMBED:       string
+}
 
-type TabId = 'store' | 'homepage' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
+type TabId = 'store' | 'homepage' | 'content' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -112,6 +130,7 @@ function InfoBanner({ icon: Icon, color, children }: { icon: typeof Sparkles; co
 const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] = [
   { id: 'store',         icon: Store,           label: 'Store',         desc: 'Name, contact & delivery' },
   { id: 'homepage',      icon: LayoutTemplate,  label: 'Homepage',      desc: 'Hero, headline & CTAs'    },
+  { id: 'content',       icon: Library,         label: 'Content',       desc: 'Legal pages, about & FAQ' },
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
   { id: 'ai',            icon: Sparkles,   label: 'AI',            desc: 'Anthropic & Gemini'        },
@@ -1269,6 +1288,7 @@ export default function SettingsPage() {
     STORE_NAME: STORE_NAME, STORE_EMAIL: '', STORE_PHONE: '',
     STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '', STORE_THEME: 'emerald', STORE_FAVICON_URL: '',
     STORE_URL: '',
+    RETURN_WINDOW_DAYS: '7',
     SEO_TITLE: '', SEO_DESCRIPTION: '', SEO_KEYWORDS: '',
   })
   const [payment, setPayment] = useState<PaymentForm>({
@@ -1280,6 +1300,12 @@ export default function SettingsPage() {
   })
   const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '' })
   const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
+  const [content, setContent] = useState<ContentForm>({
+    LEGAL_PRIVACY_BODY: '', LEGAL_TERMS_BODY: '', LEGAL_REFUND_BODY: '', LEGAL_SHIPPING_BODY: '', LEGAL_CANCELLATION_BODY: '',
+    ABOUT_TITLE: '', ABOUT_BODY: '',
+    CONTACT_INSTAGRAM: '', CONTACT_X: '', CONTACT_YOUTUBE: '', CONTACT_HOURS: '', CONTACT_MAP_EMBED: '',
+  })
+  const [faq, setFaq] = useState<FaqItem[]>(FAQ_DEFAULTS)
 
   useEffect(() => {
     fetch('/api/admin/settings').then(r => r.json()).then(({ settings }) => {
@@ -1294,6 +1320,7 @@ export default function SettingsPage() {
         STORE_THEME:             settings.STORE_THEME             ?? s.STORE_THEME,
         STORE_FAVICON_URL:       settings.STORE_FAVICON_URL       ?? s.STORE_FAVICON_URL,
         STORE_URL:               settings.STORE_URL               ?? s.STORE_URL,
+        RETURN_WINDOW_DAYS:      settings.RETURN_WINDOW_DAYS      ?? s.RETURN_WINDOW_DAYS,
         SEO_TITLE:               settings.SEO_TITLE               ?? s.SEO_TITLE,
         SEO_DESCRIPTION:         settings.SEO_DESCRIPTION         ?? s.SEO_DESCRIPTION,
         SEO_KEYWORDS:            settings.SEO_KEYWORDS            ?? s.SEO_KEYWORDS,
@@ -1317,6 +1344,28 @@ export default function SettingsPage() {
         ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY ?? a.ANTHROPIC_API_KEY,
         GEMINI_API_KEY:    settings.GEMINI_API_KEY    ?? a.GEMINI_API_KEY,
       }))
+      setContent(c => ({
+        LEGAL_PRIVACY_BODY:      settings.LEGAL_PRIVACY_BODY      ?? c.LEGAL_PRIVACY_BODY,
+        LEGAL_TERMS_BODY:        settings.LEGAL_TERMS_BODY        ?? c.LEGAL_TERMS_BODY,
+        LEGAL_REFUND_BODY:       settings.LEGAL_REFUND_BODY       ?? c.LEGAL_REFUND_BODY,
+        LEGAL_SHIPPING_BODY:     settings.LEGAL_SHIPPING_BODY     ?? c.LEGAL_SHIPPING_BODY,
+        LEGAL_CANCELLATION_BODY: settings.LEGAL_CANCELLATION_BODY ?? c.LEGAL_CANCELLATION_BODY,
+        ABOUT_TITLE:         settings.ABOUT_TITLE         ?? c.ABOUT_TITLE,
+        ABOUT_BODY:          settings.ABOUT_BODY          ?? c.ABOUT_BODY,
+        CONTACT_INSTAGRAM:   settings.CONTACT_INSTAGRAM   ?? c.CONTACT_INSTAGRAM,
+        CONTACT_X:           settings.CONTACT_X           ?? c.CONTACT_X,
+        CONTACT_YOUTUBE:     settings.CONTACT_YOUTUBE     ?? c.CONTACT_YOUTUBE,
+        CONTACT_HOURS:       settings.CONTACT_HOURS       ?? c.CONTACT_HOURS,
+        CONTACT_MAP_EMBED:   settings.CONTACT_MAP_EMBED   ?? c.CONTACT_MAP_EMBED,
+      }))
+      if (settings.FAQ_JSON) {
+        try {
+          const parsed = JSON.parse(settings.FAQ_JSON)
+          if (Array.isArray(parsed)) setFaq(parsed.filter(
+            (f): f is FaqItem => typeof f?.question === 'string' && typeof f?.answer === 'string',
+          ))
+        } catch { /* leave defaults */ }
+      }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -1529,6 +1578,14 @@ export default function SettingsPage() {
                       placeholder="5000" className={inputCls + ' max-w-xs'} />
                     <Hint>Orders at or above this amount get free delivery</Hint>
                   </div>
+
+                  <div className="mt-4">
+                    <Label>Return Window (days)</Label>
+                    <input type="number" min="0" max="60" value={store.RETURN_WINDOW_DAYS}
+                      onChange={e => setStore(s => ({ ...s, RETURN_WINDOW_DAYS: e.target.value }))}
+                      placeholder="7" className={inputCls + ' max-w-xs'} />
+                    <Hint>How long a customer can request a return after delivery. Set to 0 to disable returns entirely.</Hint>
+                  </div>
                 </div>
 
                 {/* Theme picker */}
@@ -1687,6 +1744,169 @@ export default function SettingsPage() {
           {/* ── Homepage tab ──────────────────────────────────────── */}
           {tab === 'homepage' && (
             <HomepageSettingsPanel saving={saving} saved={saved} onSave={save} />
+          )}
+
+          {/* ── Content tab (legal pages, about, contact, FAQ) ────── */}
+          {tab === 'content' && (
+            <form onSubmit={e => {
+              e.preventDefault()
+              const cleanFaq = faq.filter(f => f.question.trim() && f.answer.trim())
+              save('content', {
+                ...content,
+                FAQ_JSON: JSON.stringify(cleanFaq),
+              })
+            }}>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-6">
+                <InfoBanner icon={Info} color="bg-blue-50 border border-blue-100 text-blue-700">
+                  Body fields accept <strong>Markdown</strong> — use <code className="font-mono bg-white px-1 rounded text-[10px]">## heading</code>, <code className="font-mono bg-white px-1 rounded text-[10px]">**bold**</code>, <code className="font-mono bg-white px-1 rounded text-[10px]">- bullet</code>, and <code className="font-mono bg-white px-1 rounded text-[10px]">[link](https://…)</code>. Untouched fields show built-in defaults; once you save a value it sticks (clearing the textarea later won&apos;t revert it).
+                </InfoBanner>
+
+                {/* Legal pages */}
+                <SectionTitle>Legal pages</SectionTitle>
+                <div className="space-y-5">
+                  <div>
+                    <Label>Privacy Policy — /privacy</Label>
+                    <textarea value={content.LEGAL_PRIVACY_BODY}
+                      onChange={e => setContent(s => ({ ...s, LEGAL_PRIVACY_BODY: e.target.value }))}
+                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
+                  </div>
+                  <div>
+                    <Label>Terms of Service — /terms</Label>
+                    <textarea value={content.LEGAL_TERMS_BODY}
+                      onChange={e => setContent(s => ({ ...s, LEGAL_TERMS_BODY: e.target.value }))}
+                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
+                  </div>
+                  <div>
+                    <Label>Refund &amp; Return Policy — /refund-policy</Label>
+                    <textarea value={content.LEGAL_REFUND_BODY}
+                      onChange={e => setContent(s => ({ ...s, LEGAL_REFUND_BODY: e.target.value }))}
+                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
+                  </div>
+                  <div>
+                    <Label>Shipping Policy — /shipping-policy</Label>
+                    <textarea value={content.LEGAL_SHIPPING_BODY}
+                      onChange={e => setContent(s => ({ ...s, LEGAL_SHIPPING_BODY: e.target.value }))}
+                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
+                  </div>
+                  <div>
+                    <Label>Cancellation Policy — /cancellation-policy</Label>
+                    <textarea value={content.LEGAL_CANCELLATION_BODY}
+                      onChange={e => setContent(s => ({ ...s, LEGAL_CANCELLATION_BODY: e.target.value }))}
+                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
+                  </div>
+                </div>
+
+                {/* About */}
+                <div className="border-t border-slate-50 pt-5">
+                  <SectionTitle>About page — /about</SectionTitle>
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Title</Label>
+                      <input value={content.ABOUT_TITLE}
+                        onChange={e => setContent(s => ({ ...s, ABOUT_TITLE: e.target.value }))}
+                        placeholder="About us" className={inputCls} />
+                    </div>
+                    <div>
+                      <Label>Body (Markdown)</Label>
+                      <textarea value={content.ABOUT_BODY}
+                        onChange={e => setContent(s => ({ ...s, ABOUT_BODY: e.target.value }))}
+                        rows={10} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div className="border-t border-slate-50 pt-5">
+                  <SectionTitle>Contact page — /contact</SectionTitle>
+                  <Hint>Email, phone, address and WhatsApp number are pulled from the <strong>Store</strong> tab. Extra channels and hours live here.</Hint>
+                  <div className="grid sm:grid-cols-2 gap-4 mt-3">
+                    <div>
+                      <Label>Instagram URL</Label>
+                      <input value={content.CONTACT_INSTAGRAM}
+                        onChange={e => setContent(s => ({ ...s, CONTACT_INSTAGRAM: e.target.value }))}
+                        placeholder="https://instagram.com/yourhandle" className={`${inputCls} font-mono text-xs`} />
+                    </div>
+                    <div>
+                      <Label>X (Twitter) URL</Label>
+                      <input value={content.CONTACT_X}
+                        onChange={e => setContent(s => ({ ...s, CONTACT_X: e.target.value }))}
+                        placeholder="https://x.com/yourhandle" className={`${inputCls} font-mono text-xs`} />
+                    </div>
+                    <div>
+                      <Label>YouTube URL</Label>
+                      <input value={content.CONTACT_YOUTUBE}
+                        onChange={e => setContent(s => ({ ...s, CONTACT_YOUTUBE: e.target.value }))}
+                        placeholder="https://youtube.com/@yourchannel" className={`${inputCls} font-mono text-xs`} />
+                    </div>
+                    <div>
+                      <Label>Business hours</Label>
+                      <input value={content.CONTACT_HOURS}
+                        onChange={e => setContent(s => ({ ...s, CONTACT_HOURS: e.target.value }))}
+                        placeholder="Sun – Fri, 10:00 – 18:00" className={inputCls} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Google Maps embed URL</Label>
+                      <input value={content.CONTACT_MAP_EMBED}
+                        onChange={e => setContent(s => ({ ...s, CONTACT_MAP_EMBED: e.target.value }))}
+                        placeholder="https://www.google.com/maps/embed?pb=…"
+                        className={`${inputCls} font-mono text-xs`} />
+                      <Hint>From Google Maps → Share → Embed a map → copy the <code className="font-mono bg-slate-100 px-1 rounded">src</code> URL only.</Hint>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FAQ */}
+                <div className="border-t border-slate-50 pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <SectionTitle>FAQ — /faq</SectionTitle>
+                    <button type="button"
+                      onClick={() => setFaq(f => [...f, { question: '', answer: '' }])}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary/15 transition-colors">
+                      <Plus size={13} /> Add question
+                    </button>
+                  </div>
+                  <Hint>Up to 20 question/answer pairs. Empty rows are removed on save.</Hint>
+                  <div className="space-y-3 mt-3">
+                    {faq.map((item, i) => (
+                      <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/40 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 w-6 shrink-0">#{i + 1}</span>
+                          <input value={item.question}
+                            onChange={e => {
+                              const arr = [...faq]
+                              arr[i] = { ...arr[i], question: e.target.value }
+                              setFaq(arr)
+                            }}
+                            placeholder="Question…" maxLength={150}
+                            className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:border-primary" />
+                          <button type="button"
+                            onClick={() => setFaq(f => f.filter((_, j) => j !== i))}
+                            className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors"
+                            aria-label="Remove question">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        <textarea value={item.answer}
+                          onChange={e => {
+                            const arr = [...faq]
+                            arr[i] = { ...arr[i], answer: e.target.value }
+                            setFaq(arr)
+                          }}
+                          rows={3} placeholder="Answer…"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:border-primary" />
+                      </div>
+                    ))}
+                    {faq.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-6">No questions yet — click <em>Add question</em> to get started.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-50">
+                  <SaveBtn section="content" saving={saving} saved={saved} />
+                </div>
+              </div>
+            </form>
           )}
 
           {/* ── Payments tab ──────────────────────────────────────── */}

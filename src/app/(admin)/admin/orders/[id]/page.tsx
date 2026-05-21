@@ -105,6 +105,34 @@ export default function OrderDetailPage() {
   const [cancellingDelivery, setCancellingDelivery] = useState(false)
   const [showCancelConfirm,  setShowCancelConfirm]  = useState(false)
 
+  // PnD dispatch retry — surfaced when Order.notes contains the sentinel
+  // "PND_DISPATCH_FAILED: <reason>" written by /api/orders POST when the
+  // initial carrier call failed.
+  const [retryingPnd, setRetryingPnd] = useState(false)
+  const [pndRetryError, setPndRetryError] = useState<string | null>(null)
+  async function retryPndDispatch() {
+    if (!order) return
+    setRetryingPnd(true); setPndRetryError(null)
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/dispatch-retry`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setPndRetryError(json.error ?? `HTTP ${res.status}`)
+      } else {
+        // Refresh the order so the green "Delivery Assigned" card replaces the
+        // retry banner and the cleared notes propagate.
+        const r       = await fetch(`/api/admin/orders/${id}`)
+        const updated = await r.json()
+        if (r.ok) setOrder(updated)
+        showToast('Pick & Drop dispatched.')
+      }
+    } catch (e) {
+      setPndRetryError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setRetryingPnd(false)
+    }
+  }
+
   // Order item editing
   const [editItems,    setEditItems]    = useState(false)
   const [itemSaving,   setItemSaving]   = useState<string | null>(null)
@@ -915,17 +943,53 @@ export default function OrderDetailPage() {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                  <Truck size={16} className="text-amber-600" />
+            ) : (() => {
+              // When /api/orders POST hands off to Pick & Drop and the call
+              // fails, it stamps "PND_DISPATCH_FAILED: <reason>" into notes.
+              // We surface a dedicated retry card here so the admin doesn't
+              // have to dig through the notes field to find what happened.
+              const failureLine = (order.notes ?? '').split('\n').find(l => l.startsWith('PND_DISPATCH_FAILED:'))
+              if (failureLine && order.shippingProvider === 'PICKNDROP' && !order.pndOrderId) {
+                const reason = failureLine.replace(/^PND_DISPATCH_FAILED:\s*/, '').trim() || 'Carrier API returned an error.'
+                return (
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <AlertCircle size={16} className="text-red-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-red-800">Pick &amp; Drop dispatch failed</p>
+                        <p className="text-xs text-red-700 mt-0.5 break-words">{reason}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={retryPndDispatch}
+                      disabled={retryingPnd}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl cursor-pointer transition-colors shadow-md shadow-red-500/15"
+                    >
+                      {retryingPnd
+                        ? <><Loader2 size={13} className="animate-spin" /> Retrying…</>
+                        : <><RefreshCw size={13} /> Retry Pick &amp; Drop dispatch</>}
+                    </button>
+                    {pndRetryError && (
+                      <p className="text-[11px] text-red-700 font-mono leading-snug">{pndRetryError}</p>
+                    )}
+                  </div>
+                )
+              }
+              return (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                    <Truck size={16} className="text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-amber-800">No delivery assigned yet</p>
+                    <p className="text-xs text-amber-600">Choose a delivery partner below to assign this order</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-amber-800">No delivery assigned yet</p>
-                  <p className="text-xs text-amber-600">Choose a delivery partner below to assign this order</p>
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* ── Quick Assign from customer's chosen partner ── */}
             {preferredProvider && !hasDelivery && (preferredProvider !== 'PATHAO' || isKtmValley) && (

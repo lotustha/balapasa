@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import { formatPrice } from '@/lib/utils'
@@ -13,7 +14,15 @@ import {
   X as XIcon, Check, Globe, Building2, Home, Mail, ShoppingBag,
 } from 'lucide-react'
 import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/NepalAddressSelector'
-import WeatherWidget, { type WeatherData } from '@/components/checkout/WeatherWidget'
+import type { WeatherData } from '@/components/checkout/WeatherWidget'
+
+// WeatherWidget pulls a meaningful amount of JS (icons, locale formatters) for
+// a feature that only renders once we have weather data from a downstream
+// fetch. Lazy-load so initial checkout TTI isn't blocked by it.
+const WeatherWidget = dynamic(() => import('@/components/checkout/WeatherWidget'), {
+  ssr: false,
+  loading: () => null,
+})
 import type { CoverageOption } from '@/app/api/shipping/coverage/route'
 import type { PaymentMethod as KnownPaymentMethod } from '@/lib/features'
 import SavedAddressPicker, { type SavedAddress } from '@/components/checkout/SavedAddressPicker'
@@ -298,6 +307,10 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const [deliveryNote, setDeliveryNote] = useState('')
   const [freeDeliveryFlags, setFreeDeliveryFlags] = useState<Record<string, boolean>>({})
   const [taxableFlags, setTaxableFlags] = useState<Record<string, boolean>>({})
+  // Per-item validation: detect products that were deleted, deactivated, or
+  // ran out of stock between when the customer added them and now. Surfaced
+  // as a banner so they fix the cart before the order POST returns 409.
+  const [cartValidity, setCartValidity] = useState<Record<string, { active: boolean; stock: number; trackInventory: boolean; name: string }>>({})
   // Initialise with COD only so we never momentarily show eSewa/Khalti tiles
   // that then disappear when /api/store-config resolves with them disabled.
   // The fetch below adds wallets if the admin has them enabled.
@@ -332,6 +345,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
     }).then(r => r.json()).then(d => {
       setFreeDeliveryFlags(d.flags ?? {})
       setTaxableFlags(d.taxable ?? {})
+      setCartValidity(d.validity ?? {})
     }).catch(() => {})
   }, [items])
 
@@ -836,6 +850,48 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
             </p>
           )}
         </div>
+
+        {/* Cart staleness banner — flags items the store no longer offers or
+            doesn't have enough stock for. Surfaced BEFORE the form so the
+            customer fixes their cart instead of hitting the 409 after submit. */}
+        {(() => {
+          const stale: Array<{ id: string; name: string; reason: string }> = []
+          for (const it of items) {
+            const v = cartValidity[it.id]
+            if (!v) continue
+            if (!v.active && !v.name) {
+              stale.push({ id: it.id, name: it.name, reason: 'No longer available' })
+            } else if (!v.active) {
+              stale.push({ id: it.id, name: v.name || it.name, reason: 'Was taken off sale' })
+            } else if (v.trackInventory && v.stock < it.quantity) {
+              stale.push({ id: it.id, name: v.name || it.name, reason: v.stock <= 0 ? 'Out of stock' : `Only ${v.stock} left` })
+            }
+          }
+          if (stale.length === 0) return null
+          return (
+            <div className="mb-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <AlertCircle size={16} className="text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-amber-900">Some items in your cart need attention</p>
+                  <ul className="mt-2 space-y-1 text-xs text-amber-800">
+                    {stale.map(s => (
+                      <li key={s.id} className="flex items-start gap-2">
+                        <span className="font-bold">•</span>
+                        <span><strong className="font-semibold">{s.name}</strong> — {s.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] text-amber-700">
+                    <Link href="/cart" className="font-bold underline hover:text-amber-900">Open cart</Link> to remove or update these before checking out.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         <form onSubmit={handleSubmit}>
           <div className="grid lg:grid-cols-3 gap-7 min-w-0">

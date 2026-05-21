@@ -82,8 +82,12 @@ model Product {
   slug              String   @unique
   description       String   @db.Text
   price             Float
-  salePrice           Float?    @map("sale_price")
-  salePriceExpiresAt DateTime? @map("sale_price_expires_at")
+  salePrice            Float?    @map("sale_price")
+  salePriceStartsAt    DateTime? @map("sale_price_starts_at")     // null = active immediately
+  salePriceExpiresAt   DateTime? @map("sale_price_expires_at")
+  saleInitialStock     Int?      @map("sale_initial_stock")        // captured on sale activation; null = legacy
+  maxPerCustomerOnSale Int?      @map("max_per_customer_on_sale")  // null = no cap
+  isDealOfTheDay       Boolean   @default(false) @map("is_deal_of_the_day")
   costPrice         Float?   @map("cost_price")
   stock             Int      @default(0)
   lowStockThreshold Int      @default(10) @map("low_stock_threshold")
@@ -389,6 +393,63 @@ model OrderStatusLog {
 
   @@index([orderId, createdAt])
   @@map("order_status_logs")
+}
+
+// Returns / RMA workflow for delivered orders. One ReturnRequest per
+// physical-return action; many ReturnRequestItems for the line items the
+// customer wants to send back.
+enum ReturnStatus {
+  REQUESTED                 // Customer filed; awaiting admin review
+  APPROVED                  // Admin OK'd; customer ships items back
+  REJECTED                  // Admin denied (terminal)
+  RECEIVED                  // Items physically received at store
+  REFUNDED                  // Refund issued; terminal happy path
+  CANCELLED_BY_CUSTOMER     // Customer withdrew before APPROVED (terminal)
+}
+
+enum ReturnReason {
+  DAMAGED
+  WRONG_ITEM
+  NOT_AS_DESCRIBED
+  CHANGED_MIND
+  OTHER
+}
+
+model ReturnRequest {
+  id            String         @id @default(cuid())
+  orderId       String         @map("order_id")
+  userId        String?        @map("user_id")
+  status        ReturnStatus   @default(REQUESTED)
+  reason        ReturnReason
+  customerNote  String?        @db.Text @map("customer_note")
+  adminNote     String?        @db.Text @map("admin_note")
+  refundAmount  Float          @default(0) @map("refund_amount")
+  refundedAt    DateTime?      @map("refunded_at")
+  approvedAt    DateTime?      @map("approved_at")
+  receivedAt    DateTime?      @map("received_at")
+  rejectedAt    DateTime?      @map("rejected_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt      @map("updated_at")
+
+  items ReturnRequestItem[]
+
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("return_requests")
+}
+
+model ReturnRequestItem {
+  id               String        @id @default(cuid())
+  returnRequestId  String        @map("return_request_id")
+  orderItemId      String        @map("order_item_id")
+  quantity         Int
+  lineRefundAmount Float         @map("line_refund_amount")
+
+  request ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@index([returnRequestId])
+  @@map("return_request_items")
 }
 
 model Expense {

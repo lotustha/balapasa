@@ -92,7 +92,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
       ? (product.aiFaqJson as unknown as Array<{ q: string; a: string }>)
           .filter(f => f && typeof f.q === 'string' && typeof f.a === 'string')
       : null,
+    salePriceStartsAt:  product.salePriceStartsAt  ? product.salePriceStartsAt.toISOString()  : null,
     salePriceExpiresAt: product.salePriceExpiresAt ? product.salePriceExpiresAt.toISOString() : null,
+    saleInitialStock:     product.saleInitialStock,
+    maxPerCustomerOnSale: product.maxPerCustomerOnSale,
+    isDealOfTheDay:       product.isDealOfTheDay,
     tags: product.tags,
     category: { id: product.category.id, name: product.category.name, slug: product.category.slug, color: product.category.color, icon: product.category.icon, image: product.category.image },
     options: product.options.map(o => ({ id: o.id, name: o.name, values: o.values, position: o.position })),

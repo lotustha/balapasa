@@ -54,9 +54,15 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: keywordsArr,
     authors: [{ name: siteName }],
     creator: siteName,
+    // Favicon resolution:
+    //   1. STORE_FAVICON_URL from app_settings (admin upload) — best.
+    //   2. Brand logo at /logo.png — sensible fallback so search results
+    //      never show the Next.js default chevron.
+    // The Next.js convention file at src/app/favicon.ico was removed because
+    // it ALWAYS overrides metadata.icons regardless of admin settings.
     icons: faviconUrl
       ? { icon: faviconUrl, shortcut: faviconUrl, apple: faviconUrl }
-      : { icon: '/favicon.ico' },
+      : { icon: '/logo.png', shortcut: '/logo.png', apple: '/logo.png' },
     openGraph: {
       siteName,
       type: 'website',

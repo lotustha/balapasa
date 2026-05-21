@@ -26,6 +26,27 @@ export async function GET(req: Request) {
         ORDER BY sales DESC
         LIMIT ${limit}
       `)
+      // Fetch up to 4 latest product preview images per visible category so
+      // the homepage can render a 2x2 collage instead of a single icon.
+      const ids = rows.map(r => r.id)
+      const previewLists = ids.length
+        ? await Promise.all(ids.map(id =>
+            prisma.product.findMany({
+              where:   { categoryId: id, isActive: true, images: { isEmpty: false } },
+              orderBy: { createdAt: 'desc' },
+              take:    4,
+              select:  { images: true },
+            }).catch(() => [] as { images: string[] }[]),
+          ))
+        : []
+      const previewByCategory = new Map<string, string[]>()
+      ids.forEach((id, i) => {
+        const imgs = previewLists[i]
+          .map(p => p.images[0])
+          .filter((x): x is string => !!x)
+        previewByCategory.set(id, imgs.slice(0, 4))
+      })
+
       const categories = rows.map(r => ({
         id:    r.id,
         name:  r.name,
@@ -34,6 +55,7 @@ export async function GET(req: Request) {
         icon:  r.icon,
         image: r.image,
         sales: Number(r.sales),
+        previewImages: previewByCategory.get(r.id) ?? [],
         _count: { products: Number(r.product_count) },
       }))
       return Response.json({ categories })

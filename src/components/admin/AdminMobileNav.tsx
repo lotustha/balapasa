@@ -36,7 +36,12 @@ function activeHref(pathname: string, href: string) {
   return pathname.startsWith(href)
 }
 
-export default function AdminMobileNav() {
+interface AdminMobileNavProps {
+  logoUrl:  string
+  siteName: string
+}
+
+export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProps) {
   const pathname = usePathname()
   const [role, setRole] = useState<Role>('ADMIN')
   const [moreOpen, setMoreOpen] = useState(false)
@@ -87,7 +92,7 @@ export default function AdminMobileNav() {
           </button>
         ) : (
           <Link href="/admin" aria-label="Dashboard" className="shrink-0">
-            <Image src="/logo.png" alt="" width={28} height={28} className="rounded-lg" />
+            <Image src={logoUrl} alt={siteName} width={28} height={28} className="rounded-lg" unoptimized />
           </Link>
         )}
 

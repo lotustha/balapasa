@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Zap, ArrowRight, Clock, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
-
-const DEAL_END = new Date(Date.now() + 24 * 60 * 60 * 1000)
+import { getClaimedPercent } from '@/lib/sale-status'
 
 // Colour pairs for each deal card (cycles if more than 3 deals)
 const BLOBS = [
@@ -19,6 +18,8 @@ const BLOBS = [
 interface DealProduct {
   id: string; name: string; slug: string
   price: number; salePrice: number; images: string[]; stock: number
+  salePriceExpiresAt: string | null
+  saleInitialStock: number | null
 }
 
 function useCountdown(target: Date) {
@@ -51,16 +52,14 @@ function Digit({ val, label }: { val: string; label: string }) {
 }
 
 export default function DealsSection() {
-  const { h, m, s } = useCountdown(DEAL_END)
   const [deals, setDeals] = useState<DealProduct[]>([])
 
   useEffect(() => {
-    // Fetch products that have a sale price, sorted by biggest discount
-    fetch('/api/products?sort=newest&limit=20')
+    // ?flash=true returns only products with a non-expired salePrice
+    fetch('/api/products?flash=true&limit=20')
       .then(r => r.json())
       .then(data => {
         const products = (data.products ?? data ?? []) as DealProduct[]
-        // Filter to only products with salePrice and pick top 3 by discount %
         const withSale = products
           .filter((p: DealProduct) => p.salePrice && p.salePrice < p.price)
           .sort((a, b) => {
@@ -73,6 +72,19 @@ export default function DealsSection() {
       })
       .catch(() => {})
   }, [])
+
+  // Soonest real expiry among the visible deals; fall back to 24h if none have one
+  const dealEnd = useMemo(() => {
+    const now = Date.now()
+    const expiries = deals
+      .map(d => (d.salePriceExpiresAt ? new Date(d.salePriceExpiresAt).getTime() : 0))
+      .filter(t => t > now)
+    return expiries.length > 0
+      ? new Date(Math.min(...expiries))
+      : new Date(now + 24 * 60 * 60 * 1000)
+  }, [deals])
+
+  const { h, m, s } = useCountdown(dealEnd)
 
   if (deals.length === 0) return null
 
@@ -113,7 +125,7 @@ export default function DealsSection() {
         </div>
 
         {/* Deal cards */}
-        <div className="grid sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
           {deals.map((deal, i) => {
             const blob = BLOBS[i % BLOBS.length]
             const pct  = Math.round(((deal.price - deal.salePrice) / deal.price) * 100)
@@ -160,21 +172,29 @@ export default function DealsSection() {
                     <span className="text-slate-400 line-through text-sm">{formatPrice(deal.price)}</span>
                   </div>
 
-                  {/* Stock progress bar */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-[11px] text-slate-400 mb-1.5">
-                      <span>Selling fast</span>
-                      <span>{deal.stock} left</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-1000"
-                        style={{
-                          width: `${Math.min(90, Math.max(20, 100 - (deal.stock / 50) * 100))}%`,
-                          background: `linear-gradient(90deg, ${blob.a}, ${blob.b})`,
-                        }}
-                      />
-                    </div>
-                  </div>
+                  {/* Stock progress bar — real % claimed when we have a baseline,
+                      cosmetic fallback for legacy products without a snapshot. */}
+                  {(() => {
+                    const claimed = getClaimedPercent({ stock: deal.stock, saleInitialStock: deal.saleInitialStock })
+                    const pct = claimed ?? Math.min(90, Math.max(20, 100 - (deal.stock / 50) * 100))
+                    const label = claimed != null ? `${claimed}% claimed` : 'Selling fast'
+                    return (
+                      <div className="mt-4">
+                        <div className="flex justify-between text-[11px] text-slate-400 mb-1.5">
+                          <span>{label}</span>
+                          <span>{deal.stock} left</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-1000"
+                            style={{
+                              width: `${pct}%`,
+                              background: `linear-gradient(90deg, ${blob.a}, ${blob.b})`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   <div className="flex items-center gap-1.5 mt-4 text-sm font-semibold text-slate-500 group-hover:text-slate-900 transition-colors">
                     Grab deal <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />

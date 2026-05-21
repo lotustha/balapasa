@@ -93,3 +93,58 @@ export interface PickupReadyData extends BrandFields {
   pickupWindow:  string | null
   orderUrl:      string
 }
+
+export interface CustomerOrderCancelledData extends BrandFields {
+  orderId:        string
+  orderCode:      string | null
+  recipientName:  string
+  total:          number
+  paymentMethod:  string
+  refundPending:  boolean              // true when a wallet refund is owed
+  orderUrl:       string
+}
+
+export interface ReturnFiledData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  refundAmount:  number
+  items:         Array<{ name: string; quantity: number }>
+  orderUrl:      string
+}
+
+export interface ReturnRequestedAdminData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  customerName:  string
+  refundAmount:  number
+  itemCount:     number
+  reason:        string
+  adminUrl:      string
+}
+
+export interface ReturnApprovedData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  storeAddress:  string                 // where to ship the items back
+  adminNote:     string | null
+  orderUrl:      string
+}
+
+export interface ReturnRejectedData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  reason:        string                 // admin's stated reason
+  orderUrl:      string
+}
+
+export interface RefundIssuedData extends BrandFields {
+  orderId:       string
+  orderCode:     string | null
+  recipientName: string
+  refundAmount:  number
+  method:        string                 // free-text from adminNote ("via eSewa P2P", "in cash on pickup", etc.)
+  orderUrl:      string
+}

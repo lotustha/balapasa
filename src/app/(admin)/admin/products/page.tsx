@@ -7,7 +7,7 @@ import {
   Package, Plus, Search, Filter, Edit2, Trash2, Eye,
   Download, Upload, Loader2, CheckCircle2, AlertTriangle, X,
   Building2, TrendingUp, TrendingDown, RefreshCw, RotateCcw,
-  Minus, History, Warehouse, ImageOff, CheckSquare, Square,
+  Minus, History, Warehouse, ImageOff, CheckSquare, Square, Zap,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
@@ -686,6 +686,32 @@ export default function ProductsPage() {
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary-bg rounded-lg transition-colors cursor-pointer">
                               <Eye size={14} />
                             </Link>
+                            <button
+                              type="button"
+                              title="Mark as 24h Deal of the Day (20% off, expires in 24h)"
+                              onClick={async () => {
+                                if (!confirm(`Make "${p.name}" the Deal of the Day for 24h with 20% off?`)) return
+                                const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                                const res = await fetch(`/api/products/${p.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    salePrice:           Math.round(p.price * 0.8 * 100) / 100,
+                                    salePriceStartsAt:   new Date().toISOString(),
+                                    salePriceExpiresAt:  expires,
+                                    isDealOfTheDay:      true,
+                                  }),
+                                })
+                                if (!res.ok) {
+                                  const j = await res.json().catch(() => ({}))
+                                  alert(j.error ?? 'Failed to set as DOTD')
+                                  return
+                                }
+                                window.location.href = `/admin/products/${p.id}/edit`
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer">
+                              <Zap size={14} />
+                            </button>
                             <Link href={`/admin/products/${p.id}/edit`}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer inline-flex">
                               <Edit2 size={14} />

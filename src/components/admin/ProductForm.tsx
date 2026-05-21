@@ -22,7 +22,11 @@ export interface ProductData {
   id?: string
   name: string; slug: string; sku: string; description: string; images: string[]
   videoUrl: string
-  price: string; salePrice: string; salePriceExpiresAt: string; costPrice: string; isTaxable: boolean
+  price: string; salePrice: string
+  salePriceStartsAt: string; salePriceExpiresAt: string
+  maxPerCustomerOnSale: string
+  isDealOfTheDay: boolean
+  costPrice: string; isTaxable: boolean
   trackInventory: boolean; stock: string; lowStockThreshold: string
   barcode: string; weight: string
   length: string; width: string; height: string
@@ -33,7 +37,11 @@ export interface ProductData {
 
 const EMPTY: ProductData = {
   name: '', slug: '', sku: '', description: '', images: [], videoUrl: '',
-  price: '', salePrice: '', salePriceExpiresAt: '', costPrice: '', isTaxable: false,
+  price: '', salePrice: '',
+  salePriceStartsAt: '', salePriceExpiresAt: '',
+  maxPerCustomerOnSale: '',
+  isDealOfTheDay: false,
+  costPrice: '', isTaxable: false,
   trackInventory: true, stock: '10', lowStockThreshold: '10',
   barcode: '', weight: '',
   length: '', width: '', height: '',
@@ -973,7 +981,10 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       name: form.name, slug: form.slug, description: form.description, images: form.images,
       price: Number(form.price),
       salePrice: form.salePrice ? Number(form.salePrice) : null,
+      salePriceStartsAt:  form.salePrice && form.salePriceStartsAt  ? new Date(form.salePriceStartsAt).toISOString()  : null,
       salePriceExpiresAt: form.salePrice && form.salePriceExpiresAt ? new Date(form.salePriceExpiresAt).toISOString() : null,
+      maxPerCustomerOnSale: form.salePrice && form.maxPerCustomerOnSale ? Number(form.maxPerCustomerOnSale) : null,
+      isDealOfTheDay: form.isDealOfTheDay && !!form.salePrice,
       costPrice: form.costPrice ? Number(form.costPrice) : null,
       isTaxable: form.isTaxable, stock: Number(form.stock),
       lowStockThreshold: Number(form.lowStockThreshold),
@@ -1153,22 +1164,75 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                   placeholder="Leave blank for no discount"
                   className={inputCls} />
 
-                {/* Expiry — only shown when sale price is set */}
+                {/* Schedule + flash-sale extras — only shown when sale price is set */}
                 {form.salePrice && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-500">Sale ends</label>
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    {/* Sale starts */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-500">Sale starts</label>
+                        <button type="button"
+                          onClick={() => set('salePriceStartsAt', '')}
+                          className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${!form.salePriceStartsAt ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                          Live now
+                        </button>
+                      </div>
+                      <SaleDateTimePicker
+                        value={form.salePriceStartsAt}
+                        onChange={v => set('salePriceStartsAt', v)}
+                        onClear={() => set('salePriceStartsAt', '')}
+                      />
+                      <p className="text-[10px] text-slate-400">Leave blank to go live immediately. Schedule a future date to pre-stage a flash sale.</p>
+                    </div>
+
+                    {/* Sale ends */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-500">Sale ends</label>
+                        <button type="button"
+                          onClick={() => set('salePriceExpiresAt', '')}
+                          className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${!form.salePriceExpiresAt ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                          ∞ Never expires
+                        </button>
+                      </div>
+                      <SaleDateTimePicker
+                        value={form.salePriceExpiresAt}
+                        onChange={v => set('salePriceExpiresAt', v)}
+                        onClear={() => set('salePriceExpiresAt', '')}
+                      />
+                    </div>
+
+                    {/* Max per customer */}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 block mb-1.5">Max per customer (during sale)</label>
+                      <input type="number" min="1" step="1"
+                        value={form.maxPerCustomerOnSale}
+                        onChange={e => set('maxPerCustomerOnSale', e.target.value)}
+                        placeholder="No limit"
+                        className={inputCls} />
+                      <p className="text-[10px] text-slate-400 mt-1">Anti-hoarding cap. Blank = no limit. Enforced at checkout.</p>
+                    </div>
+
+                    {/* Deal of the Day toggle */}
+                    <div className="flex items-start justify-between gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/50">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-amber-700">⚡ Mark as Deal of the Day</p>
+                        <p className="text-[10px] text-amber-600 leading-snug mt-0.5">
+                          Promotes this product to the big hero card on the homepage.
+                          Only one product can be DOTD at a time — flagging this clears the previous one.
+                        </p>
+                      </div>
                       <button type="button"
-                        onClick={() => set('salePriceExpiresAt', '')}
-                        className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${!form.salePriceExpiresAt ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-                        ∞ Never expires
+                        onClick={() => set('isDealOfTheDay', !form.isDealOfTheDay)}
+                        className={`shrink-0 relative w-10 h-6 rounded-full transition-colors cursor-pointer ${form.isDealOfTheDay ? 'bg-amber-500' : 'bg-slate-200'}`}>
+                        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${form.isDealOfTheDay ? 'left-[18px]' : 'left-0.5'}`} />
                       </button>
                     </div>
-                    <SaleDateTimePicker
-                      value={form.salePriceExpiresAt}
-                      onChange={v => set('salePriceExpiresAt', v)}
-                      onClear={() => set('salePriceExpiresAt', '')}
-                    />
+
+                    {/* Stock snapshot hint */}
+                    <p className="text-[10px] text-slate-400 italic">
+                      Initial stock is captured automatically the first time you save with a sale price set — it powers the &ldquo;% claimed&rdquo; bar on the storefront.
+                    </p>
                   </div>
                 )}
               </div>

@@ -25,7 +25,19 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       </main>
       {/* Footer hidden on mobile — bottom nav replaces it */}
       <div className="hidden md:block">
-        <Footer siteName={settings.siteName} brandSplit={settings.brandSplit} logoUrl={settings.logoUrl} />
+        <Footer
+          siteName={settings.siteName}
+          brandSplit={settings.brandSplit}
+          logoUrl={settings.logoUrl}
+          storeEmail={settings.storeEmail}
+          storePhone={settings.storePhone}
+          storeAddress={settings.storeAddress}
+          whatsappNumber={settings.whatsappNumber}
+          facebookPageId={settings.facebookPageId}
+          instagramUrl={settings.content.contact.instagram}
+          xUrl={settings.content.contact.x}
+          youtubeUrl={settings.content.contact.youtube}
+        />
       </div>
       <BottomNav />
       <WhatsAppButton />

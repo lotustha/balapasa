@@ -54,10 +54,14 @@ export async function GET(req: NextRequest) {
     if (supplierId)          where.supplierId  = supplierId
     if (stock === 'out')  where.stock = 0
     if (stock === 'low')  Object.assign(where, { trackInventory: true, stock: { gt: 0, lte: 10 } })
-    if (flash === 'true') Object.assign(where, {
-      salePrice: { not: null },
-      OR: [{ salePriceExpiresAt: null }, { salePriceExpiresAt: { gt: new Date() } }],
-    })
+    if (flash === 'true') {
+      const now = new Date()
+      where.salePrice = { not: null }
+      where.AND = [
+        { OR: [{ salePriceExpiresAt: null }, { salePriceExpiresAt: { gt: now } }] },
+        { OR: [{ salePriceStartsAt:  null }, { salePriceStartsAt:  { lte: now } }] },
+      ]
+    }
 
     if (search) {
       where.OR = [
@@ -88,13 +92,18 @@ export async function GET(req: NextRequest) {
       prisma.product.count({ where }),
     ])
 
-    // Null out salePrice if its expiry has passed (enforce at response time)
+    // Null out salePrice when the sale is not currently live (expired OR
+    // scheduled for the future). Admin requests with admin=true bypass this
+    // masking so the editor can show what's saved.
     const now = new Date()
-    const products = rawProducts.map(p =>
-      p.salePriceExpiresAt && p.salePriceExpiresAt <= now
-        ? { ...p, salePrice: null, salePriceExpiresAt: null }
-        : p
-    )
+    const products = admin ? rawProducts : rawProducts.map(p => {
+      const expired   = p.salePriceExpiresAt && p.salePriceExpiresAt <= now
+      const scheduled = p.salePriceStartsAt  && p.salePriceStartsAt  >  now
+      if (expired || scheduled) {
+        return { ...p, salePrice: null, salePriceExpiresAt: expired ? null : p.salePriceExpiresAt }
+      }
+      return p
+    })
 
     return Response.json({ products, total, page, totalPages: Math.ceil(total / limit) })
   } catch {
@@ -106,7 +115,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      name, slug, description, price, salePrice, salePriceExpiresAt, costPrice,
+      name, slug, description, price, salePrice,
+      salePriceStartsAt, salePriceExpiresAt, maxPerCustomerOnSale, isDealOfTheDay,
+      costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, videoUrl, boughtTogetherIds,
@@ -147,10 +158,24 @@ export async function POST(req: NextRequest) {
         width:             width    ? Number(width)  : null,
         height:            height   ? Number(height) : null,
         videoUrl:             videoUrl || null,
+        salePriceStartsAt:    salePriceStartsAt  ? new Date(salePriceStartsAt)  : null,
         salePriceExpiresAt:   salePriceExpiresAt ? new Date(salePriceExpiresAt) : null,
+        maxPerCustomerOnSale: maxPerCustomerOnSale ? Number(maxPerCustomerOnSale) : null,
+        isDealOfTheDay:       isDealOfTheDay === true || isDealOfTheDay === 'true',
+        // Snapshot stock when creating a product that already has a sale price.
+        saleInitialStock:     salePrice ? Number(stock ?? 10) : null,
         boughtTogetherIds:    Array.isArray(boughtTogetherIds) ? boughtTogetherIds : [],
       },
     })
+
+    // Only one product can be DOTD at a time. If this one was flagged, clear
+    // the flag on any other product.
+    if (isDealOfTheDay === true || isDealOfTheDay === 'true') {
+      await prisma.product.updateMany({
+        where: { isDealOfTheDay: true, NOT: { id: product.id } },
+        data:  { isDealOfTheDay: false },
+      })
+    }
 
     // Save options + variants if provided
     if (variantOptions?.length) {

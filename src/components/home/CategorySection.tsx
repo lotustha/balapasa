@@ -9,6 +9,7 @@ interface DbCategory {
   id: string; name: string; slug: string; color: string
   icon: string | null; image: string | null
   sales?: number
+  previewImages?: string[]
   _count?: { products: number }
 }
 
@@ -23,11 +24,16 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
   const rgb      = hexToRgb(cat.color || '#16A34A')
   const gradient = `linear-gradient(135deg, rgba(${rgb},0.08) 0%, rgba(${rgb},0.18) 100%)`
   const productCount = cat._count?.products ?? 0
+  const previews     = cat.previewImages ?? []
+
+  // Pad the preview slot count to 4 so the 2x2 grid always renders the same
+  // shape — empty cells get a soft branded gradient instead of blank space.
+  const cells = Array.from({ length: 4 }, (_, i) => previews[i] ?? null)
 
   return (
     <Link
       href={`/products?category=${cat.slug}`}
-      className="group relative flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border border-white/70 shadow-sm transition-all duration-300 hover:-translate-y-1 cursor-pointer animate-fade-in-up overflow-hidden"
+      className="group relative flex flex-col gap-3 p-3 rounded-2xl border border-white/70 shadow-sm transition-all duration-300 hover:-translate-y-1 cursor-pointer animate-fade-in-up overflow-hidden"
       style={{
         animationDelay: `${idx * 0.05}s`,
         background:    'rgba(255,255,255,0.78)',
@@ -40,31 +46,56 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
         style={{ background: gradient }}
       />
 
-      {/* Icon container */}
+      {/* 2x2 preview collage */}
       <div
-        className="relative w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-3deg] overflow-hidden"
-        style={{
-          background: `rgba(${rgb},0.12)`,
-          border: `1px solid rgba(${rgb},0.25)`,
-        }}
+        className="relative grid grid-cols-2 gap-1.5 rounded-xl overflow-hidden aspect-square"
+        style={{ background: `rgba(${rgb},0.06)` }}
       >
-        {cat.image ? (
-          <Image src={cat.image} alt={cat.name} fill sizes="56px" className="object-cover" />
-        ) : cat.icon ? (
-          <span style={{ fontSize: 26, lineHeight: 1 }}>{cat.icon}</span>
-        ) : (
-          <div className="w-5 h-5 rounded-full" style={{ background: cat.color }} />
+        {cells.map((src, i) =>
+          src ? (
+            <div key={i} className="relative bg-white/60 rounded-md overflow-hidden">
+              <Image
+                src={src}
+                alt=""
+                fill
+                sizes="(max-width:640px) 25vw, (max-width:1024px) 16vw, 12vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            </div>
+          ) : cat.icon && i === 0 && previews.length === 0 ? (
+            <div
+              key={i}
+              className="col-span-2 row-span-2 flex items-center justify-center rounded-md"
+              style={{
+                background: `linear-gradient(135deg, rgba(${rgb},0.15), rgba(${rgb},0.30))`,
+              }}
+            >
+              <span style={{ fontSize: 42, lineHeight: 1 }}>{cat.icon}</span>
+            </div>
+          ) : (
+            <div
+              key={i}
+              className="rounded-md"
+              style={{ background: `rgba(${rgb},0.10)` }}
+            />
+          ),
         )}
       </div>
 
-      {/* Label */}
-      <div className="relative text-center">
-        <h3 className="font-heading font-bold text-sm text-slate-800 leading-tight line-clamp-1">
-          {cat.name}
-        </h3>
-        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-          {productCount} {productCount === 1 ? 'item' : 'items'}
-        </p>
+      {/* Label + arrow */}
+      <div className="relative flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-heading font-bold text-sm text-slate-800 leading-tight line-clamp-1">
+            {cat.name}
+          </h3>
+          <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+            {productCount} {productCount === 1 ? 'item' : 'items'}
+          </p>
+        </div>
+        <ArrowRight
+          size={14}
+          className="shrink-0 text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all"
+        />
       </div>
     </Link>
   )
@@ -114,7 +145,11 @@ export default function CategorySection() {
         {categories.length === 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {[1,2,3,4,5,6,7,8].map(i => (
-              <div key={i} className="h-32 rounded-2xl skeleton" />
+              <div key={i} className="rounded-2xl border border-white/70 p-3" style={{ background: 'rgba(255,255,255,0.78)' }}>
+                <div className="aspect-square rounded-xl skeleton mb-3" />
+                <div className="h-3 rounded skeleton w-2/3 mb-1.5" />
+                <div className="h-2 rounded skeleton w-1/3" />
+              </div>
             ))}
           </div>
         ) : (

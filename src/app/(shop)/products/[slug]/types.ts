@@ -3,7 +3,13 @@ export interface ClientProduct {
   price: number; salePrice: number | null; stock: number
   images: string[]; brand: string | null; sku: string | null
   rating: number; reviewCount: number; isNew: boolean; isTaxable: boolean
-  videoUrl: string | null; salePriceExpiresAt: string | null; tags: string[]
+  videoUrl: string | null
+  salePriceStartsAt:    string | null
+  salePriceExpiresAt:   string | null
+  saleInitialStock:     number | null
+  maxPerCustomerOnSale: number | null
+  isDealOfTheDay:       boolean
+  tags: string[]
   weight: number | null
   length: number | null
   width:  number | null

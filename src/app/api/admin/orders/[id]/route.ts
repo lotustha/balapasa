@@ -5,6 +5,7 @@ import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 import { notifyPaymentReceipt } from '@/lib/notify-payment-receipt'
+import { restoreStockForOrder } from '@/lib/restore-stock'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -79,6 +80,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         body:    `Order #${order.id.slice(0, 8).toUpperCase()} has been cancelled. Contact support if this was unexpected.`,
       }).catch(() => {})
       maybeSendStatusEmail('CANCELLED')
+      // Restore stock so the inventory ledger stays honest. Idempotent: a
+      // second cancel is a no-op because the helper checks for an existing
+      // RETURN log keyed on this orderId.
+      restoreStockForOrder(order.id, 'ADMIN').catch(e =>
+        console.warn('[orders PATCH] stock restore failed (non-fatal):', e),
+      )
     }
 
     if (body.paymentStatus === 'PAID' && order.paymentStatus === 'PAID') {

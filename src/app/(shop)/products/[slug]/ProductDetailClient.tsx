@@ -3,17 +3,97 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import DeferOnVisible from '@/components/ui/DeferOnVisible'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   ShoppingCart, Star, Shield, Truck, RotateCcw, Minus, Plus, Zap,
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
-  GitCompareArrows, Eye, HelpCircle,
+  GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
+import { getClaimedPercent } from '@/lib/sale-status'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
+
+// ── Countdown hook ──────────────────────────────────────────────────────────
+function useSaleCountdown(iso: string | null) {
+  const [t, setT] = useState({ h: '00', m: '00', s: '00', done: !iso })
+  useEffect(() => {
+    if (!iso) return
+    const target = new Date(iso)
+    const tick = () => {
+      const d = target.getTime() - Date.now()
+      if (d <= 0) { setT({ h: '00', m: '00', s: '00', done: true }); return }
+      setT({
+        h: String(Math.floor(d / 3600000)).padStart(2, '0'),
+        m: String(Math.floor((d % 3600000) / 60000)).padStart(2, '0'),
+        s: String(Math.floor((d % 60000) / 1000)).padStart(2, '0'),
+        done: false,
+      })
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [iso])
+  return t
+}
+
+// ── Flash sale urgency strip ────────────────────────────────────────────────
+function FlashSaleStrip({
+  saleActive, expiresAt, stock, saleInitialStock, maxPerCustomerOnSale, isDealOfTheDay,
+}: {
+  saleActive: boolean
+  expiresAt: string | null
+  stock: number
+  saleInitialStock: number | null
+  maxPerCustomerOnSale: number | null
+  isDealOfTheDay: boolean
+}) {
+  const { h, m, s, done } = useSaleCountdown(saleActive ? expiresAt : null)
+  if (!saleActive || done) return null
+
+  const claimed = getClaimedPercent({ stock, saleInitialStock })
+  const showCountdown = !!expiresAt
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-pink-50 p-3.5 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold text-white"
+          style={{ background: 'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
+          <Flame size={11} className="fill-white" />
+          {isDealOfTheDay ? 'Deal of the Day' : 'Flash sale'}
+        </span>
+        {showCountdown && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+            <Clock size={12} /> Ends in
+            <span className="tabular-nums font-extrabold">{h}h {m}m {s}s</span>
+          </span>
+        )}
+      </div>
+
+      {claimed != null && (
+        <div>
+          <div className="flex justify-between text-[11px] mb-1">
+            <span className="font-semibold text-amber-700">{claimed}% claimed</span>
+            <span className="text-slate-500">only {stock} left</span>
+          </div>
+          <div className="h-2 bg-white rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${claimed}%`, background: 'linear-gradient(90deg,#F59E0B,#EC4899)' }} />
+          </div>
+        </div>
+      )}
+
+      {maxPerCustomerOnSale != null && (
+        <p className="text-[11px] font-semibold text-amber-700">
+          Limit {maxPerCustomerOnSale} per customer during this sale
+        </p>
+      )}
+    </div>
+  )
+}
 
 // ── Color hex map ───────────────────────────────────────────────────────────
 const COLOR_HEX: Record<string, string> = {
@@ -215,8 +295,13 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     })
   }
 
-  const saleActive = p?.salePrice != null && (!p.salePriceExpiresAt || new Date(p.salePriceExpiresAt) > new Date())
+  const saleActive = p?.salePrice != null
+    && (!p.salePriceStartsAt  || new Date(p.salePriceStartsAt)  <= new Date())
+    && (!p.salePriceExpiresAt || new Date(p.salePriceExpiresAt) >  new Date())
   const effectivePrice = activeVariant?.price ?? (saleActive ? p?.salePrice : null) ?? p?.price ?? 0
+  const qtyMax = saleActive && p?.maxPerCustomerOnSale
+    ? Math.min(p.maxPerCustomerOnSale, p.stock)
+    : (p?.stock ?? 0)
   const originalPrice  = p?.price ?? 0
   const totalVariantStock = variants.reduce((s, v) => s + (v.stock ?? 0), 0)
   const useVariantStock   = variants.length > 0 && totalVariantStock > 0
@@ -252,7 +337,6 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   }, [p?.slug])
 
   // ── Tabs ────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'description' | 'specs'>('description')
   const [openFaq,   setOpenFaq]   = useState<number | null>(null)
   const specs: Array<[string, string]> = useMemo(() => {
     if (!p) return []
@@ -566,6 +650,16 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 </p>
               )}
 
+              {/* Flash-sale urgency strip — countdown + claimed bar + per-customer pill */}
+              <FlashSaleStrip
+                saleActive={saleActive}
+                expiresAt={p.salePriceExpiresAt}
+                stock={p.stock}
+                saleInitialStock={p.saleInitialStock}
+                maxPerCustomerOnSale={p.maxPerCustomerOnSale}
+                isDealOfTheDay={p.isDealOfTheDay}
+              />
+
               <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-blue-50/80 border border-blue-100">
                 <Truck size={16} className="text-blue-600 shrink-0" />
                 <p className="text-xs text-slate-700">
@@ -616,7 +710,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     <Minus size={15} className="text-slate-600" />
                   </button>
                   <span className="w-10 text-center font-bold text-lg tabular-nums text-slate-900" aria-live="polite">{qty}</span>
-                  <button onClick={() => setQty(q => Math.min(variantStock,q+1))} aria-label="Increase quantity"
+                  <button onClick={() => setQty(q => Math.min(Math.min(variantStock, qtyMax || variantStock), q+1))} aria-label="Increase quantity"
                     className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
                     <Plus size={15} className="text-slate-600" />
                   </button>
@@ -684,29 +778,28 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               </div>
             </div>
 
-            {/* Description / Specs tabs */}
-            <div className="glass-panel p-5 min-w-0 overflow-hidden">
-              <div className="flex gap-6 border-b border-white/40 mb-4">
-                <button onClick={() => setActiveTab('description')}
-                  className={`pb-3 font-heading font-bold text-sm cursor-pointer transition-colors ${activeTab==='description'?'text-primary border-b-2 border-primary -mb-px':'text-slate-500 hover:text-slate-700'}`}>
-                  Description
-                </button>
-                <button onClick={() => setActiveTab('specs')}
-                  className={`pb-3 font-heading font-bold text-sm cursor-pointer transition-colors ${activeTab==='specs'?'text-primary border-b-2 border-primary -mb-px':'text-slate-500 hover:text-slate-700'}`}>
-                  Specifications
-                </button>
+            {/* Description card */}
+            <div className="glass-panel p-5 min-w-0 overflow-hidden" aria-labelledby="desc-heading">
+              <h3 id="desc-heading" className="font-heading font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
+                <FileText size={16} className="text-primary" /> Description
+              </h3>
+              <div className="min-w-0">
+                <div className="text-slate-600 text-sm leading-relaxed rte-render"
+                  dangerouslySetInnerHTML={{ __html: p.description }} />
+                {p.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/30">
+                    {p.tags.map(t => <span key={t} className="px-3 py-1 rounded-full text-xs font-semibold capitalize bg-primary-bg text-primary">#{t}</span>)}
+                  </div>
+                )}
               </div>
-              {activeTab === 'description' ? (
-                <div className="min-w-0">
-                  <div className="text-slate-600 text-sm leading-relaxed rte-render"
-                    dangerouslySetInnerHTML={{ __html: p.description }} />
-                  {p.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/30">
-                      {p.tags.map(t => <span key={t} className="px-3 py-1 rounded-full text-xs font-semibold capitalize bg-primary-bg text-primary">#{t}</span>)}
-                    </div>
-                  )}
-                </div>
-              ) : (
+            </div>
+
+            {/* Specifications card */}
+            {specs.length > 0 && (
+              <div className="glass-panel p-5 min-w-0 overflow-hidden" aria-labelledby="specs-heading">
+                <h3 id="specs-heading" className="font-heading font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
+                  <List size={16} className="text-primary" /> Specifications
+                </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <tbody>
@@ -719,8 +812,8 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* FAQ — only renders when AI has generated entries. Also marked
                 up as FAQPage JSON-LD in the server page for rich snippets. */}
@@ -821,6 +914,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
         {/* ── Product video (full width) ──────────────────────────────────── */}
         {videoYtId && (
+          <DeferOnVisible minHeight={400}>
           <section className="mt-16 animate-fade-in-up" aria-labelledby="video-heading">
             <h2 id="video-heading" className="font-heading font-bold text-slate-900 text-2xl mb-6 flex items-center gap-2">
               <Play size={20} className="text-primary" /> Product Video
@@ -844,9 +938,11 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               </div>
             </div>
           </section>
+          </DeferOnVisible>
         )}
 
         {/* ── Reviews (full width below hero) ──────────────────────────── */}
+        <DeferOnVisible minHeight={500}>
         <section id="reviews" className="mt-16 animate-fade-in-up" aria-labelledby="reviews-heading">
           <div className="flex items-center justify-between mb-5">
             <h2 id="reviews-heading" className="font-heading font-bold text-slate-900 text-2xl flex items-center gap-2">
@@ -1002,9 +1098,11 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             </div>
           )}
         </section>
+        </DeferOnVisible>
 
         {/* ── Shop's Choice ──────────────────────────────────────────────── */}
         {shopsChoice.length > 0 && (
+          <DeferOnVisible minHeight={400}>
           <section className="mt-16 animate-fade-in-up" aria-labelledby="shops-choice-heading">
             <h2 id="shops-choice-heading" className="font-heading font-bold text-slate-900 text-2xl mb-6 flex items-center gap-2">
               <Award size={20} className="text-gold-bright" /> Shop&apos;s Choice
@@ -1032,10 +1130,12 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               ))}
             </div>
           </section>
+          </DeferOnVisible>
         )}
 
         {/* ── Recently Viewed — Hover-reveal Quick Add ────────────────────── */}
         {recentlyViewed.length > 0 && (
+          <DeferOnVisible minHeight={400}>
           <section className="mt-16 animate-fade-in-up" aria-labelledby="recently-viewed-heading">
             <div className="flex items-end justify-between mb-6">
               <div>
@@ -1107,10 +1207,12 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               })}
             </div>
           </section>
+          </DeferOnVisible>
         )}
 
         {/* ── You Might Also Like — Hover-reveal Quick Add ─────────────────── */}
         {similar.length > 0 && (
+          <DeferOnVisible minHeight={400}>
           <section className="mt-16 mb-10 animate-fade-in-up" aria-labelledby="similar-heading">
             <div className="flex items-end justify-between mb-6">
               <div>
@@ -1189,6 +1291,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               })}
             </div>
           </section>
+          </DeferOnVisible>
         )}
       </div>
 

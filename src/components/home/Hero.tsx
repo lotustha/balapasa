@@ -109,14 +109,30 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
 
   useEffect(() => {
     if (!trending || trending.length < 2) return
-    const id = setInterval(() => {
-      setVisible(false)
-      setTimeout(() => {
-        setActiveIdx(i => (i + 1) % trending.length)
-        setVisible(true)
-      }, 300)
-    }, 4000)
-    return () => clearInterval(id)
+    let id: ReturnType<typeof setInterval> | null = null
+    const start = () => {
+      if (id) return
+      id = setInterval(() => {
+        setVisible(false)
+        setTimeout(() => {
+          setActiveIdx(i => (i + 1) % trending.length)
+          setVisible(true)
+        }, 300)
+      }, 4000)
+    }
+    const stop = () => {
+      if (id) { clearInterval(id); id = null }
+    }
+    // Run the auto-rotate only while the tab is visible. Background tabs
+    // shouldn't burn CPU swapping images nobody can see, and on mobile this
+    // saves real battery.
+    const onVis = () => { document.visibilityState === 'visible' ? start() : stop() }
+    if (document.visibilityState === 'visible') start()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      stop()
+    }
   }, [trending?.length])
 
   const current = trending?.[activeIdx] ?? null
@@ -198,9 +214,9 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
           </div>
 
           <div className="flex items-center gap-2 mt-4">
-            {['eSewa', 'Khalti', 'COD', 'Pathao'].map(p => (
-              <span key={p} className="px-2.5 py-1 glass-card rounded-lg text-[10px] font-semibold text-slate-500">{p}</span>
-            ))}
+            <span className="px-2.5 py-1 glass-card rounded-lg text-[10px] font-semibold text-slate-500">
+              COD accepted all over Nepal
+            </span>
           </div>
         </div>
 
@@ -308,7 +324,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
               </div>
               <p className="font-heading font-extrabold text-2xl text-slate-900">Up to <span className="gradient-text-warm">40% OFF</span></p>
               <p className="text-xs text-slate-500 mt-1">Selected products this week only</p>
-              <Link href="/products?featured=true"
+              <Link href="/deals"
                 className="inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-violet-600 hover:text-violet-700 cursor-pointer">
                 View Deals <ArrowRight size={12} />
               </Link>

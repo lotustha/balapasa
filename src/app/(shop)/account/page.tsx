@@ -2,7 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   User, ShoppingBag, MapPin, Heart, ChevronRight, Package, Star,
-  Settings, ArrowRight, Shield, Bell, Clock,
+  Settings, ArrowRight, Shield, Clock,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -225,7 +225,7 @@ export default async function AccountPage() {
                     return (
                       <Link
                         key={order.id}
-                        href={`/track-order?id=${order.id}`}
+                        href={`/account/orders/${order.id}`}
                         className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors cursor-pointer group"
                       >
                         <div className="flex -space-x-2 shrink-0">
@@ -257,7 +257,7 @@ export default async function AccountPage() {
                         <div className="text-right shrink-0">
                           <p className="font-extrabold text-sm text-slate-900">{formatPrice(order.total)}</p>
                           <p className="text-[10px] text-primary font-bold flex items-center gap-0.5 justify-end mt-0.5 group-hover:underline">
-                            Track <ChevronRight size={10} />
+                            View <ChevronRight size={10} />
                           </p>
                         </div>
                       </Link>
@@ -306,20 +306,6 @@ export default async function AccountPage() {
               </div>
 
               <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '0.18s' }}>
-                <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                    <Bell size={18} className="text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">Notifications</p>
-                    <p className="text-slate-400 text-xs mt-1 leading-relaxed">
-                      Get SMS and email updates for every step of your order.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '0.20s' }}>
                 <div className="flex items-start gap-3.5">
                   <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0">
                     <Heart size={18} className="text-pink-500" />

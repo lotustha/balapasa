@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { STORE_URL } from '@/lib/config'
 import Hero from '@/components/home/Hero'
 
 // ISR: re-generate the home shell every 5 minutes. Hero trending data is
@@ -10,28 +9,44 @@ import CategorySection from '@/components/home/CategorySection'
 import NewlyAddedProducts from '@/components/home/NewlyAddedProducts'
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import DealsSection from '@/components/home/DealsSection'
+import HeroDealOfTheDay from '@/components/home/HeroDealOfTheDay'
 import Newsletter from '@/components/home/Newsletter'
 import { ShieldCheck, Truck, RefreshCcw, Headphones } from 'lucide-react'
 import { getSiteSettings } from '@/lib/site-settings'
 
-export const metadata: Metadata = {
-  title: 'Balapasa — Tech & Beauty Hub Nepal',
-  description: 'Shop electronics, gadgets, skincare & beauty at the best prices in Nepal. Fast same-day delivery in Kathmandu via Pathao. 100% authentic products.',
-  keywords: ['online shopping Nepal', 'buy electronics Nepal', 'beauty products Nepal', 'fast delivery Kathmandu', 'gadgets Nepal', 'Balapasa'],
-  alternates: { canonical: '/' },
-  openGraph: {
-    title: 'Balapasa — Tech & Beauty Hub Nepal',
-    description: 'Shop electronics, gadgets, skincare & beauty at the best prices in Nepal. Fast same-day delivery across Kathmandu.',
-    url: '/',
-    type: 'website',
-    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Balapasa Nepal' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Balapasa — Tech & Beauty Hub Nepal',
-    description: 'Best prices on electronics, gadgets & beauty in Nepal. Fast delivery.',
-    images: ['/logo.png'],
-  },
+// Dynamic — title + OG content come from the DB so a freshly-renamed
+// store (or a multi-tenant deploy) gets the right SEO immediately.
+//
+// `title.absolute` bypasses the root layout's `%s | ${siteName}` template so
+// the homepage shows its own crafted SEO title once (e.g. "Balapasa — Tech &
+// Beauty Hub Nepal") rather than "Balapasa — Tech & Beauty Hub Nepal | Balapasa".
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSiteSettings()
+  const title    = s.seo.title       || `${s.siteName} — Online Shopping`
+  const desc     = s.seo.description || `Shop online with ${s.siteName} — fast delivery, authentic products, easy returns.`
+  const keywords = s.seo.keywords    || `${s.siteName}, online shopping`
+  const ogImage  = s.logoUrl         || '/logo.png'
+
+  return {
+    title: { absolute: title },
+    description: desc,
+    keywords,
+    alternates: { canonical: '/' },
+    openGraph: {
+      title,
+      description: desc,
+      url:         '/',
+      siteName:    s.siteName,
+      type:        'website',
+      images: [{ url: ogImage, width: 512, height: 512, alt: s.siteName }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: desc,
+      images: [ogImage],
+    },
+  }
 }
 
 const TRUST = [
@@ -43,15 +58,15 @@ const TRUST = [
 
 export default async function HomePage() {
   const settings = await getSiteSettings()
-  const logoAbsolute = settings.logoUrl.startsWith('http') ? settings.logoUrl : `${STORE_URL}${settings.logoUrl}`
+  const logoAbsolute = settings.logoUrl.startsWith('http') ? settings.logoUrl : `${settings.storeUrl}${settings.logoUrl}`
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'OnlineStore',
         name: settings.siteName,
-        description: 'Premium electronics, gadgets & beauty products. Fast delivery across Nepal.',
-        url: STORE_URL,
+        description: settings.seo.description,
+        url: settings.storeUrl,
         logo: logoAbsolute,
         areaServed: { '@type': 'Country', name: 'Nepal' },
         priceRange: '$$',
@@ -66,6 +81,7 @@ export default async function HomePage() {
       <CategorySection />
       <NewlyAddedProducts />
       <FeaturedProducts />
+      <HeroDealOfTheDay />
       <DealsSection />
 
       {/* Trust bar */}

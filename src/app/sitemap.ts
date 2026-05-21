@@ -40,10 +40,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }).catch(() => []),
   ])
 
+  // /track-order is disallowed in robots.txt — emitting it from the sitemap
+  // is contradictory and Google logs it as a coverage warning. Keep only
+  // routes meant to be indexed.
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: BASE,                   lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
-    { url: `${BASE}/products`,     lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/track-order`,  lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.3 },
+    { url: BASE,                       lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
+    { url: `${BASE}/products`,         lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${BASE}/deals`,            lastModified: new Date(), changeFrequency: 'daily',   priority: 0.8 },
+    { url: `${BASE}/about`,            lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE}/contact`,          lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE}/faq`,              lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE}/privacy`,          lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${BASE}/terms`,            lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${BASE}/refund-policy`,    lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${BASE}/shipping-policy`,    lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${BASE}/cancellation-policy`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
   ]
 
   const categoryRoutes: MetadataRoute.Sitemap = categories.map(c => ({

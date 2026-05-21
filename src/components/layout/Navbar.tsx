@@ -8,7 +8,7 @@ import { useCart } from '@/context/CartContext'
 import CartDrawer from '@/components/ui/CartDrawer'
 import {
   ShoppingCart, Search, Menu, X, User, Heart,
-  Truck, ArrowRight, Star, Loader2,
+  Truck, ArrowRight, Star, Loader2, Zap, Store,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import BrandText from '@/components/ui/BrandText'
@@ -257,6 +257,26 @@ export default function Navbar({
               <Image src={logoUrl} alt={siteName} width={34} height={34} className="rounded-xl shrink-0" unoptimized />
               <BrandText name={siteName} split={brandSplit} className="font-heading font-bold text-lg text-slate-800" />
             </Link>
+
+            {/* Primary nav (desktop only — bottom nav covers mobile) */}
+            <nav className="hidden md:flex items-center gap-1 shrink-0 ml-1">
+              <Link href="/products"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  pathname === '/products'
+                    ? 'text-primary bg-primary-bg'
+                    : 'text-slate-600 hover:text-primary hover:bg-white/70'
+                }`}>
+                <Store size={15} /> Shop
+              </Link>
+              <Link href="/deals"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  pathname === '/deals'
+                    ? 'text-amber-700 bg-amber-50'
+                    : 'text-slate-600 hover:text-amber-700 hover:bg-amber-50/60'
+                }`}>
+                <Zap size={15} className="fill-amber-400 text-amber-500" /> Flash Deals
+              </Link>
+            </nav>
 
             {/* Inline search (desktop) */}
             <InlineSearch />

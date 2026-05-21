@@ -23,6 +23,10 @@ class GiftCardRaceError extends Error {
   readonly _giftCard = true
 }
 
+class StockRaceError extends Error {
+  readonly _stock = true
+}
+
 export async function POST(req: NextRequest) {
   try {
     let userId: string | null = null
@@ -68,6 +72,28 @@ export async function POST(req: NextRequest) {
         { error: `Payment method "${paymentMethod}" is temporarily unavailable. Please use Cash on Delivery.` },
         { status: 400 },
       )
+    }
+
+    // ── Per-customer flash-sale cap ────────────────────────────────────
+    // Products on flash sale can set maxPerCustomerOnSale. Reject the order
+    // if any line item exceeds the cap. v1 enforces per-order only — historical
+    // orders aren't summed.
+    const itemsForCap = items as { id: string; quantity: number }[]
+    if (itemsForCap?.length) {
+      const productIds = itemsForCap.map(i => i.id)
+      const capped = await prisma.product.findMany({
+        where:  { id: { in: productIds }, maxPerCustomerOnSale: { not: null } },
+        select: { id: true, name: true, maxPerCustomerOnSale: true },
+      })
+      for (const p of capped) {
+        const line = itemsForCap.find(i => i.id === p.id)
+        if (line && p.maxPerCustomerOnSale != null && Number(line.quantity) > p.maxPerCustomerOnSale) {
+          return Response.json(
+            { error: `${p.name} is limited to ${p.maxPerCustomerOnSale} per customer during this sale.` },
+            { status: 400 },
+          )
+        }
+      }
     }
 
     // ── Server-side coupon validation ──────────────────────────────────
@@ -116,11 +142,19 @@ export async function POST(req: NextRequest) {
 
     const serverTotal = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
 
-    // ── Atomic transaction: coupon usage check-and-increment + order create ─
-    // The raw UPDATE with WHERE used_count < max_uses is race-safe at the DB level.
-    // If the coupon was exhausted between validate and now (concurrent checkout),
-    // the update affects 0 rows and we abort the transaction.
-    const order = await prisma.$transaction(async tx => {
+    // Snapshot the item list once so the tx + post-tx logging can share it.
+    const itemList = items as {
+      id: string; name: string; price: number; salePrice?: number | null;
+      image: string; quantity: number;
+    }[]
+
+    // ── Atomic transaction: coupon + gift-card + STOCK + order create ───────
+    // Every race-prone write happens under one $transaction. The raw UPDATEs
+    // use `WHERE ... AND condition >= qty` so concurrent checkouts can't
+    // double-spend a coupon, drain a gift card past zero, or oversell the
+    // last unit of a tracked product. Zero rows updated → throw a typed
+    // race error → handler maps it to 409.
+    const { order, stockUpdates } = await prisma.$transaction(async tx => {
       if (couponCode) {
         const updated = await tx.$executeRaw`
           UPDATE coupons
@@ -152,6 +186,41 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // ── Race-safe stock decrement ───────────────────────────────────────
+      // For products with track_inventory=true the UPDATE only matches when
+      // current stock can satisfy the order; 0 rows → out of stock. For
+      // non-tracked products the CASE leaves stock unchanged but the row
+      // still matches so we get a single result row back. Errors here abort
+      // the whole tx, so order/coupon/gift-card all roll back too.
+      const stockUpdates: Array<{ id: string; stock: number; trackInventory: boolean; name: string }> = []
+      for (const item of itemList) {
+        const rows = await tx.$queryRaw<Array<{ id: string; stock: number; track_inventory: boolean; name: string }>>`
+          UPDATE products
+          SET stock = CASE WHEN track_inventory THEN stock - ${item.quantity} ELSE stock END,
+              updated_at = NOW()
+          WHERE id = ${item.id}
+            AND is_active = true
+            AND (track_inventory = false OR stock >= ${item.quantity})
+          RETURNING id, stock, track_inventory, name
+        `
+        if (rows.length === 0) {
+          // Disambiguate so the client sees a useful message — missing product
+          // vs. inactive vs. out of stock all get tailored copy.
+          const present = await tx.product.findUnique({
+            where: { id: item.id },
+            select: { name: true, stock: true, trackInventory: true, isActive: true },
+          })
+          if (!present) {
+            throw new StockRaceError(`Sorry — "${item.name}" is no longer available. Please remove it from your cart.`)
+          }
+          if (!present.isActive) {
+            throw new StockRaceError(`Sorry — "${present.name}" was just taken off sale. Please remove it from your cart.`)
+          }
+          throw new StockRaceError(`Sorry — only ${present.stock} of "${present.name}" left in stock. Please update the quantity and try again.`)
+        }
+        stockUpdates.push({ id: rows[0].id, stock: rows[0].stock, trackInventory: rows[0].track_inventory, name: rows[0].name })
+      }
+
       const created = await tx.order.create({
         data: {
           userId,
@@ -179,10 +248,7 @@ export async function POST(req: NextRequest) {
           deliveryNote:   typeof deliveryNote === 'string' && deliveryNote.trim() ? deliveryNote.trim().slice(0, 500) : null,
           deliveryMode,
           items: {
-            create: (items as {
-              id: string; name: string; price: number; salePrice?: number | null;
-              image: string; quantity: number;
-            }[]).map(item => ({
+            create: itemList.map(item => ({
               productId: item.id,
               name: item.name,
               price: item.salePrice ?? item.price,
@@ -193,6 +259,24 @@ export async function POST(req: NextRequest) {
         },
       })
 
+      // InventoryLog for each tracked deduction. Inside the tx so we either
+      // get every row + the order, or none of it.
+      for (const u of stockUpdates) {
+        if (!u.trackInventory) continue
+        const item = itemList.find(i => i.id === u.id)
+        if (!item) continue
+        await tx.inventoryLog.create({
+          data: {
+            productId:   u.id,
+            type:        'SALE',
+            quantity:    -item.quantity,
+            stockAfter:  u.stock,
+            referenceId: created.id,
+            note:        `Order ${created.id.slice(0, 8).toUpperCase()}`,
+          },
+        })
+      }
+
       // Log gift card redemption (atomic with the balance decrement above)
       if (giftCardId && giftCardDiscount > 0) {
         await tx.giftCardRedemption.create({
@@ -200,7 +284,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      return created
+      return { order: created, stockUpdates }
     })
 
     const total = serverTotal
@@ -391,37 +475,12 @@ export async function POST(req: NextRequest) {
 
     // Note: coupon usedCount was already incremented atomically inside the transaction above.
 
-    // Track products that crossed the low-stock threshold during this order so
-    // a single combined alert email can fire below (one per product).
-    const crossedLowStock: Array<{ id: string; name: string; stock: number }> = []
-
-    try {
-      for (const item of items as { id: string; quantity: number }[]) {
-        const product = await prisma.product.findUnique({
-          where: { id: item.id },
-          select: { stock: true, trackInventory: true, name: true },
-        })
-        if (!product || !product.trackInventory) continue
-
-        const newStock = Math.max(0, product.stock - item.quantity)
-        await prisma.product.update({ where: { id: item.id }, data: { stock: newStock } })
-        await prisma.inventoryLog.create({
-          data: {
-            productId:   item.id,
-            type:        'SALE',
-            quantity:    -item.quantity,
-            stockAfter:  newStock,
-            referenceId: order.id,
-            note:        `Order ${order.id.slice(0, 8).toUpperCase()}`,
-          },
-        })
-        // Defer threshold comparison to the email block where we read the
-        // configured threshold once; just record the new stock here.
-        crossedLowStock.push({ id: item.id, name: product.name, stock: newStock })
-      }
-    } catch (e) {
-      console.warn('[orders] stock deduction failed (non-fatal):', e)
-    }
+    // Stock decrement + inventoryLog rows were written atomically inside the
+    // tx above. Build the low-stock candidate list from the per-item results
+    // we returned — only tracked products contribute.
+    const crossedLowStock: Array<{ id: string; name: string; stock: number }> = stockUpdates
+      .filter(u => u.trackInventory)
+      .map(u => ({ id: u.id, name: u.name, stock: u.stock }))
 
     // Admin new-order alert + low-stock alerts (both fire-and-forget).
     ;(async () => {
@@ -513,7 +572,7 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     )
   } catch (e) {
-    if (e instanceof CouponRaceError || e instanceof GiftCardRaceError) {
+    if (e instanceof CouponRaceError || e instanceof GiftCardRaceError || e instanceof StockRaceError) {
       return Response.json({ error: e.message }, { status: 409 })
     }
     console.error('[orders] create failed:', e)

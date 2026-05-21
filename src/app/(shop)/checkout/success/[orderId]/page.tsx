@@ -2,9 +2,18 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { CheckCircle, ArrowRight, Package, ShieldCheck, Truck, Mail, Sparkles, KeyRound } from 'lucide-react'
+import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { formatPrice } from '@/lib/utils'
 import { verifyMagicToken } from '@/lib/magic-link'
+
+// noindex is inherited from /checkout/layout.tsx; restated here so the
+// behaviour is grep-able and a refactor of the layout can't silently expose
+// per-order PII in search results.
+export const metadata: Metadata = {
+  title: 'Order Confirmed',
+  robots: { index: false, follow: false },
+}
 
 interface PageProps {
   params:       Promise<{ orderId: string }>

@@ -3,15 +3,16 @@ import { cache } from 'react'
 import { prisma } from '@/lib/prisma'
 import {
   HERO_DEFAULTS, SITE_DEFAULTS, SEO_DEFAULTS,
+  LEGAL_DEFAULTS, ABOUT_DEFAULTS, CONTACT_DEFAULTS,
   HERO_SETTING_KEYS, SITE_SETTING_KEYS,
-  parseBadges, splitBrandName, cleanBrandName,
+  parseBadges, parseFaq, splitBrandName, cleanBrandName,
   type SiteSettings,
 } from '@/lib/site-settings-shared'
 
 // Re-export so existing server callers (HERO_DEFAULTS, HERO_SETTING_KEYS, types)
 // keep working without import churn.
 export { HERO_DEFAULTS, SITE_DEFAULTS, SEO_DEFAULTS, HERO_SETTING_KEYS }
-export type { HeroSettings, HeroBadge, SeoSettings, SiteSettings } from '@/lib/site-settings-shared'
+export type { HeroSettings, HeroBadge, SeoSettings, SiteSettings, ContentSettings, FaqItem } from '@/lib/site-settings-shared'
 
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   try {
@@ -26,7 +27,12 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     return {
       siteName:   cleanBrandName(rawName),
       brandSplit: splitBrandName(rawName),
-      storeUrl:   map.STORE_URL         || SITE_DEFAULTS.storeUrl,
+      storeUrl:       map.STORE_URL         || SITE_DEFAULTS.storeUrl,
+      storeEmail:     map.STORE_EMAIL       ?? SITE_DEFAULTS.storeEmail,
+      storePhone:     map.STORE_PHONE       ?? SITE_DEFAULTS.storePhone,
+      storeAddress:   map.STORE_ADDRESS     ?? SITE_DEFAULTS.storeAddress,
+      whatsappNumber: map.WHATSAPP_NUMBER   ?? SITE_DEFAULTS.whatsappNumber,
+      facebookPageId: map.FACEBOOK_PAGE_ID  ?? SITE_DEFAULTS.facebookPageId,
       logoUrl:    map.STORE_LOGO_URL    || SITE_DEFAULTS.logoUrl,
       faviconUrl: map.STORE_FAVICON_URL || SITE_DEFAULTS.faviconUrl,
       hero: {
@@ -46,6 +52,27 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
         title:       map.SEO_TITLE       || SEO_DEFAULTS.title,
         description: map.SEO_DESCRIPTION || SEO_DEFAULTS.description,
         keywords:    map.SEO_KEYWORDS    || SEO_DEFAULTS.keywords,
+      },
+      content: {
+        legal: {
+          privacy:      map.LEGAL_PRIVACY_BODY      || LEGAL_DEFAULTS.privacy,
+          terms:        map.LEGAL_TERMS_BODY        || LEGAL_DEFAULTS.terms,
+          refund:       map.LEGAL_REFUND_BODY       || LEGAL_DEFAULTS.refund,
+          shipping:     map.LEGAL_SHIPPING_BODY     || LEGAL_DEFAULTS.shipping,
+          cancellation: map.LEGAL_CANCELLATION_BODY || LEGAL_DEFAULTS.cancellation,
+        },
+        about: {
+          title: map.ABOUT_TITLE || ABOUT_DEFAULTS.title,
+          body:  map.ABOUT_BODY  || ABOUT_DEFAULTS.body,
+        },
+        contact: {
+          instagram: map.CONTACT_INSTAGRAM ?? CONTACT_DEFAULTS.instagram,
+          x:         map.CONTACT_X         ?? CONTACT_DEFAULTS.x,
+          youtube:   map.CONTACT_YOUTUBE   ?? CONTACT_DEFAULTS.youtube,
+          hours:     map.CONTACT_HOURS     || CONTACT_DEFAULTS.hours,
+          mapEmbed:  map.CONTACT_MAP_EMBED ?? CONTACT_DEFAULTS.mapEmbed,
+        },
+        faq: parseFaq(map.FAQ_JSON),
       },
     }
   } catch {

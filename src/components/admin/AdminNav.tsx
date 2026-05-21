@@ -7,10 +7,9 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, LogOut, Ticket, Zap, MessageCircle, DollarSign, Monitor,
-  ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles,
+  ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles, RotateCcw,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { STORE_NAME } from '@/lib/config'
 import BrandText from '@/components/ui/BrandText'
 
 type Role = 'STAFF' | 'MANAGER' | 'ADMIN'
@@ -27,6 +26,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin',         icon: LayoutDashboard, label: 'Dashboard', minRole: 'STAFF' },
       { href: '/admin/orders',  icon: ShoppingBag,     label: 'Orders',    minRole: 'STAFF' },
+      { href: '/admin/returns', icon: RotateCcw,       label: 'Returns',   minRole: 'STAFF' },
       { href: '/admin/pos',     icon: Monitor,         label: 'POS',       minRole: 'STAFF' },
     ],
   },
@@ -87,12 +87,32 @@ function canAccess(userRole: Role, minRole: Role) {
   return ROLE_RANK[userRole] >= ROLE_RANK[minRole]
 }
 
-export default function AdminNav() {
+interface AdminNavProps {
+  siteName:   string
+  logoUrl:    string
+  brandSplit: { primary: string; accent: string }
+}
+
+export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProps) {
   const pathname  = usePathname()
   const [role, setRole] = useState<Role>('ADMIN')
+  const [pendingReturns, setPendingReturns] = useState(0)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.role) setRole(d.role) }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    function loadCount() {
+      fetch('/api/admin/returns?status=REQUESTED', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (!cancelled && d) setPendingReturns(d.countByStatus?.REQUESTED ?? 0) })
+        .catch(() => {})
+    }
+    loadCount()
+    const i = setInterval(loadCount, 60_000)
+    return () => { cancelled = true; clearInterval(i) }
   }, [])
 
   function isActive(href: string) {
@@ -110,9 +130,9 @@ export default function AdminNav() {
 
       {/* Brand */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/5">
-        <Image src="/logo.png" alt={STORE_NAME} width={36} height={36} className="rounded-xl" />
+        <Image src={logoUrl} alt={siteName} width={36} height={36} className="rounded-xl" unoptimized />
         <div>
-          <BrandText name={STORE_NAME} className="font-heading font-bold text-white text-sm leading-tight block" />
+          <BrandText name={siteName} split={brandSplit} className="font-heading font-bold text-white text-sm leading-tight block" />
           <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Admin Panel</p>
         </div>
       </div>
@@ -125,6 +145,7 @@ export default function AdminNav() {
             <div className="space-y-0.5">
               {group.items.map(({ href, icon: Icon, label }) => {
                 const active = isActive(href)
+                const badge  = href === '/admin/returns' && pendingReturns > 0 ? pendingReturns : null
                 return (
                   <Link
                     key={href}
@@ -137,7 +158,12 @@ export default function AdminNav() {
                   >
                     <Icon size={16} className={active ? 'text-white' : ''} />
                     {label}
-                    {active && <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full opacity-70" />}
+                    {badge !== null && (
+                      <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${active ? 'bg-white/25 text-white' : 'bg-amber-500/90 text-white'}`}>
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                    {badge === null && active && <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full opacity-70" />}
                   </Link>
                 )
               })}

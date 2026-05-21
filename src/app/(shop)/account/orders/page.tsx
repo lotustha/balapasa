@@ -55,6 +55,26 @@ function OrdersContent() {
   const [orders,  setOrders]  = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [unauth,  setUnauth]  = useState(false)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+
+  async function cancelOrder(orderId: string) {
+    if (!confirm('Cancel this order? If you paid via wallet, the refund will be issued by our team within a few days.')) return
+    setCancellingId(orderId)
+    try {
+      const res = await fetch(`/api/account/orders/${orderId}/cancel`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(json.error ?? `Failed (HTTP ${res.status})`)
+        return
+      }
+      // Soft-update the row in place so the UI reflects CANCELLED immediately.
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'CANCELLED' } : o))
+    } catch {
+      alert('Network error — try again.')
+    } finally {
+      setCancellingId(null)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/orders')
@@ -210,11 +230,37 @@ function OrdersContent() {
                       </span>
                       <span className="text-[10px] text-slate-400">{order.paymentMethod}</span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap justify-end">
                       <p className="font-extrabold text-sm text-slate-900">{formatPrice(order.total)}</p>
-                      <Link href={`/track-order?id=${order.id}`}
+                      {/* Pre-shipped actions — edit address + cancel. Hidden the
+                          moment the order moves past PROCESSING. */}
+                      {(order.status === 'PENDING' || order.status === 'CONFIRMED' || order.status === 'PROCESSING') && (
+                        <>
+                          <Link href={`/account/orders/${order.id}/edit-address`}
+                            className="text-xs font-semibold text-slate-500 hover:text-primary cursor-pointer underline-offset-2 hover:underline">
+                            Edit address
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => cancelOrder(order.id)}
+                            disabled={cancellingId === order.id}
+                            className="text-xs font-semibold text-red-500 hover:text-red-700 cursor-pointer underline-offset-2 hover:underline disabled:opacity-50"
+                          >
+                            {cancellingId === order.id ? 'Cancelling…' : 'Cancel order'}
+                          </button>
+                        </>
+                      )}
+                      {/* Post-delivery return entry point — only DELIVERED. The
+                          server gates the 7-day window separately. */}
+                      {order.status === 'DELIVERED' && (
+                        <Link href={`/account/orders/${order.id}/return`}
+                          className="text-xs font-semibold text-slate-500 hover:text-primary cursor-pointer underline-offset-2 hover:underline">
+                          Request return
+                        </Link>
+                      )}
+                      <Link href={`/account/orders/${order.id}`}
                         className="flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer">
-                        Track <ChevronRight size={12} />
+                        View details <ChevronRight size={12} />
                       </Link>
                     </div>
                   </div>

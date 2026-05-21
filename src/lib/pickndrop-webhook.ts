@@ -7,6 +7,7 @@ import { render as renderEmail } from '@/lib/emails/registry'
 import { sendEmailLogged } from '@/lib/email'
 import { getSiteSettings } from '@/lib/site-settings'
 import { pushOrderEvent } from '@/lib/push'
+import { restoreStockForOrder } from '@/lib/restore-stock'
 import type { DeliveryExceptionKind } from '@/lib/emails/types'
 
 // ── PnD event shape ─────────────────────────────────────────────────────────
@@ -168,6 +169,14 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   }
   if (Object.keys(dataUpdate).length > 0) {
     await prisma.order.update({ where: { id: order.id }, data: dataUpdate })
+  }
+
+  // When PnD cancels the order, restore stock so the inventory ledger stays
+  // honest. Idempotent — re-firing the webhook won't double-credit.
+  if (dataUpdate.status === 'CANCELLED') {
+    await restoreStockForOrder(order.id, 'PICKNDROP').catch(e =>
+      console.warn('[pickndrop-webhook] stock restore failed (non-fatal):', e),
+    )
   }
 
   // Fan-out notifications.

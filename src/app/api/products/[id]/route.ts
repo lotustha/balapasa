@@ -24,7 +24,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
   try {
     const body = await req.json()
     const {
-      name, slug, description, price, salePrice, costPrice,
+      name, slug, description, price, salePrice,
+      salePriceStartsAt, salePriceExpiresAt, maxPerCustomerOnSale, isDealOfTheDay,
+      costPrice,
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, boughtTogetherIds,
@@ -40,6 +42,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     if (description       !== undefined) data.description       = description
     if (price             !== undefined) data.price             = Number(price)
     if (salePrice         !== undefined) data.salePrice         = salePrice  ? Number(salePrice)  : null
+    if (salePriceStartsAt  !== undefined) data.salePriceStartsAt  = salePriceStartsAt  ? new Date(salePriceStartsAt as string)  : null
+    if (salePriceExpiresAt !== undefined) data.salePriceExpiresAt = salePriceExpiresAt ? new Date(salePriceExpiresAt as string) : null
+    if (maxPerCustomerOnSale !== undefined) data.maxPerCustomerOnSale = maxPerCustomerOnSale ? Number(maxPerCustomerOnSale) : null
+    if (isDealOfTheDay    !== undefined) data.isDealOfTheDay    = isDealOfTheDay === true || isDealOfTheDay === 'true'
     if (costPrice         !== undefined) data.costPrice         = costPrice  ? Number(costPrice)  : null
     if (stock             !== undefined) data.stock             = Number(stock)
     if (lowStockThreshold !== undefined) data.lowStockThreshold = Number(lowStockThreshold)
@@ -69,7 +75,32 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     const replaceOptions  = variantOptions !== undefined
 
     const product = await prisma.$transaction(async tx => {
+      // Snapshot stock when the sale transitions from inactive → active so the
+      // "% claimed" bar has a baseline. Clear the snapshot when sale ends.
+      const existing = await tx.product.findUnique({
+        where: { id },
+        select: { salePrice: true, saleInitialStock: true, stock: true },
+      })
+      if (existing) {
+        const becomingActive = data.salePrice !== undefined && data.salePrice !== null && existing.salePrice == null
+        const becomingInactive = data.salePrice !== undefined && data.salePrice === null && existing.salePrice != null
+        if (becomingActive && existing.saleInitialStock == null) {
+          data.saleInitialStock = (data.stock as number | undefined) ?? existing.stock
+        }
+        if (becomingInactive) {
+          data.saleInitialStock = null
+        }
+      }
+
       const updated = await tx.product.update({ where: { id }, data })
+
+      // Only one product can be DOTD at a time.
+      if (data.isDealOfTheDay === true) {
+        await tx.product.updateMany({
+          where: { isDealOfTheDay: true, NOT: { id } },
+          data:  { isDealOfTheDay: false },
+        })
+      }
 
       if (replaceOptions) {
         await tx.productOption.deleteMany({ where: { productId: id } })

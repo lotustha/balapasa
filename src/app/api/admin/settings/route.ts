@@ -5,6 +5,7 @@ import { invalidateEmailConfigCache } from '@/lib/email'
 import { invalidateActiveVariantCache } from '@/lib/emails/registry'
 import { invalidatePaymentConfigCache } from '@/lib/payment'
 import { invalidateEnabledPaymentMethodsCache } from '@/lib/payment-methods-server'
+import { invalidateReturnWindowCache } from '@/lib/return-eligibility'
 
 const SECRET_KEYS = new Set([
   'ANTHROPIC_API_KEY', 'GEMINI_API_KEY',
@@ -16,12 +17,18 @@ const SECRET_KEYS = new Set([
 
 const PUBLIC_SITE_KEYS = new Set([
   'STORE_NAME', 'STORE_LOGO_URL', 'STORE_FAVICON_URL', 'WHATSAPP_NUMBER',
+  'STORE_EMAIL', 'STORE_PHONE', 'STORE_ADDRESS', 'FACEBOOK_PAGE_ID',
   'HERO_BADGE_TEXT', 'HERO_HEADLINE_1', 'HERO_HEADLINE_2', 'HERO_ACCENT_WORD',
   'HERO_TAGLINE', 'HERO_SUBHEAD',
   'HERO_CTA_PRIMARY_LABEL', 'HERO_CTA_PRIMARY_URL',
   'HERO_CTA_SECONDARY_LABEL', 'HERO_CTA_SECONDARY_URL',
   'HERO_BADGES_JSON',
   'DELIVERY_MODE',
+  // Content tab — legal pages, about, contact extras, FAQ
+  'LEGAL_PRIVACY_BODY', 'LEGAL_TERMS_BODY', 'LEGAL_REFUND_BODY', 'LEGAL_SHIPPING_BODY', 'LEGAL_CANCELLATION_BODY',
+  'ABOUT_TITLE', 'ABOUT_BODY',
+  'CONTACT_INSTAGRAM', 'CONTACT_X', 'CONTACT_YOUTUBE', 'CONTACT_HOURS', 'CONTACT_MAP_EMBED',
+  'FAQ_JSON',
 ])
 
 function mask(key: string, value: string) {
@@ -78,6 +85,9 @@ export async function POST(req: NextRequest) {
     }
     if (entries.some(([k]) => k === 'PAYMENT_ESEWA_ENABLED' || k === 'PAYMENT_KHALTI_ENABLED')) {
       invalidateEnabledPaymentMethodsCache()
+    }
+    if (entries.some(([k]) => k === 'RETURN_WINDOW_DAYS')) {
+      invalidateReturnWindowCache()
     }
 
     return Response.json({ success: true, saved: entries.length })

@@ -11,16 +11,22 @@ export async function POST(req: NextRequest) {
 
     const rows = await prisma.product.findMany({
       where:  { id: { in: ids } },
-      select: { id: true, freeDelivery: true, isTaxable: true },
+      select: { id: true, freeDelivery: true, isTaxable: true, isActive: true, stock: true, trackInventory: true, name: true },
     })
     const flags: Record<string, boolean> = {}
     const taxable: Record<string, boolean> = {}
+    const validity: Record<string, { active: boolean; stock: number; trackInventory: boolean; name: string }> = {}
     for (const r of rows) {
-      flags[r.id]   = !!r.freeDelivery
-      taxable[r.id] = !!r.isTaxable
+      flags[r.id]    = !!r.freeDelivery
+      taxable[r.id]  = !!r.isTaxable
+      validity[r.id] = { active: r.isActive, stock: r.stock, trackInventory: r.trackInventory, name: r.name }
     }
-    return Response.json({ flags, taxable })
+    // ids the lookup couldn't find at all = deleted between add-to-cart and now
+    for (const id of ids) {
+      if (!validity[id]) validity[id] = { active: false, stock: 0, trackInventory: true, name: '' }
+    }
+    return Response.json({ flags, taxable, validity })
   } catch {
-    return Response.json({ flags: {}, taxable: {} })
+    return Response.json({ flags: {}, taxable: {}, validity: {} })
   }
 }

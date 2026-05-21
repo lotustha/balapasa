@@ -12,6 +12,12 @@ import type {
   DeliveryDispatchedData,
   DeliveryExceptionData,
   PickupReadyData,
+  CustomerOrderCancelledData,
+  ReturnFiledData,
+  ReturnRequestedAdminData,
+  ReturnApprovedData,
+  ReturnRejectedData,
+  RefundIssuedData,
 } from './types'
 
 import { orderConfirmedBranded } from './templates/order-confirmed/branded'
@@ -57,6 +63,13 @@ import { deliveryExceptionCompact } from './templates/delivery-exception/compact
 import { pickupReadyBranded } from './templates/pickup-ready/branded'
 import { pickupReadyMinimal } from './templates/pickup-ready/minimal'
 import { pickupReadyCompact } from './templates/pickup-ready/compact'
+
+import { customerOrderCancelledBranded } from './templates/customer-order-cancelled/branded'
+import { returnFiledBranded }              from './templates/return-filed/branded'
+import { returnRequestedAdminBranded }     from './templates/return-requested-admin/branded'
+import { returnApprovedBranded }           from './templates/return-approved/branded'
+import { returnRejectedBranded }           from './templates/return-rejected/branded'
+import { refundIssuedBranded }             from './templates/refund-issued/branded'
 
 export type RenderResult = { subject: string; html: string }
 
@@ -110,6 +123,12 @@ export interface EventDataMap {
   'delivery-dispatched': DeliveryDispatchedData
   'delivery-exception':  DeliveryExceptionData
   'pickup-ready':        PickupReadyData
+  'customer-order-cancelled': CustomerOrderCancelledData
+  'return-filed':             ReturnFiledData
+  'return-requested-admin':   ReturnRequestedAdminData
+  'return-approved':          ReturnApprovedData
+  'return-rejected':          ReturnRejectedData
+  'refund-issued':            RefundIssuedData
 }
 
 export type EventId = keyof EventDataMap
@@ -245,6 +264,61 @@ const SAMPLE_PICKUP_READY: PickupReadyData = {
   ...SAMPLE_BRAND,
 }
 
+const SAMPLE_ORDER_PREVIEW = {
+  orderId:   'previewid12345678',
+  orderCode: 'BLP-AIRP-123-0001',
+  ...SAMPLE_BRAND,
+}
+
+const SAMPLE_CUSTOMER_ORDER_CANCELLED: CustomerOrderCancelledData = {
+  ...SAMPLE_ORDER_PREVIEW,
+  recipientName: 'Aarav Sharma',
+  total:         4050,
+  paymentMethod: 'eSewa',
+  refundPending: true,
+  orderUrl:      'https://balapasa.com/track-order/BLP-AIRP-123-0001',
+}
+
+const SAMPLE_RETURN_FILED: ReturnFiledData = {
+  ...SAMPLE_ORDER_PREVIEW,
+  recipientName: 'Aarav Sharma',
+  refundAmount:  3500,
+  items:         [{ name: 'Wireless Earbuds Pro', quantity: 1 }],
+  orderUrl:      'https://balapasa.com/account/orders/previewid12345678/return',
+}
+
+const SAMPLE_RETURN_REQUESTED_ADMIN: ReturnRequestedAdminData = {
+  ...SAMPLE_ORDER_PREVIEW,
+  customerName: 'Aarav Sharma',
+  refundAmount: 3500,
+  itemCount:    1,
+  reason:       'Damaged',
+  adminUrl:     'https://balapasa.com/admin/returns/return_preview_id',
+}
+
+const SAMPLE_RETURN_APPROVED: ReturnApprovedData = {
+  ...SAMPLE_ORDER_PREVIEW,
+  recipientName: 'Aarav Sharma',
+  storeAddress:  'Balapasa Store, Balaju, Kathmandu',
+  adminNote:     'Bring the original packaging if possible.',
+  orderUrl:      'https://balapasa.com/account/orders/previewid12345678/return',
+}
+
+const SAMPLE_RETURN_REJECTED: ReturnRejectedData = {
+  ...SAMPLE_ORDER_PREVIEW,
+  recipientName: 'Aarav Sharma',
+  reason:        'The 7-day return window has already passed.',
+  orderUrl:      'https://balapasa.com/account/orders/previewid12345678',
+}
+
+const SAMPLE_REFUND_ISSUED: RefundIssuedData = {
+  ...SAMPLE_ORDER_PREVIEW,
+  recipientName: 'Aarav Sharma',
+  refundAmount:  3500,
+  method:        'Refunded via eSewa P2P transfer.',
+  orderUrl:      'https://balapasa.com/account/orders/previewid12345678',
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Registry — central map of event → variants. Adding a new event here +
 // shipping its variant modules is all that's needed; the gallery, render(),
@@ -345,6 +419,54 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     description: 'Sent for store-pickup orders when admin marks them ready.',
     sampleData:  SAMPLE_PICKUP_READY,
     variants:    [pickupReadyBranded, pickupReadyMinimal, pickupReadyCompact],
+    customerFacing: true,
+  }),
+  'customer-order-cancelled': defineEvent<CustomerOrderCancelledData>({
+    id:          'customer-order-cancelled',
+    label:       'Order cancelled by customer',
+    description: 'Customer-initiated cancellation before SHIPPED. Notes whether a refund is pending.',
+    sampleData:  SAMPLE_CUSTOMER_ORDER_CANCELLED,
+    variants:    [customerOrderCancelledBranded],
+    customerFacing: true,
+  }),
+  'return-filed': defineEvent<ReturnFiledData>({
+    id:          'return-filed',
+    label:       'Return filed (customer)',
+    description: 'Customer confirmation that the return request was received and is pending review.',
+    sampleData:  SAMPLE_RETURN_FILED,
+    variants:    [returnFiledBranded],
+    customerFacing: true,
+  }),
+  'return-requested-admin': defineEvent<ReturnRequestedAdminData>({
+    id:          'return-requested-admin',
+    label:       'Admin: new return request',
+    description: 'Internal alert when a customer files a return — surfaces refund amount + admin link.',
+    sampleData:  SAMPLE_RETURN_REQUESTED_ADMIN,
+    variants:    [returnRequestedAdminBranded],
+    customerFacing: false,
+  }),
+  'return-approved': defineEvent<ReturnApprovedData>({
+    id:          'return-approved',
+    label:       'Return approved',
+    description: 'Customer email when admin approves a return — includes the store return address.',
+    sampleData:  SAMPLE_RETURN_APPROVED,
+    variants:    [returnApprovedBranded],
+    customerFacing: true,
+  }),
+  'return-rejected': defineEvent<ReturnRejectedData>({
+    id:          'return-rejected',
+    label:       'Return rejected',
+    description: 'Customer email when admin rejects a return — communicates the reason.',
+    sampleData:  SAMPLE_RETURN_REJECTED,
+    variants:    [returnRejectedBranded],
+    customerFacing: true,
+  }),
+  'refund-issued': defineEvent<RefundIssuedData>({
+    id:          'refund-issued',
+    label:       'Refund issued',
+    description: 'Customer email confirming the refund has been paid out via the method admin recorded.',
+    sampleData:  SAMPLE_REFUND_ISSUED,
+    variants:    [refundIssuedBranded],
     customerFacing: true,
   }),
 }

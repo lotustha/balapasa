@@ -1,15 +1,15 @@
 import type { Metadata } from 'next'
+import { getSiteSettings } from '@/lib/site-settings'
 
-export const metadata: Metadata = {
-  title: 'Track Order',
-  description: `Track your ${process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa'} order status in real time. Enter your order ID to get live updates.`,
-  alternates: { canonical: '/track-order' },
-  openGraph: {
-    title: 'Track Your Order | Balapasa',
-    description: 'Enter your order ID to track your Balapasa delivery status in real time.',
-    url: '/track-order',
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSiteSettings()
+  return {
+    title: 'Track Order',
+    description: `Track your ${s.siteName} order status in real time. Enter your order ID to get live updates.`,
+    // Belt-and-braces with robots.txt: tracking lookup surfaces personal data
+    // by order code, so we don't want it in any index.
+    robots: { index: false, follow: false },
+  }
 }
 
 export default function TrackOrderLayout({ children }: { children: React.ReactNode }) {

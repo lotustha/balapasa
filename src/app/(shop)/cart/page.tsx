@@ -19,10 +19,13 @@ import {
   Truck,
   ChevronRight,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 
 const BASE_DELIVERY = 150;
-const VAT_RATE = 0.13; // 13% — Nepal standard VAT; all prices are VAT-inclusive
+// Nepal standard VAT rate. Applied only to items whose product.isTaxable is
+// true — non-taxable products skip the VAT line at both cart and checkout.
+const VAT_RATE = 0.13;
 
 // Mock "you might also like"
 const SUGGESTED = [
@@ -72,12 +75,49 @@ export default function CartPage() {
   const { items, subtotal, removeItem, updateQty, clearCart } = useCart();
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [freeThreshold, setFreeThreshold] = useState(5000);
+  // Per-item flags pulled from the server so the cart matches checkout: VAT
+  // is shown only when at least one taxable item is in the cart, and stale
+  // items (deleted, deactivated, or out of stock) get a warning banner.
+  const [taxableFlags, setTaxableFlags] = useState<Record<string, boolean>>({})
+  const [validity, setValidity] = useState<Record<string, { active: boolean; stock: number; trackInventory: boolean; name: string }>>({})
 
   useEffect(() => {
     fetch('/api/store-config').then(r => r.json())
       .then(d => setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const ids = items.map(i => i.id)
+    if (ids.length === 0) { setTaxableFlags({}); setValidity({}); return }
+    fetch('/api/products/cart-flags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+      .then(r => r.json())
+      .then(d => { setTaxableFlags(d.taxable ?? {}); setValidity(d.validity ?? {}) })
+      .catch(() => {})
+  }, [items])
+
+  // VAT calculated only on the taxable portion of the cart. Each price is
+  // already tax-inclusive at display, so VAT = gross − gross/(1+rate).
+  const taxableSubtotal = items.reduce((s, i) =>
+    taxableFlags[i.id] ? s + (i.salePrice ?? i.price) * i.quantity : s, 0)
+  const vatAmount = taxableSubtotal > 0
+    ? Math.round(taxableSubtotal - taxableSubtotal / (1 + VAT_RATE))
+    : 0
+
+  // Stale items — flagged so the customer fixes the cart before checkout
+  // throws a 409 at the order POST.
+  const staleItems = items.flatMap(it => {
+    const v = validity[it.id]
+    if (!v) return []
+    if (!v.active && !v.name)                                return [{ id: it.id, name: it.name, reason: 'No longer available' }]
+    if (!v.active)                                           return [{ id: it.id, name: v.name || it.name, reason: 'Was taken off sale' }]
+    if (v.trackInventory && v.stock < it.quantity)           return [{ id: it.id, name: v.name || it.name, reason: v.stock <= 0 ? 'Out of stock' : `Only ${v.stock} left` }]
+    return []
+  })
 
   const deliveryFee = subtotal >= freeThreshold ? 0 : BASE_DELIVERY;
   const toFreeDelivery = Math.max(0, freeThreshold - subtotal);
@@ -236,6 +276,37 @@ export default function CartPage() {
             <span className="text-xs text-slate-400 ml-auto">
               Orders over {formatPrice(freeThreshold)}
             </span>
+          </div>
+        )}
+
+        {staleItems.length > 0 && (
+          <div className="mb-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <AlertCircle size={16} className="text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-amber-900">Some items need your attention</p>
+                <ul className="mt-2 space-y-1 text-xs text-amber-800">
+                  {staleItems.map(s => (
+                    <li key={s.id} className="flex items-start gap-2">
+                      <span className="font-bold">•</span>
+                      <span><strong className="font-semibold">{s.name}</strong> — {s.reason}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(s.id)}
+                        className="ml-auto text-[11px] font-bold underline hover:text-amber-900 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[11px] text-amber-700">
+                  Update or remove these before checkout — they&apos;ll block the order otherwise.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -398,10 +469,12 @@ export default function CartPage() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-400 text-xs pt-1">
-                  <span>VAT ({Math.round(VAT_RATE * 100)}%) incl.</span>
-                  <span>{formatPrice(Math.round(subtotal - subtotal / (1 + VAT_RATE)))}</span>
-                </div>
+                {vatAmount > 0 && (
+                  <div className="flex justify-between text-slate-400 text-xs pt-1">
+                    <span>VAT ({Math.round(VAT_RATE * 100)}%) incl.</span>
+                    <span>{formatPrice(vatAmount)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Total */}
