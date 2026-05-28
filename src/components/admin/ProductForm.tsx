@@ -14,7 +14,9 @@ import VariantsEditor, { type VOption, type VVariant } from '@/components/admin/
 import ImageUploader from '@/components/admin/ImageUploader'
 import VideoUploader    from '@/components/admin/VideoUploader'
 import RichTextEditor  from '@/components/admin/RichTextEditor'
+import { exceeds, summarize, type Pkg, type CarrierLimits } from '@/lib/carrier-limits'
 
+interface CarrierLimitInfo extends CarrierLimits { active: boolean }
 interface Category { id: string; name: string }
 interface Supplier  { id: string; name: string }
 
@@ -942,6 +944,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
   const [saved,  setSaved]  = useState(false)
+  const [carrierLimits, setCarrierLimits] = useState<{ pathao: CarrierLimitInfo; pickndrop: CarrierLimitInfo } | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -953,6 +956,13 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       setSuppliers(s.suppliers ?? [])
       setBrands(b.brands ?? [])
     }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/admin/logistics/limits')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.pathao && d?.pickndrop) setCarrierLimits(d) })
+      .catch(() => {})
   }, [])
 
   const regenSKU = useCallback(() => set('sku', generateSKU(form.name)), [form.name])
@@ -971,6 +981,22 @@ export default function ProductForm({ initial, mode, productId }: Props) {
   }, [form.name, mode])
 
   const categoryName = categories.find(c => c.id === form.categoryId)?.name ?? ''
+
+  // Carrier weight/size check — warn (non-blocking) when this product exceeds
+  // an enabled carrier's limits. Blank fields = 0 = "unknown" → never flagged.
+  const CARRIER_LABEL = { pathao: 'Pathao', pickndrop: 'Pick & Drop' } as const
+  const pkg: Pkg = {
+    weightKg: Number(form.weight) || 0,
+    lengthCm: Number(form.length) || 0,
+    widthCm:  Number(form.width)  || 0,
+    heightCm: Number(form.height) || 0,
+  }
+  const overLimitCarriers = carrierLimits
+    ? (['pathao', 'pickndrop'] as const).filter(k => carrierLimits[k].active && exceeds(pkg, carrierLimits[k]).any)
+    : []
+  const fitCarriers = carrierLimits
+    ? (['pathao', 'pickndrop'] as const).filter(k => carrierLimits[k].active && !exceeds(pkg, carrierLimits[k]).any)
+    : []
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1310,6 +1336,18 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                 <p className="text-[10px] text-slate-400 mt-1.5">
                   Sent to delivery partners for package sizing. Leave blank if unknown — carriers will fall back to 1×1×1 cm.
                 </p>
+                {overLimitCarriers.length > 0 && (
+                  <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                    <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                    <span>
+                      Too big/heavy for{' '}
+                      {overLimitCarriers.map(k => `${CARRIER_LABEL[k]} (${summarize(pkg, carrierLimits![k])})`).join('; ')}.
+                      {fitCarriers.length > 0
+                        ? ` ${fitCarriers.map(k => CARRIER_LABEL[k]).join(' & ')} can still carry it.`
+                        : ' No enabled carrier can deliver this — use Store Rider or Manual for these orders.'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

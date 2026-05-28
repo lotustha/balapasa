@@ -363,6 +363,14 @@ model LogisticsSettings {
   // Cap on surge price passed through to customer (NPR). null/0 = no cap.
   maxSurgeNpr    Float?  @map("max_surge_npr")
 
+  // Per-provider parcel limits. A null value means "use the code default".
+  // Used to warn on the product form and hide an over-limit carrier on the
+  // admin order-assignment UI.
+  maxWeightKg  Float? @map("max_weight_kg")
+  maxLengthCm  Float? @map("max_length_cm")
+  maxWidthCm   Float? @map("max_width_cm")
+  maxHeightCm  Float? @map("max_height_cm")
+
   // Base URL override
   baseUrl      String?  @map("base_url")
 

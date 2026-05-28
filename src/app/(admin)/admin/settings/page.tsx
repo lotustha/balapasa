@@ -8,6 +8,7 @@ import {
   Save, Loader2, CheckCircle2, Eye, EyeOff, Copy,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
   MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library, Info,
+  AlertTriangle, X, Package, ShoppingCart, Receipt, Users, UserCog,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
@@ -494,6 +495,7 @@ interface ProviderRow {
   storeLat?: number | null; storeLng?: number | null; baseUrl?: string; notes?: string
   pickupBranch?: string; pickupArea?: string; pickupLocation?: string
   maxSurgeNpr?: number | null
+  maxWeightKg?: number | null; maxLengthCm?: number | null; maxWidthCm?: number | null; maxHeightCm?: number | null
 }
 
 const PATHAO_DEFAULTS: ProviderRow = {
@@ -501,12 +503,14 @@ const PATHAO_DEFAULTS: ProviderRow = {
   clientId: 'dev_5e5612b011f438ca5b30a2d6', clientSecret: 'F62z4qB1IazJzzgMYhKyBpdRWWRoAiikbQdR-SDrYdI',
   storeId: 'MROQI3O9', storeName: '', storePhone: '',
   storeAddress: '', baseUrl: 'https://enterprise-api.pathao.com',
+  maxWeightKg: 25, maxLengthCm: 60, maxWidthCm: 60, maxHeightCm: 60,
 }
 const PND_DEFAULTS: ProviderRow = {
   provider: 'PICKNDROP', isActive: true, isMock: false,
   apiKey: '', apiSecret: '', baseUrl: 'https://app-t.pickndropnepal.com',
   pickupBranch: 'KATHMANDU VALLEY', pickupArea: 'Kathmandu', pickupLocation: 'Balaju',
   maxSurgeNpr: 0,
+  maxWeightKg: 50, maxLengthCm: 120, maxWidthCm: 80, maxHeightCm: 80,
 }
 
 interface VendorSync {
@@ -595,6 +599,26 @@ function DeliverySettingsPanel() {
       </button>
     )
   }
+
+  const limitsGroup = (row: ProviderRow, setRow: React.Dispatch<React.SetStateAction<ProviderRow>>) => (
+    <>
+      <SectionTitle>Parcel limits</SectionTitle>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {(['maxWeightKg', 'maxLengthCm', 'maxWidthCm', 'maxHeightCm'] as const).map(key => (
+          <div key={key}>
+            <Label>{key === 'maxWeightKg' ? 'Max kg' : key === 'maxLengthCm' ? 'Max L (cm)' : key === 'maxWidthCm' ? 'Max W (cm)' : 'Max H (cm)'}</Label>
+            <input
+              type="number" min={0} step="0.1"
+              value={row[key] ?? ''}
+              onChange={e => setRow(p => ({ ...p, [key]: e.target.value === '' ? null : Number(e.target.value) }))}
+              className={fieldCls}
+            />
+          </div>
+        ))}
+      </div>
+      <Hint>Orders heavier or larger than this hide this carrier on the order page and warn on the product form. Blank = use default.</Hint>
+    </>
+  )
 
   return (
     <div className="space-y-6">
@@ -759,6 +783,8 @@ function DeliverySettingsPanel() {
             <div><Label>Longitude</Label><input type="number" value={pathao.storeLng ?? ''} onChange={e => setPathao(p => ({ ...p, storeLng: parseFloat(e.target.value) }))} className={fieldCls} /></div>
           </div>
 
+          {limitsGroup(pathao, setPathao)}
+
           <div className="flex justify-end pt-2 border-t border-slate-50"><ProviderSaveBtn provider="PATHAO" /></div>
         </div>
       </div>
@@ -844,6 +870,8 @@ function DeliverySettingsPanel() {
               <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Caps PnD&apos;s peak-traffic surge passed to customer. Anything above this amount is absorbed by the store. Set to <code className="px-1 bg-slate-100 rounded">0</code> to pass surge through unchanged.</p>
             </div>
           </div>
+
+          {limitsGroup(pnd, setPnd)}
 
           <PndWebhookSection />
 
@@ -995,6 +1023,164 @@ function PndWebhookSection() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Danger Zone ────────────────────────────────────────────────────────────
+
+type DangerTarget = 'products' | 'orders' | 'transactions' | 'staff' | 'customers'
+interface DangerCounts { products: number; orders: number; transactions: number; staff: number; customers: number }
+
+const DANGER_ACTIONS: {
+  target: DangerTarget; icon: typeof Trash2; title: string; desc: string
+}[] = [
+  { target: 'orders',       icon: ShoppingCart, title: 'Clear all orders',       desc: 'Deletes every order with its items, status history, return requests and order-code counters.' },
+  { target: 'transactions', icon: Receipt,      title: 'Clear all transactions', desc: 'Deletes all financial records — the expense ledger, subscription invoices and gift-card redemptions.' },
+  { target: 'products',     icon: Package,      title: 'Clear all products',     desc: 'Deletes every product with its variants, options, inventory logs, reviews, Q&A and wishlist entries.' },
+  { target: 'customers',    icon: Users,        title: 'Clear all customers',    desc: 'Deletes all customer accounts AND every order they placed, plus their addresses, reviews and wishlists.' },
+  { target: 'staff',        icon: UserCog,      title: 'Clear all staff',        desc: 'Deletes all staff, manager and admin accounts — except the one you are signed in with.' },
+]
+
+function DangerZone() {
+  const [counts, setCounts]   = useState<DangerCounts | null>(null)
+  const [confirmFor, setConfirmFor] = useState<DangerTarget | null>(null)
+  const [typed, setTyped]     = useState('')
+  const [busy, setBusy]       = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+  const [done, setDone]       = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/danger')
+      if (res.ok) setCounts(await res.json())
+    } catch { /* non-fatal */ }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  function openConfirm(target: DangerTarget) {
+    setConfirmFor(target); setTyped(''); setError(null); setDone(null)
+  }
+
+  async function runClear() {
+    if (!confirmFor) return
+    setBusy(true); setError(null)
+    try {
+      const res = await fetch('/api/admin/danger', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ target: confirmFor, confirm: typed.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? `HTTP ${res.status}`); return }
+      setDone(`Cleared all ${confirmFor}.`)
+      setConfirmFor(null)
+      await load()
+      setTimeout(() => setDone(null), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-red-100 overflow-hidden">
+      <div className="px-6 py-4 border-b border-red-50 bg-red-50/50 flex items-start gap-3">
+        <AlertTriangle size={18} className="text-red-500 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-bold text-red-700">These actions are permanent and cannot be undone.</p>
+          <p className="text-xs text-red-500 mt-0.5">Each one wipes data straight out of the database. Proceed only if you are absolutely sure.</p>
+        </div>
+      </div>
+
+      {done && (
+        <div className="mx-6 mt-4 flex items-center gap-2 p-2.5 rounded-lg text-[12px] bg-green-50 border border-green-100 text-green-700">
+          <CheckCircle2 size={14} className="shrink-0" /> {done}
+        </div>
+      )}
+
+      <div className="divide-y divide-red-50">
+        {DANGER_ACTIONS.map(({ target, icon: Icon, title, desc }) => {
+          const count = counts?.[target]
+          return (
+            <div key={target} className="p-6 flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <Icon size={16} className="text-red-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-800 text-sm">
+                    {title}
+                    {typeof count === 'number' && (
+                      <span className="ml-2 text-[11px] font-semibold text-slate-400">
+                        {count} record{count === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => openConfirm(target)}
+                disabled={count === 0}
+                className="shrink-0 px-4 py-2 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <Trash2 size={13} /> Clear
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {confirmFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !busy && setConfirmFor(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center">
+                  <AlertTriangle size={18} className="text-red-500" />
+                </div>
+                <h3 className="font-heading font-bold text-slate-800 text-base">Clear all {confirmFor}?</h3>
+              </div>
+              <button type="button" onClick={() => !busy && setConfirmFor(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 leading-relaxed mb-4">
+              This permanently deletes{' '}
+              <span className="font-bold text-slate-700">{counts?.[confirmFor] ?? 0} {confirmFor}</span>
+              {confirmFor === 'customers' && ' and every order those customers placed'}
+              {' '}from the database. This cannot be undone.
+            </p>
+            <Label>Type <span className="font-mono text-red-600 lowercase">{confirmFor}</span> to confirm</Label>
+            <input
+              autoFocus
+              value={typed}
+              onChange={e => { setTyped(e.target.value); setError(null) }}
+              onKeyDown={e => { if (e.key === 'Enter' && typed.trim().toLowerCase() === confirmFor && !busy) runClear() }}
+              placeholder={confirmFor}
+              className={`${inputCls} font-mono`}
+            />
+            {error && (
+              <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg text-[12px] bg-red-50 border border-red-100 text-red-700">
+                <AlertCircle size={14} className="shrink-0" /> {error}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2 mt-5">
+              <button type="button" onClick={() => setConfirmFor(null)} disabled={busy}
+                className="px-4 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" onClick={runClear} disabled={busy || typed.trim().toLowerCase() !== confirmFor}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl cursor-pointer">
+                {busy ? <><Loader2 size={14} className="animate-spin" /> Clearing…</> : <><Trash2 size={14} /> Delete permanently</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2419,31 +2605,7 @@ export default function SettingsPage() {
           )}
 
           {/* ── Danger tab ────────────────────────────────────────── */}
-          {tab === 'danger' && (
-            <div className="bg-white rounded-2xl border border-red-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-red-50 bg-red-50/50">
-                <p className="text-sm font-bold text-red-700">These actions are permanent and cannot be undone.</p>
-                <p className="text-xs text-red-500 mt-0.5">Proceed only if you are absolutely sure.</p>
-              </div>
-              <div className="divide-y divide-red-50">
-                <div className="p-6 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">Clear all orders</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Permanently delete all orders and order items from the database.</p>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!confirm('Delete ALL orders permanently? This cannot be undone.')) return
-                      const res = await fetch('/api/admin/products/all', { method: 'DELETE' })
-                      alert(res.ok ? 'All orders cleared.' : 'Failed.')
-                    }}
-                    className="shrink-0 px-4 py-2 border border-red-200 text-red-500 hover:bg-red-50 font-bold text-xs rounded-xl transition-colors cursor-pointer">
-                    Clear Orders
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {tab === 'danger' && <DangerZone />}
 
         </div>
       </div>

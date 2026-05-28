@@ -4,7 +4,20 @@
  */
 import { prisma } from './prisma'
 
-export interface PathaoConfig {
+// Per-provider parcel ceilings used to warn on the product form and hide an
+// over-limit carrier on the order-assignment UI. Defaults reflect each
+// carrier's real-world capacity; admins can override per provider.
+export interface CarrierLimits {
+  maxWeightKg: number
+  maxLengthCm: number
+  maxWidthCm:  number
+  maxHeightCm: number
+}
+
+const PATHAO_LIMIT_DEFAULTS: CarrierLimits = { maxWeightKg: 25, maxLengthCm: 60,  maxWidthCm: 60, maxHeightCm: 60 }
+const PND_LIMIT_DEFAULTS:    CarrierLimits = { maxWeightKg: 50, maxLengthCm: 120, maxWidthCm: 80, maxHeightCm: 80 }
+
+export interface PathaoConfig extends CarrierLimits {
   baseUrl:       string
   clientId:      string
   clientSecret:  string
@@ -18,7 +31,7 @@ export interface PathaoConfig {
   isActive:      boolean
 }
 
-export interface PicknDropConfig {
+export interface PicknDropConfig extends CarrierLimits {
   baseUrl:        string
   apiKey:         string
   apiSecret:      string
@@ -64,6 +77,10 @@ export async function getPathaoConfig(): Promise<PathaoConfig> {
     // hit Pathao with empty credentials.
     isMock:    row !== null ? row.isMock   : true,
     isActive:  row !== null ? row.isActive : true,
+    maxWeightKg: row?.maxWeightKg ?? PATHAO_LIMIT_DEFAULTS.maxWeightKg,
+    maxLengthCm: row?.maxLengthCm ?? PATHAO_LIMIT_DEFAULTS.maxLengthCm,
+    maxWidthCm:  row?.maxWidthCm  ?? PATHAO_LIMIT_DEFAULTS.maxWidthCm,
+    maxHeightCm: row?.maxHeightCm ?? PATHAO_LIMIT_DEFAULTS.maxHeightCm,
   }
 
   _pathaoCache = { data: cfg, at: Date.now() }
@@ -111,6 +128,10 @@ export async function getPicknDropConfig(): Promise<PicknDropConfig> {
     pickupLocation,
     maxSurgeNpr: row?.maxSurgeNpr ?? 0,
     isActive,
+    maxWeightKg: row?.maxWeightKg ?? PND_LIMIT_DEFAULTS.maxWeightKg,
+    maxLengthCm: row?.maxLengthCm ?? PND_LIMIT_DEFAULTS.maxLengthCm,
+    maxWidthCm:  row?.maxWidthCm  ?? PND_LIMIT_DEFAULTS.maxWidthCm,
+    maxHeightCm: row?.maxHeightCm ?? PND_LIMIT_DEFAULTS.maxHeightCm,
   }
 
   _pndCache = { data: cfg, at: Date.now() }
@@ -139,6 +160,10 @@ export async function seedDefaultsIfMissing() {
         storeLat:     27.7172,         // Kathmandu
         storeLng:     85.3240,
         baseUrl:      'https://api-hermes.pathao.com.np',   // Pathao Nepal
+        maxWeightKg:  PATHAO_LIMIT_DEFAULTS.maxWeightKg,
+        maxLengthCm:  PATHAO_LIMIT_DEFAULTS.maxLengthCm,
+        maxWidthCm:   PATHAO_LIMIT_DEFAULTS.maxWidthCm,
+        maxHeightCm:  PATHAO_LIMIT_DEFAULTS.maxHeightCm,
       },
     })
     await prisma.logisticsSettings.upsert({
@@ -154,6 +179,10 @@ export async function seedDefaultsIfMissing() {
         pickupBranch:   'KATHMANDU VALLEY',
         pickupArea:     'Kathmandu',
         pickupLocation: 'Balaju',
+        maxWeightKg:    PND_LIMIT_DEFAULTS.maxWeightKg,
+        maxLengthCm:    PND_LIMIT_DEFAULTS.maxLengthCm,
+        maxWidthCm:     PND_LIMIT_DEFAULTS.maxWidthCm,
+        maxHeightCm:    PND_LIMIT_DEFAULTS.maxHeightCm,
       },
     })
   } catch {

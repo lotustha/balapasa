@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
+import { requireRole } from '@/lib/auth'
 
 export async function DELETE() {
+  const auth = await requireRole('ADMIN')
+  if ('error' in auth) return auth.error
   try {
     // Delete in FK dependency order. Review and WishlistItem must go before Product
     // because Review.productId is RESTRICT and WishlistItem has a productId column

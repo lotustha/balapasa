@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { estimateDelivery, createParcel } from '@/lib/pathao'
 import { calculatePndRates, createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
 import { getPicknDropConfig } from '@/lib/logistics-config'
+import { aggregateOrderPackage } from '@/lib/order-package'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -121,25 +122,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const orderItems = await prisma.orderItem.findMany({ where: { orderId: order.id } })
       const itemSummary = orderItems.map(i => `${i.quantity}× ${i.name}`).join(', ')
 
-      // Aggregate package dimensions from item products: total weight, longest
-      // L/W/H across items. Admin body overrides win when provided.
-      const productIds = orderItems.map(i => i.productId).filter((x): x is string => !!x)
-      const products = productIds.length
-        ? await prisma.product.findMany({
-            where:  { id: { in: productIds } },
-            select: { id: true, weight: true, length: true, width: true, height: true },
-          })
-        : []
-      const pById = new Map(products.map(p => [p.id, p]))
-
-      let totalWeightKg = 0, maxLen = 0, maxWid = 0, maxHgt = 0
-      for (const it of orderItems) {
-        const p = it.productId ? pById.get(it.productId) : null
-        if (p?.weight) totalWeightKg += p.weight * it.quantity
-        if (p?.length) maxLen = Math.max(maxLen, p.length)
-        if (p?.width)  maxWid = Math.max(maxWid, p.width)
-        if (p?.height) maxHgt = Math.max(maxHgt, p.height)
-      }
+      // Aggregate package dimensions from item products. Admin body overrides
+      // win when provided.
+      const pkg = await aggregateOrderPackage(order.id)
+      const { weightKg: totalWeightKg, lengthCm: maxLen, widthCm: maxWid, heightCm: maxHgt } = pkg
 
       const result = await createPndOrder({
         customerName:        order.name,

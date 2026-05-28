@@ -44,6 +44,9 @@ interface DeliveryPayload {
 }
 interface ServiceOption { id: number; name: string; charge_after_discount: number; dropoff_eta: number }
 
+interface ProviderAvail { active: boolean; withinLimits: boolean; reason: string | null }
+interface ProvidersState { PATHAO: ProviderAvail; PICKNDROP: ProviderAvail }
+
 const STATUS_FLOW = ['PENDING','CONFIRMED','PROCESSING','SHIPPED','DELIVERED']
 const STATUS_CLS: Record<string, string> = {
   PENDING:'bg-yellow-100 text-yellow-700', CONFIRMED:'bg-blue-100 text-blue-700',
@@ -142,6 +145,7 @@ export default function OrderDetailPage() {
   const [searching,    setSearching]    = useState(false)
 
   // Delivery
+  const [providers,    setProviders]    = useState<ProvidersState | null>(null)
   const [deliveryTab,  setDeliveryTab]  = useState<'view'|'pathao'|'pickndrop'|'rider'|'manual'>('view')
   const [estimating,   setEstimating]   = useState(false)
   const [services,     setServices]     = useState<ServiceOption[]>([])
@@ -169,13 +173,15 @@ export default function OrderDetailPage() {
     Promise.all([
       fetch(`/api/admin/orders/${id}`).then(r => r.json()),
       fetch('/api/admin/riders').then(r => r.json()),
-    ]).then(([o, rd]) => {
+      fetch(`/api/admin/orders/${id}/providers`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([o, rd, pv]) => {
       setOrder(o)
       setNotesDraft(o.notes ?? '')
       setCustomerDraft({ name: o.name, phone: o.phone, email: o.email ?? '', lat: String(o.lat ?? ''), lng: String(o.lng ?? '') })
       setAddressDraft(parseAddressToNepal(o))
       setManualTracking({ trackingNo: o.pathaoOrderId ?? '', trackingUrl: o.trackingUrl ?? '', charge: String(o.deliveryCharge || ''), partner: o.shippingOption ?? '' })
       setRiders(rd.riders ?? [])
+      if (pv && pv.PATHAO && pv.PICKNDROP) setProviders(pv)
     })
       .catch(() => setError('Failed to load order'))
       .finally(() => setLoading(false))
@@ -483,6 +489,16 @@ export default function OrderDetailPage() {
     order?.shippingOption?.toLowerCase().includes('pathao') ? 'PATHAO' :
     order?.shippingOption?.toLowerCase().includes('pick') ? 'PICKNDROP' : null
   )
+
+  // Provider availability: a carrier is offered only when it's enabled in
+  // settings AND this order's parcel fits its weight/size limits. Pathao is
+  // additionally gated to Kathmandu Valley. Until the providers endpoint
+  // responds we fall back to the old behaviour (Pathao in-valley, PnD on).
+  const pathaoAvailable = (providers ? providers.PATHAO.active && providers.PATHAO.withinLimits : true) && isKtmValley
+  const pndAvailable    = providers ? providers.PICKNDROP.active && providers.PICKNDROP.withinLimits : true
+  const preferredAvailable =
+    preferredProvider === 'PATHAO'    ? pathaoAvailable :
+    preferredProvider === 'PICKNDROP' ? pndAvailable    : false
 
   return (
     <div className="p-4 md:p-6 max-w-6xl relative">
@@ -991,43 +1007,6 @@ export default function OrderDetailPage() {
               )
             })()}
 
-            {/* ── Quick Assign from customer's chosen partner ── */}
-            {preferredProvider && !hasDelivery && (preferredProvider !== 'PATHAO' || isKtmValley) && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 fill-white"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm1 11H9v-2h2v2zm0-4H9V6h2v3z"/></svg>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative bg-white rounded-lg px-3 py-1.5 border border-blue-100" style={{ width: preferredProvider === 'PATHAO' ? 80 : 96, height: 32 }}>
-                      <Image
-                        src={preferredProvider === 'PATHAO' ? '/pathao.webp' : '/pick_n_drop.webp'}
-                        alt={preferredProvider === 'PATHAO' ? 'Pathao' : 'Pick & Drop'}
-                        fill className="object-contain" sizes="68px"
-                      />
-                    </div>
-                    <div>
-                      <p className="text-xs font-extrabold text-blue-800">Customer chose this</p>
-                      <p className="text-[10px] text-blue-500">{order?.shippingOption}</p>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={async () => {
-                    if (preferredProvider === 'PATHAO') {
-                      setDeliveryTab('pathao')
-                      await estimatePathao()
-                    } else {
-                      setDeliveryTab('pickndrop')
-                      await estimatePnd()
-                    }
-                  }}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-2">
-                  <Truck size={13} /> Quick Assign via {preferredProvider === 'PATHAO' ? 'Pathao' : 'Pick & Drop'} →
-                </button>
-              </div>
-            )}
-
             {/* ── Delivery assignment ─────────────────────────────────
                 Only show when delivery isn't dispatched yet. Once `hasDelivery`
                 is true the green "Delivery Assigned" card above owns the UX —
@@ -1036,7 +1015,7 @@ export default function OrderDetailPage() {
             {!hasDelivery && (!showModifyDelivery ? (
               /* ── One-click: use customer's exact selection ── */
               <div className="space-y-3">
-                {preferredProvider && order.shippingOption ? (
+                {preferredProvider && order.shippingOption && preferredAvailable ? (
                   <>
                     {/* Show what customer selected */}
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
@@ -1070,11 +1049,28 @@ export default function OrderDetailPage() {
                     </button>
                   </>
                 ) : (
-                  /* No preference stored — show simple prompt */
-                  <button onClick={() => setShowModifyDelivery(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary hover:bg-primary-dark text-white font-bold text-sm rounded-2xl cursor-pointer transition-all shadow-md shadow-primary/20">
-                    <Truck size={16} /> Choose Delivery Partner
-                  </button>
+                  /* No usable preference — explain why (if the customer chose a
+                     now-unavailable carrier) and prompt to pick a partner. */
+                  <>
+                    {preferredProvider && order.shippingOption && !preferredAvailable && (
+                      <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-700">
+                        <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                        <span>
+                          Customer chose <strong>{order.shippingOption}</strong>, but {preferredProvider === 'PATHAO' ? 'Pathao' : 'Pick & Drop'} can&apos;t take this order
+                          {preferredProvider === 'PATHAO' && !isKtmValley
+                            ? ` — ${order.city} is outside Kathmandu Valley`
+                            : providers?.[preferredProvider as 'PATHAO' | 'PICKNDROP']?.reason
+                              ? ` — ${providers[preferredProvider as 'PATHAO' | 'PICKNDROP']!.reason!.toLowerCase()}`
+                              : ''}
+                          . Pick another partner below.
+                        </span>
+                      </div>
+                    )}
+                    <button onClick={() => setShowModifyDelivery(true)}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary hover:bg-primary-dark text-white font-bold text-sm rounded-2xl cursor-pointer transition-all shadow-md shadow-primary/20">
+                      <Truck size={16} /> Choose Delivery Partner
+                    </button>
+                  </>
                 )}
 
                 <button onClick={() => setShowModifyDelivery(true)}
@@ -1090,16 +1086,31 @@ export default function OrderDetailPage() {
                   <button onClick={() => { setShowModifyDelivery(false); setDeliveryTab('view') }}
                     className="text-[11px] text-primary hover:text-primary-dark cursor-pointer font-semibold">← Back</button>
                 </div>
-                {!isKtmValley && (
+                {!pathaoAvailable && (
                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
                     <AlertCircle size={10} className="text-amber-400 shrink-0" />
-                    Pathao unavailable — {order?.city} is outside Kathmandu Valley
+                    Pathao unavailable — {
+                      !isKtmValley ? `${order?.city} is outside Kathmandu Valley`
+                      : providers?.PATHAO.active === false ? 'disabled in Settings → Delivery'
+                      : providers?.PATHAO.reason ? providers.PATHAO.reason.toLowerCase()
+                      : 'not available'
+                    }
+                  </p>
+                )}
+                {!pndAvailable && (
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <AlertCircle size={10} className="text-amber-400 shrink-0" />
+                    Pick &amp; Drop unavailable — {
+                      providers?.PICKNDROP.active === false ? 'disabled in Settings → Delivery'
+                      : providers?.PICKNDROP.reason ? providers.PICKNDROP.reason.toLowerCase()
+                      : 'not available'
+                    }
                   </p>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
-                    ...(isKtmValley ? [{ key:'pathao', label:'Pathao', sub:'On-demand, real-time', logo:'/pathao.webp', color:'bg-orange-50 border-orange-200', onClick: () => { setDeliveryTab('pathao'); estimatePathao() } }] : []),
-                    { key:'pickndrop', label:'Pick & Drop', sub:'Branch-to-branch, Nepal', logo:'/pick_n_drop.webp', color:'bg-blue-50 border-blue-200',   onClick: () => { setDeliveryTab('pickndrop'); estimatePnd() } },
+                    ...(pathaoAvailable ? [{ key:'pathao', label:'Pathao', sub:'On-demand, real-time', logo:'/pathao.webp', color:'bg-orange-50 border-orange-200', onClick: () => { setDeliveryTab('pathao'); estimatePathao() } }] : []),
+                    ...(pndAvailable ? [{ key:'pickndrop', label:'Pick & Drop', sub:'Branch-to-branch, Nepal', logo:'/pick_n_drop.webp', color:'bg-blue-50 border-blue-200',   onClick: () => { setDeliveryTab('pickndrop'); estimatePnd() } }] : []),
                     { key:'rider',     label:'Store Rider', sub:'Your own staff',           logo:null,               color:'bg-green-50 border-green-200', onClick: () => setDeliveryTab('rider') },
                     { key:'manual',    label:'Manual',      sub:'Any other courier',        logo:null,               color:'bg-slate-50 border-slate-200', onClick: () => setDeliveryTab('manual') },
                   ].map(p => (
