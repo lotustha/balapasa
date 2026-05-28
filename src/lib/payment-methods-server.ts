@@ -18,16 +18,22 @@ export async function getEnabledPaymentMethods(): Promise<PaymentMethod[]> {
   try {
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM app_settings
-      WHERE key IN ('PAYMENT_ESEWA_ENABLED', 'PAYMENT_KHALTI_ENABLED')
+      WHERE key IN (
+        'PAYMENT_COD_ENABLED', 'PAYMENT_DIGITAL_ENABLED',
+        'PAYMENT_ESEWA_ENABLED', 'PAYMENT_KHALTI_ENABLED'
+      )
     `
-    const flag = (k: string) => {
+    const flag = (k: string, defaultOn = true) => {
       const v = rows.find(r => r.key === k)?.value
-      return v == null ? true : v === 'true'
+      return v == null ? defaultOn : v === 'true'
     }
-    // COD is always available so the store can never end up with zero methods.
-    const methods: PaymentMethod[] = ['COD']
-    if (flag('PAYMENT_ESEWA_ENABLED'))  methods.push('ESEWA')
-    if (flag('PAYMENT_KHALTI_ENABLED')) methods.push('KHALTI')
+    const digitalOn = flag('PAYMENT_DIGITAL_ENABLED')
+    const methods: PaymentMethod[] = []
+    if (flag('PAYMENT_COD_ENABLED'))                        methods.push('COD')
+    if (digitalOn && flag('PAYMENT_ESEWA_ENABLED'))         methods.push('ESEWA')
+    if (digitalOn && flag('PAYMENT_KHALTI_ENABLED'))        methods.push('KHALTI')
+    // Safety: never return zero methods — fall back to COD.
+    if (methods.length === 0) methods.push('COD')
     _cache = { at: Date.now(), methods }
     return methods
   } catch {

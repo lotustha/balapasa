@@ -47,25 +47,28 @@ export async function GET(req: Request) {
         previewByCategory.set(id, imgs.slice(0, 4))
       })
 
-      const categories = rows.map(r => ({
-        id:    r.id,
-        name:  r.name,
-        slug:  r.slug,
-        color: r.color,
-        icon:  r.icon,
-        image: r.image,
-        sales: Number(r.sales),
-        previewImages: previewByCategory.get(r.id) ?? [],
-        _count: { products: Number(r.product_count) },
-      }))
+      const categories = rows
+        .filter(r => Number(r.product_count) > 0)
+        .map(r => ({
+          id:    r.id,
+          name:  r.name,
+          slug:  r.slug,
+          color: r.color,
+          icon:  r.icon,
+          image: r.image,
+          sales: Number(r.sales),
+          previewImages: previewByCategory.get(r.id) ?? [],
+          _count: { products: Number(r.product_count) },
+        }))
       return Response.json({ categories })
     }
 
-    const categories = await prisma.category.findMany({
+    const all = await prisma.category.findMany({
       include: { _count: { select: { products: { where: { isActive: true } } } } },
       orderBy: { name: 'asc' },
       take: limit,
     })
+    const categories = all.filter(c => c._count.products > 0)
     return Response.json({ categories })
   } catch {
     return Response.json({ categories: [] })

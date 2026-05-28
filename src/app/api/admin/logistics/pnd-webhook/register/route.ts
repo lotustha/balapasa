@@ -12,9 +12,11 @@ import { getSiteSettings } from '@/lib/site-settings'
 // GET — returns the current registration state (URL, masked secret, last
 // registered timestamp) for the admin Settings panel.
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser()
   if (!user || user.role !== 'ADMIN') return Response.json({ error: 'Forbidden' }, { status: 403 })
+
+  const reveal = req.nextUrl.searchParams.get('reveal') === 'true'
 
   const [cfg, row, settings] = await Promise.all([
     getPicknDropConfig(),
@@ -28,6 +30,7 @@ export async function GET() {
   return Response.json({
     url:             `${settings.storeUrl}/api/webhooks/pickndrop`,
     secretMasked:    row?.webhookSecret ? mask(row.webhookSecret) : null,
+    secretFull:      reveal ? (row?.webhookSecret ?? null) : undefined,
     hasSecret:       !!row?.webhookSecret,
     lastRegistered:  row?.webhookRegisteredAt?.toISOString() ?? null,
     pndBaseUrl:      cfg.baseUrl,
@@ -59,8 +62,17 @@ export async function POST(req: NextRequest) {
     ? crypto.randomBytes(32).toString('hex')
     : existing.webhookSecret
 
-  // Register with PnD.
+  // Persist the secret first so it's available for manual dashboard entry
+  // even if the PnD API registration call fails.
+  await prisma.logisticsSettings.update({
+    where: { provider: 'PICKNDROP' },
+    data:  { webhookSecret: secret, webhookRegisteredAt: new Date() },
+  })
+  invalidatePndCache()
+
+  // Attempt to register with PnD via API (optional — manual dashboard entry works too).
   let pndResponse: unknown
+  let pndError: string | null = null
   try {
     const res = await fetch(`${cfg.baseUrl}/api/v2/create_webhook`, {
       method: 'POST',
@@ -76,19 +88,10 @@ export async function POST(req: NextRequest) {
     })
     const text = await res.text()
     try { pndResponse = JSON.parse(text) } catch { pndResponse = text }
-    if (!res.ok) {
-      return Response.json({ error: `PnD returned ${res.status}`, pndResponse }, { status: 502 })
-    }
+    if (!res.ok) pndError = `PnD API returned ${res.status} — register manually via PnD dashboard using the URL and Web Token above.`
   } catch (e) {
-    return Response.json({ error: `Network error calling PnD: ${e instanceof Error ? e.message : String(e)}` }, { status: 502 })
+    pndError = `Could not reach PnD API — register manually via PnD dashboard using the URL and Web Token above.`
   }
-
-  // Persist the secret + timestamp on success.
-  await prisma.logisticsSettings.update({
-    where: { provider: 'PICKNDROP' },
-    data:  { webhookSecret: secret, webhookRegisteredAt: new Date() },
-  })
-  invalidatePndCache()
 
   return Response.json({
     ok:              true,
@@ -96,6 +99,7 @@ export async function POST(req: NextRequest) {
     secretMasked:    mask(secret),
     lastRegistered:  new Date().toISOString(),
     pndResponse,
+    pndWarning:      pndError ?? undefined,
   })
 }
 
