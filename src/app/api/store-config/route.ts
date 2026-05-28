@@ -13,7 +13,11 @@ const PUBLIC_KEYS = [
   'FACEBOOK_PIXEL_ID',
   'FACEBOOK_PAGE_ID',
   'WHATSAPP_NUMBER',
+  'CONTACT_INSTAGRAM',
+  'CONTACT_X',
+  'CONTACT_YOUTUBE',
   'DELIVERY_MODE',
+  'DELIVERY_ENABLED',
 ]
 
 export async function GET() {
@@ -34,11 +38,15 @@ export async function GET() {
       STORE_LOGO_URL:  config.STORE_LOGO_URL  ?? '',
       STORE_THEME:     config.STORE_THEME     ?? 'emerald',
       FACEBOOK_PIXEL_ID: config.FACEBOOK_PIXEL_ID ?? '',
-      FACEBOOK_PAGE_ID:  config.FACEBOOK_PAGE_ID  ?? '',
-      WHATSAPP_NUMBER: config.WHATSAPP_NUMBER ?? '',
-      DELIVERY_MODE:   (config.DELIVERY_MODE === 'FREE' ? 'FREE' : 'PAID') as 'FREE' | 'PAID',
+      FACEBOOK_PAGE_ID:    config.FACEBOOK_PAGE_ID    ?? '',
+      WHATSAPP_NUMBER:     config.WHATSAPP_NUMBER     ?? '',
+      CONTACT_INSTAGRAM:   config.CONTACT_INSTAGRAM   ?? '',
+      CONTACT_X:           config.CONTACT_X           ?? '',
+      CONTACT_YOUTUBE:     config.CONTACT_YOUTUBE     ?? '',
+      DELIVERY_MODE:    (config.DELIVERY_MODE === 'FREE' ? 'FREE' : 'PAID') as 'FREE' | 'PAID',
+      DELIVERY_ENABLED: config.DELIVERY_ENABLED !== 'false',
     }, { headers: { 'Cache-Control': 'public, max-age=60' } })
   } catch {
-    return Response.json({ FREE_DELIVERY_THRESHOLD: 5000, STORE_NAME: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa', STORE_PHONE: '', STORE_EMAIL: '', STORE_ADDRESS: '', STORE_LOGO_URL: '', WHATSAPP_NUMBER: '', DELIVERY_MODE: 'PAID' as const, enabledPaymentMethods: ['COD', 'ESEWA', 'KHALTI'] })
+    return Response.json({ FREE_DELIVERY_THRESHOLD: 5000, STORE_NAME: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa', STORE_PHONE: '', STORE_EMAIL: '', STORE_ADDRESS: '', STORE_LOGO_URL: '', WHATSAPP_NUMBER: '', DELIVERY_MODE: 'PAID' as const, DELIVERY_ENABLED: true, enabledPaymentMethods: ['COD', 'ESEWA', 'KHALTI'] })
   }
 }

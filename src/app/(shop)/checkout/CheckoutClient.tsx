@@ -234,6 +234,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
 
   const [payment, setPayment]         = useState<KnownPaymentMethod>('COD')
   const [placing, setPlacing]         = useState(false)
+  const frozenTotal                   = useRef(0)
   const [checkoutError, setCheckoutError] = useState('')
   const errorDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -304,6 +305,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const [freeThreshold, setFreeThreshold] = useState(5000)
   const [autoRules, setAutoRules] = useState<import('@/app/api/discount-rules/route').DiscountRule[]>([])
   const [deliveryMode, setDeliveryMode] = useState<'FREE' | 'PAID'>('PAID')
+  const [deliveryEnabled, setDeliveryEnabled] = useState(true)
   const [deliveryNote, setDeliveryNote] = useState('')
   const [freeDeliveryFlags, setFreeDeliveryFlags] = useState<Record<string, boolean>>({})
   const [taxableFlags, setTaxableFlags] = useState<Record<string, boolean>>({})
@@ -320,6 +322,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
       .then(d => {
         setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000)
         if (d.DELIVERY_MODE === 'FREE' || d.DELIVERY_MODE === 'PAID') setDeliveryMode(d.DELIVERY_MODE)
+        if (d.DELIVERY_ENABLED === false) setDeliveryEnabled(false)
         if (Array.isArray(d.enabledPaymentMethods)) {
           setEnabledPaymentMethods(
             d.enabledPaymentMethods.filter((m: string): m is KnownPaymentMethod =>
@@ -567,6 +570,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
       return
     }
     if (deliveryMode !== 'FREE' && !selectedOption) return
+    frozenTotal.current = total
     setPlacing(true)
     try {
       const fullAddress = [
@@ -1529,22 +1533,30 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                   <div className="border-t border-slate-100 pt-3 flex justify-between">
                     <span className="font-heading font-bold text-slate-900">Total</span>
                     <span className="font-heading font-extrabold text-xl text-primary">
-                      {(deliveryMode === 'FREE' || selectedOption) ? formatPrice(total) : '—'}
+                      {(deliveryMode === 'FREE' || selectedOption) ? formatPrice(placing ? frozenTotal.current : total) : '—'}
                     </span>
                   </div>
                 </div>
 
+                {!deliveryEnabled && (
+                  <div className="mt-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-800 text-center font-medium">
+                    Delivery is temporarily unavailable. Please check back later.
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  disabled={placing || items.length === 0 || (deliveryMode !== 'FREE' && !selectedOption) || !recipientName || !recipientPhone}
+                  disabled={placing || items.length === 0 || (deliveryMode !== 'FREE' && !selectedOption) || !recipientName || !recipientPhone || !deliveryEnabled}
                   className="w-full mt-5 flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary-dark disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-2xl transition-all cursor-pointer shadow-lg shadow-primary/20"
                 >
                   {placing ? (
                     <><Loader2 size={18} className="animate-spin" /> Processing…</>
+                  ) : !deliveryEnabled ? (
+                    'Delivery unavailable'
                   ) : (deliveryMode !== 'FREE' && !selectedOption) ? (
                     'Select delivery option'
                   ) : (
-                    `Place Order — ${formatPrice(total)}`
+                    `Place Order — ${formatPrice(placing ? frozenTotal.current : total)}`
                   )}
                 </button>
 

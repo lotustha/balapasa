@@ -320,6 +320,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   const [added, setAdded] = useState(false)
   const [wished, setWished] = useState(false)
   const [wishLoading, setWishLoading] = useState(false)
+  const [wishMsg, setWishMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
   // Hydrate wishlist state on mount so the heart shows the right colour
@@ -337,10 +338,15 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p?.id])
 
+  function flashWishMsg(msg: string) {
+    setWishMsg(msg)
+    setTimeout(() => setWishMsg(null), 2500)
+  }
+
   async function toggleWishlist() {
     if (!p?.id || wishLoading) return
     const prev = wished
-    setWished(!prev) // optimistic
+    setWished(!prev)
     setWishLoading(true)
     try {
       const res = await fetch('/api/wishlist', {
@@ -350,12 +356,19 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       })
       if (res.status === 401) {
         setWished(prev)
-        router.push(`/login?next=${encodeURIComponent(`/products/${p.slug}`)}`)
+        flashWishMsg('Sign in to save items')
+        setTimeout(() => router.push(`/login?next=${encodeURIComponent(`/products/${p.slug}`)}`), 1200)
         return
       }
-      if (!res.ok) setWished(prev)
+      if (!res.ok) {
+        setWished(prev)
+        flashWishMsg('Could not save — try again')
+        return
+      }
+      flashWishMsg(!prev ? 'Added to wishlist' : 'Removed from wishlist')
     } catch {
       setWished(prev)
+      flashWishMsg('Could not save — try again')
     } finally {
       setWishLoading(false)
     }
@@ -644,7 +657,13 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     {discount > 0 && <span className="px-3 py-1 text-white text-sm font-extrabold rounded-xl shadow-lg bg-accent">-{discount}% OFF</span>}
                     {p.isNew && <span className="px-3 py-1 bg-gradient-to-r from-cyan-500 to-primary text-white text-sm font-extrabold rounded-xl shadow-lg">New</span>}
                   </div>
-                  <div className="absolute top-4 right-4 flex flex-col gap-2">
+                  <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
+                    {wishMsg && (
+                      <div className="mb-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-white shadow-lg whitespace-nowrap animate-fade-in"
+                        style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)' }}>
+                        {wishMsg}
+                      </div>
+                    )}
                     <button onClick={toggleWishlist} disabled={wishLoading} aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
                       className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-all cursor-pointer disabled:opacity-60 ${wished?'bg-red-500 text-white':'text-slate-400 hover:text-red-500'}`}
                       style={!wished ? { background:'rgba(255,255,255,0.52)', backdropFilter:'blur(12px)' } : {}}>
@@ -828,36 +847,49 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   </div>
                 ))}
               </div>
-              <div className="flex items-center gap-3 flex-wrap pt-3 border-t border-white/30">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Share</p>
-                <div className="flex items-center gap-2">
-                  {[
-                    { icon: Link2,         label: 'Copy link', successKey: 'share-link',
-                      action: () => copyToClipboard(window.location.href, 'share-link') },
-                    { icon: MessageCircle, label: 'WhatsApp',  successKey: null,
-                      action: () => window.open(
-                        `https://wa.me/?text=${encodeURIComponent(`${p.name} — ${window.location.href}`)}`,
-                        '_blank', 'noopener,noreferrer',
-                      ) },
-                    { icon: Copy,          label: 'Copy name', successKey: 'share-name',
-                      action: () => copyToClipboard(p.name, 'share-name') },
-                  ].map(({ icon: Icon, label, action, successKey }) => {
-                    const justCopied = successKey && copied === successKey
-                    return (
-                      <button key={label} onClick={action} aria-label={label} title={label}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-primary hover:scale-110 transition-all cursor-pointer"
-                        style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.78)' }}>
-                        {justCopied
-                          ? <CheckCircle size={15} className="text-emerald-500" aria-hidden="true" />
-                          : <Icon size={15} aria-hidden="true" />}
-                      </button>
-                    )
-                  })}
+              <div className="pt-3 border-t border-white/30">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Share</p>
+                  <p className="text-xs text-slate-400">{p.reviewCount} love this</p>
                 </div>
-                {copied && (
-                  <span className="text-[10px] font-bold text-emerald-600 animate-fade-in">Copied!</span>
-                )}
-                <p className="text-xs text-slate-400 ml-auto">{p.reviewCount} love this</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {([
+                    {
+                      label: 'WhatsApp', color: '#25D366',
+                      icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>,
+                      action: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${p.name}\n${window.location.href}`)}`, '_blank', 'noopener,noreferrer'),
+                    },
+                    {
+                      label: 'Facebook', color: '#1877F2',
+                      icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.696 4.533-4.696 1.313 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>,
+                      action: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer'),
+                    },
+                    {
+                      label: 'X / Twitter', color: '#000000',
+                      icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zM17.083 19.77h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>,
+                      action: () => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(p.name)}&url=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer'),
+                    },
+                    {
+                      label: 'Telegram', color: '#26A5E4',
+                      icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>,
+                      action: () => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(p.name)}`, '_blank', 'noopener,noreferrer'),
+                    },
+                    {
+                      label: copied === 'share-link' ? 'Copied!' : 'Copy link', color: '#64748b',
+                      icon: copied === 'share-link'
+                        ? <CheckCircle size={15} className="text-emerald-500" />
+                        : <Link2 size={15} />,
+                      action: () => copyToClipboard(window.location.href, 'share-link'),
+                    },
+                  ] as { label: string; color: string; icon: React.ReactNode; action: () => void }[]).map(({ label, color, icon, action }) => (
+                    <button key={label} onClick={action} aria-label={label} title={label}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105 cursor-pointer"
+                      style={{ background: `${color}15`, color, border: `1px solid ${color}30` }}>
+                      {icon}
+                      <span className="hidden sm:inline">{label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

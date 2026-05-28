@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   Package, ArrowLeft, ShoppingBag, CheckCircle2,
-  Clock, ChevronRight, Loader2, Search,
+  Clock, ChevronRight, Loader2, Search, AlertTriangle, X,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
@@ -56,21 +56,37 @@ function OrdersContent() {
   const [loading, setLoading] = useState(true)
   const [unauth,  setUnauth]  = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<Order | null>(null)
+  const [cancelReason, setCancelReason]   = useState<string>('')
+  const [cancelError, setCancelError]     = useState<string | null>(null)
 
-  async function cancelOrder(orderId: string) {
-    if (!confirm('Cancel this order? If you paid via wallet, the refund will be issued by our team within a few days.')) return
+  function promptCancel(order: Order) {
+    setCancelError(null)
+    setCancelReason('')
+    setConfirmTarget(order)
+  }
+
+  async function confirmCancel() {
+    if (!confirmTarget || !cancelReason) return
+    const orderId = confirmTarget.id
     setCancellingId(orderId)
+    setCancelError(null)
     try {
-      const res = await fetch(`/api/account/orders/${orderId}/cancel`, { method: 'POST' })
+      const res = await fetch(`/api/account/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason }),
+      })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(json.error ?? `Failed (HTTP ${res.status})`)
+        setCancelError(json.error ?? `Something went wrong (HTTP ${res.status}). Please try again.`)
+        setCancellingId(null)
         return
       }
-      // Soft-update the row in place so the UI reflects CANCELLED immediately.
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'CANCELLED' } : o))
+      setConfirmTarget(null)
     } catch {
-      alert('Network error — try again.')
+      setCancelError('Network error — please check your connection and try again.')
     } finally {
       setCancellingId(null)
     }
@@ -242,7 +258,7 @@ function OrdersContent() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => cancelOrder(order.id)}
+                            onClick={() => promptCancel(order)}
                             disabled={cancellingId === order.id}
                             className="text-xs font-semibold text-red-500 hover:text-red-700 cursor-pointer underline-offset-2 hover:underline disabled:opacity-50"
                           >
@@ -276,6 +292,92 @@ function OrdersContent() {
           </div>
         )}
       </div>
+
+      {/* Cancel confirmation modal */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setConfirmTarget(null) }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmTarget(null)} />
+          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in-up">
+            {/* Header */}
+            <div className="flex items-start justify-between px-6 pt-6 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle size={18} className="text-red-500" />
+                </div>
+                <div>
+                  <p className="font-heading font-extrabold text-slate-900 text-base leading-tight">Cancel order?</p>
+                  <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                    #{confirmTarget.orderCode ?? confirmTarget.id.slice(0, 8).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setConfirmTarget(null)}
+                className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer flex-shrink-0">
+                <X size={14} className="text-slate-500" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 pb-2">
+              <p className="text-sm text-slate-500 leading-relaxed mb-3">
+                Please tell us why you want to cancel. This helps us improve.
+              </p>
+
+              {/* Reason chips */}
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'Changed my mind',
+                  'Ordered by mistake',
+                  'Found a better price',
+                  'Delivery taking too long',
+                  'Wrong item ordered',
+                  'Other',
+                ].map(r => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setCancelReason(r)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      cancelReason === r
+                        ? 'bg-red-500 border-red-500 text-white shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              {(confirmTarget.paymentMethod === 'ESEWA' || confirmTarget.paymentMethod === 'KHALTI') && (
+                <div className="mt-4 flex items-start gap-2.5 px-3.5 py-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                  <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    You paid via {confirmTarget.paymentMethod === 'ESEWA' ? 'eSewa' : 'Khalti'}. Refunds are processed manually by our team within 3–5 business days.
+                  </p>
+                </div>
+              )}
+              {cancelError && (
+                <div className="mt-3 px-3.5 py-3 bg-red-50 border border-red-100 rounded-2xl">
+                  <p className="text-xs text-red-600">{cancelError}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 px-6 py-5">
+              <button type="button" onClick={() => setConfirmTarget(null)}
+                className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer">
+                Keep order
+              </button>
+              <button type="button" onClick={confirmCancel} disabled={!!cancellingId || !cancelReason}
+                className="flex-1 py-3 rounded-2xl bg-red-500 hover:bg-red-600 disabled:bg-slate-200 disabled:text-slate-400 text-sm font-bold text-white transition-colors cursor-pointer flex items-center justify-center gap-2">
+                {cancellingId ? <><Loader2 size={14} className="animate-spin" /> Cancelling…</> : 'Yes, cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

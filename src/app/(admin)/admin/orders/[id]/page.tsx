@@ -1446,10 +1446,10 @@ export default function OrderDetailPage() {
             <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
               {/* Print + Download options */}
               {[
-                { type:'shipping', label:'Shipping Label', requiresDelivery: true  },
-                { type:'invoice',  label:'Tax Invoice',    requiresDelivery: false },
-                { type:'packing',  label:'Packing Slip',   requiresDelivery: false },
-                { type:'all',      label:'All Documents',  requiresDelivery: true  },
+                { type:'shipping',    label:'Shipping Label A6', requiresDelivery: true  },
+                { type:'invoice-a4', label:'Invoice A4',        requiresDelivery: false },
+                { type:'packing',    label:'Packing Slip',      requiresDelivery: false },
+                { type:'all',        label:'All Documents',     requiresDelivery: true  },
               ].map(d => {
                 const orderId = order!.id
                 const blocked = d.requiresDelivery && !hasDelivery

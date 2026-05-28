@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   Settings, Store, Bell, Shield, Sparkles, CreditCard, Truck,
-  Save, Loader2, CheckCircle2, Eye, EyeOff,
+  Save, Loader2, CheckCircle2, Eye, EyeOff, Copy,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
   MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library, Info,
 } from 'lucide-react'
@@ -25,6 +25,7 @@ interface StoreForm {
   STORE_THEME: string; STORE_FAVICON_URL: string
   STORE_URL: string
   RETURN_WINDOW_DAYS: string
+  ORDER_CODE_PREFIX: string
   SEO_TITLE: string; SEO_DESCRIPTION: string; SEO_KEYWORDS: string
 }
 interface PaymentForm {
@@ -32,8 +33,10 @@ interface PaymentForm {
   ESEWA_BASE_URL:    string; ESEWA_STATUS_URL: string
   KHALTI_SECRET_KEY: string; KHALTI_PUBLIC_KEY: string; KHALTI_BASE_URL: string
   // 'true' / 'false' string flags driving checkout's payment-method visibility.
-  PAYMENT_ESEWA_ENABLED:  string
-  PAYMENT_KHALTI_ENABLED: string
+  PAYMENT_COD_ENABLED:     string
+  PAYMENT_DIGITAL_ENABLED: string
+  PAYMENT_ESEWA_ENABLED:   string
+  PAYMENT_KHALTI_ENABLED:  string
 }
 interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
@@ -522,6 +525,7 @@ function DeliverySettingsPanel() {
   const [err,     setErr]     = useState('')
   const [pndVendor, setPndVendor] = useState<VendorSync | null>(null)
   const [deliveryMode, setDeliveryMode] = useState<'FREE' | 'PAID'>('PAID')
+  const [deliveryEnabled, setDeliveryEnabled] = useState(true)
   const [modeSaving, setModeSaving] = useState(false)
 
   useEffect(() => {
@@ -541,6 +545,7 @@ function DeliverySettingsPanel() {
     fetch('/api/admin/settings').then(r => r.json()).then(j => {
       const v = j?.settings?.DELIVERY_MODE
       if (v === 'FREE' || v === 'PAID') setDeliveryMode(v)
+      if (j?.settings?.DELIVERY_ENABLED === 'false') setDeliveryEnabled(false)
     }).catch(() => {})
   }, [])
 
@@ -606,7 +611,37 @@ function DeliverySettingsPanel() {
             <p className="text-[11px] text-slate-500">Controls whether checkout shows shipping carriers and charges.</p>
           </div>
           {modeSaving && <Loader2 size={14} className="ml-auto animate-spin text-slate-400" />}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={deliveryEnabled}
+            aria-label="Enable store delivery"
+            onClick={async () => {
+              const next = !deliveryEnabled
+              setDeliveryEnabled(next)
+              await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ DELIVERY_ENABLED: String(next) }),
+              })
+            }}
+            className={`ml-auto relative w-11 h-6 rounded-full transition-colors cursor-pointer ${deliveryEnabled ? 'bg-emerald-500' : 'bg-red-400'}`}
+            title={deliveryEnabled ? 'Delivery is ON — click to pause' : 'Delivery is PAUSED — click to enable'}
+          >
+            <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${deliveryEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+          </button>
         </div>
+        {!deliveryEnabled && (
+          <div className="px-6 pt-4">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-100">
+              <Info size={13} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-800">
+                Delivery is paused. Customers will see a notice and cannot place orders at checkout.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="p-6 grid sm:grid-cols-2 gap-3">
           {([
             { v: 'PAID', title: 'Paid delivery', sub: 'Charge per-order via Pick & Drop / Pathao.' },
@@ -835,6 +870,7 @@ function PndWebhookSection() {
   const [registering, setRegistering] = useState(false)
   const [error, setError]   = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -845,6 +881,17 @@ function PndWebhookSection() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  async function copySecret() {
+    try {
+      const res = await fetch('/api/admin/logistics/pnd-webhook/register?reveal=true')
+      const json = await res.json()
+      if (!json.secretFull) return
+      await navigator.clipboard.writeText(json.secretFull)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* non-fatal */ }
+  }
+
   async function register(rotate: boolean) {
     setRegistering(true); setError(null); setSuccess(false)
     try {
@@ -854,9 +901,11 @@ function PndWebhookSection() {
         body:    JSON.stringify({ rotate }),
       })
       const json = await res.json()
-      if (!res.ok || json.error) {
+      if (!res.ok && !json.ok) {
         setError(json.error ?? `HTTP ${res.status}`)
       } else {
+        // pndWarning means token was saved but PnD API auto-registration failed — manual entry needed
+        if (json.pndWarning) setError(json.pndWarning)
         setSuccess(true)
         setTimeout(() => setSuccess(false), 3000)
         await load()
@@ -890,7 +939,7 @@ function PndWebhookSection() {
         </div>
 
         <div>
-          <Label>Secret</Label>
+          <Label>Web Token</Label>
           <div className="flex items-center gap-2">
             <input
               readOnly
@@ -899,16 +948,25 @@ function PndWebhookSection() {
             />
             <button
               type="button"
+              onClick={copySecret}
+              disabled={!state?.hasSecret}
+              className="px-3 py-2.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 cursor-pointer disabled:opacity-40 flex items-center gap-1"
+              title="Copy full token to clipboard"
+            >
+              {copied ? <><CheckCircle2 size={12} className="text-green-600" /> Copied</> : <><Copy size={12} /> Copy</>}
+            </button>
+            <button
+              type="button"
               onClick={() => register(true)}
               disabled={registering}
               className="px-3 py-2.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 cursor-pointer disabled:opacity-50"
-              title="Generate a new secret and re-register with PnD"
+              title="Generate a new token and re-register with PnD"
             >
               Rotate
             </button>
           </div>
           <p className="text-[10px] text-slate-400 mt-1">
-            Signed with HMAC-SHA256 and validated by our receiver. We never display the full secret.
+            Paste the copied token into PnD&apos;s dashboard under Integration → Webhook Integration. Used to validate incoming webhook payloads (HMAC-SHA256).
           </p>
         </div>
 
@@ -931,7 +989,7 @@ function PndWebhookSection() {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-100 text-[11px] text-red-700">
+          <div className={`flex items-start gap-2 p-2.5 rounded-lg text-[11px] ${success ? 'bg-amber-50 border border-amber-100 text-amber-700' : 'bg-red-50 border border-red-100 text-red-700'}`}>
             <AlertCircle size={12} className="mt-0.5 shrink-0" />
             <span className="font-mono">{error}</span>
           </div>
@@ -1231,6 +1289,101 @@ function HomepageSettingsPanel({ saving, saved, onSave }: {
   )
 }
 
+// ── Legal page default templates ──────────────────────────────────────────
+
+const LEGAL_DEFAULTS = {
+  LEGAL_PRIVACY_BODY: `## Privacy Policy
+
+We collect your name, email, phone number, and delivery address only to process and fulfil your orders. We do not sell or share your personal information with third parties except where required to complete delivery (logistics partners) or process payment (eSewa, Khalti).
+
+## Data We Collect
+- Contact details (name, email, phone)
+- Delivery address
+- Order history
+- Payment method (we do not store card numbers)
+
+## Cookies
+We use cookies to keep you signed in and remember your cart. You can disable cookies in your browser settings, but some features may not work.
+
+## Your Rights
+You may request deletion of your account and personal data by contacting us at our store email address.
+
+## Changes
+We may update this policy from time to time. Continued use of our site after changes constitutes acceptance.`,
+
+  LEGAL_TERMS_BODY: `## Terms of Service
+
+By placing an order on our store, you agree to these terms.
+
+## Orders
+All orders are subject to product availability. We reserve the right to cancel any order and issue a full refund if a product becomes unavailable after purchase.
+
+## Pricing
+Prices are listed in Nepali Rupees (NPR) and are inclusive of applicable taxes. We reserve the right to change prices at any time without prior notice.
+
+## Delivery
+Delivery timelines are estimates and not guaranteed. We are not responsible for delays caused by logistics partners or circumstances beyond our control.
+
+## Returns & Refunds
+Please refer to our Refund & Return Policy for details.
+
+## Governing Law
+These terms are governed by the laws of Nepal.`,
+
+  LEGAL_REFUND_BODY: `## Refund & Return Policy
+
+We want you to be happy with your purchase. If you are not satisfied, you may request a return within the return window stated in your order confirmation.
+
+## Eligibility
+- Item must be unused, in original packaging, and in the same condition as received
+- Return request must be submitted within the allowed return window
+- Sale items and digital products are non-refundable
+
+## Process
+1. Submit a return request from your account's order page
+2. Our team will review and approve within 1–2 business days
+3. Ship the item back to us (return shipping cost is borne by the customer unless the item was defective)
+4. Refund is issued within 5–7 business days after we receive the item
+
+## Defective or Wrong Items
+If you received a defective or incorrect item, contact us immediately. We will arrange a replacement or full refund including return shipping.`,
+
+  LEGAL_SHIPPING_BODY: `## Shipping Policy
+
+We deliver across Nepal via our logistics partners.
+
+## Processing Time
+Orders are typically processed within 1–2 business days after payment confirmation.
+
+## Delivery Time
+- Kathmandu Valley: 1–2 business days
+- Major cities (outside valley): 2–4 business days
+- Remote areas: 4–7 business days
+
+## Shipping Charges
+Delivery charges are calculated at checkout based on your location. Free delivery may apply above a minimum order amount.
+
+## Order Tracking
+Once your order is dispatched, you will receive a tracking number by email or SMS.
+
+## Undeliverable Orders
+If a delivery attempt fails and the order is returned to us, we will contact you to arrange re-delivery. Additional delivery charges may apply.`,
+
+  LEGAL_CANCELLATION_BODY: `## Cancellation Policy
+
+## Before Dispatch
+You may cancel your order at no charge any time before it has been dispatched. To cancel, go to your account orders page and submit a cancellation request, or contact us directly.
+
+## After Dispatch
+Once an order has been dispatched, it cannot be cancelled. You may initiate a return after delivery by following our Return Policy.
+
+## Refunds on Cancellation
+For prepaid orders (eSewa / Khalti), refunds are processed within 5–7 business days after cancellation approval.
+
+## Store-Initiated Cancellations
+We reserve the right to cancel an order if a product is out of stock or if we detect a pricing error. You will be notified and receive a full refund.`,
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1289,14 +1442,17 @@ export default function SettingsPage() {
     STORE_ADDRESS: 'Kathmandu, Nepal', FREE_DELIVERY_THRESHOLD: '5000', STORE_LOGO_URL: '', STORE_THEME: 'emerald', STORE_FAVICON_URL: '',
     STORE_URL: '',
     RETURN_WINDOW_DAYS: '7',
+    ORDER_CODE_PREFIX: '',
     SEO_TITLE: '', SEO_DESCRIPTION: '', SEO_KEYWORDS: '',
   })
   const [payment, setPayment] = useState<PaymentForm>({
     ESEWA_MERCHANT_ID: '', ESEWA_SECRET_KEY: '',
     ESEWA_BASE_URL:    '', ESEWA_STATUS_URL: '',
     KHALTI_SECRET_KEY: '', KHALTI_PUBLIC_KEY: '', KHALTI_BASE_URL: '',
-    PAYMENT_ESEWA_ENABLED:  'true',
-    PAYMENT_KHALTI_ENABLED: 'true',
+    PAYMENT_COD_ENABLED:     'true',
+    PAYMENT_DIGITAL_ENABLED: 'true',
+    PAYMENT_ESEWA_ENABLED:   'true',
+    PAYMENT_KHALTI_ENABLED:  'true',
   })
   const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '' })
   const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
@@ -1321,6 +1477,7 @@ export default function SettingsPage() {
         STORE_FAVICON_URL:       settings.STORE_FAVICON_URL       ?? s.STORE_FAVICON_URL,
         STORE_URL:               settings.STORE_URL               ?? s.STORE_URL,
         RETURN_WINDOW_DAYS:      settings.RETURN_WINDOW_DAYS      ?? s.RETURN_WINDOW_DAYS,
+        ORDER_CODE_PREFIX:       settings.ORDER_CODE_PREFIX       ?? s.ORDER_CODE_PREFIX,
         SEO_TITLE:               settings.SEO_TITLE               ?? s.SEO_TITLE,
         SEO_DESCRIPTION:         settings.SEO_DESCRIPTION         ?? s.SEO_DESCRIPTION,
         SEO_KEYWORDS:            settings.SEO_KEYWORDS            ?? s.SEO_KEYWORDS,
@@ -1333,8 +1490,10 @@ export default function SettingsPage() {
         KHALTI_SECRET_KEY: settings.KHALTI_SECRET_KEY ?? p.KHALTI_SECRET_KEY,
         KHALTI_PUBLIC_KEY: settings.KHALTI_PUBLIC_KEY ?? p.KHALTI_PUBLIC_KEY,
         KHALTI_BASE_URL:   settings.KHALTI_BASE_URL   ?? p.KHALTI_BASE_URL,
-        PAYMENT_ESEWA_ENABLED:  settings.PAYMENT_ESEWA_ENABLED  ?? p.PAYMENT_ESEWA_ENABLED,
-        PAYMENT_KHALTI_ENABLED: settings.PAYMENT_KHALTI_ENABLED ?? p.PAYMENT_KHALTI_ENABLED,
+        PAYMENT_COD_ENABLED:     settings.PAYMENT_COD_ENABLED     ?? p.PAYMENT_COD_ENABLED,
+        PAYMENT_DIGITAL_ENABLED: settings.PAYMENT_DIGITAL_ENABLED ?? p.PAYMENT_DIGITAL_ENABLED,
+        PAYMENT_ESEWA_ENABLED:   settings.PAYMENT_ESEWA_ENABLED   ?? p.PAYMENT_ESEWA_ENABLED,
+        PAYMENT_KHALTI_ENABLED:  settings.PAYMENT_KHALTI_ENABLED  ?? p.PAYMENT_KHALTI_ENABLED,
       }))
       setNotif({
         ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '',
@@ -1586,6 +1745,20 @@ export default function SettingsPage() {
                       placeholder="7" className={inputCls + ' max-w-xs'} />
                     <Hint>How long a customer can request a return after delivery. Set to 0 to disable returns entirely.</Hint>
                   </div>
+
+                  <div className="mt-4">
+                    <Label>Order Code Prefix</Label>
+                    <input
+                      value={store.ORDER_CODE_PREFIX}
+                      onChange={e => setStore(s => ({ ...s, ORDER_CODE_PREFIX: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) }))}
+                      placeholder="BLP"
+                      className={inputCls + ' max-w-xs font-mono'}
+                    />
+                    <Hint>
+                      Short brand tag prepended to every order code (e.g. <code className="bg-slate-100 px-1 rounded">BLP</code> → <code className="bg-slate-100 px-1 rounded">BLP-WOOD-948-0001</code>).
+                      Letters and numbers only, max 8 characters. Changing this only affects <em>new</em> orders.
+                    </Hint>
+                  </div>
                 </div>
 
                 {/* Theme picker */}
@@ -1747,6 +1920,7 @@ export default function SettingsPage() {
           )}
 
           {/* ── Content tab (legal pages, about, contact, FAQ) ────── */}
+          {/* Legal page default templates — loaded on demand via "Load defaults" button */}
           {tab === 'content' && (
             <form onSubmit={e => {
               e.preventDefault()
@@ -1764,36 +1938,31 @@ export default function SettingsPage() {
                 {/* Legal pages */}
                 <SectionTitle>Legal pages</SectionTitle>
                 <div className="space-y-5">
-                  <div>
-                    <Label>Privacy Policy — /privacy</Label>
-                    <textarea value={content.LEGAL_PRIVACY_BODY}
-                      onChange={e => setContent(s => ({ ...s, LEGAL_PRIVACY_BODY: e.target.value }))}
-                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
-                  </div>
-                  <div>
-                    <Label>Terms of Service — /terms</Label>
-                    <textarea value={content.LEGAL_TERMS_BODY}
-                      onChange={e => setContent(s => ({ ...s, LEGAL_TERMS_BODY: e.target.value }))}
-                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
-                  </div>
-                  <div>
-                    <Label>Refund &amp; Return Policy — /refund-policy</Label>
-                    <textarea value={content.LEGAL_REFUND_BODY}
-                      onChange={e => setContent(s => ({ ...s, LEGAL_REFUND_BODY: e.target.value }))}
-                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
-                  </div>
-                  <div>
-                    <Label>Shipping Policy — /shipping-policy</Label>
-                    <textarea value={content.LEGAL_SHIPPING_BODY}
-                      onChange={e => setContent(s => ({ ...s, LEGAL_SHIPPING_BODY: e.target.value }))}
-                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
-                  </div>
-                  <div>
-                    <Label>Cancellation Policy — /cancellation-policy</Label>
-                    <textarea value={content.LEGAL_CANCELLATION_BODY}
-                      onChange={e => setContent(s => ({ ...s, LEGAL_CANCELLATION_BODY: e.target.value }))}
-                      rows={8} placeholder="Markdown supported…" className={`${inputCls} font-mono text-xs`} />
-                  </div>
+                  {(([
+                    ['LEGAL_PRIVACY_BODY',      'Privacy Policy — /privacy'],
+                    ['LEGAL_TERMS_BODY',         'Terms of Service — /terms'],
+                    ['LEGAL_REFUND_BODY',        'Refund & Return Policy — /refund-policy'],
+                    ['LEGAL_SHIPPING_BODY',      'Shipping Policy — /shipping-policy'],
+                    ['LEGAL_CANCELLATION_BODY',  'Cancellation Policy — /cancellation-policy'],
+                  ] as const).map(([key, label]) => (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <Label>{label}</Label>
+                        {!content[key] && (
+                          <button
+                            type="button"
+                            onClick={() => setContent(s => ({ ...s, [key]: LEGAL_DEFAULTS[key] }))}
+                            className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
+                          >
+                            Load defaults
+                          </button>
+                        )}
+                      </div>
+                      <textarea value={content[key]}
+                        onChange={e => setContent(s => ({ ...s, [key]: e.target.value }))}
+                        rows={8} placeholder="Markdown supported… (click Load defaults for a starter template)" className={`${inputCls} font-mono text-xs`} />
+                    </div>
+                  )))}
                 </div>
 
                 {/* About */}
@@ -1917,8 +2086,87 @@ export default function SettingsPage() {
                   Keys saved here are masked in the UI and override <code className="font-mono bg-white px-1 rounded text-[10px]">.env.local</code> values. They take effect immediately.
                 </InfoBanner>
 
-                {/* eSewa */}
+                {/* COD */}
                 <div>
+                  <SectionTitle>Cash on Delivery</SectionTitle>
+                  <div className="border border-slate-100 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center">
+                          <span className="text-xs font-extrabold text-amber-700">₨</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">Cash on Delivery</p>
+                          <p className="text-[10px] text-slate-400">Customer pays the courier on receipt</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={payment.PAYMENT_COD_ENABLED === 'true'}
+                        aria-label="Offer COD at checkout"
+                        onClick={() => {
+                          const turningOff = payment.PAYMENT_COD_ENABLED === 'true'
+                          const updates: Record<string, string> = { PAYMENT_COD_ENABLED: turningOff ? 'false' : 'true' }
+                          // Auto-enable digital payments if COD is being turned off and digital is off
+                          if (turningOff && payment.PAYMENT_DIGITAL_ENABLED !== 'true') {
+                            updates.PAYMENT_DIGITAL_ENABLED = 'true'
+                          }
+                          setPayment(p => ({ ...p, ...updates }))
+                          save('payment', updates)
+                        }}
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${payment.PAYMENT_COD_ENABLED === 'true' ? 'bg-amber-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${payment.PAYMENT_COD_ENABLED === 'true' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Digital Payments master toggle */}
+                <div>
+                  <SectionTitle>Digital Payments</SectionTitle>
+                  <div className="border border-slate-100 rounded-2xl p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                          <CreditCard size={15} className="text-blue-700" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">Digital Payments</p>
+                          <p className="text-[10px] text-slate-400">Master switch for eSewa &amp; Khalti</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={payment.PAYMENT_DIGITAL_ENABLED === 'true'}
+                        aria-label="Enable digital payments"
+                        onClick={() => {
+                          const turningOff = payment.PAYMENT_DIGITAL_ENABLED === 'true'
+                          const updates: Record<string, string> = { PAYMENT_DIGITAL_ENABLED: turningOff ? 'false' : 'true' }
+                          // Auto-enable COD if digital is being turned off and COD is off
+                          if (turningOff && payment.PAYMENT_COD_ENABLED !== 'true') {
+                            updates.PAYMENT_COD_ENABLED = 'true'
+                          }
+                          setPayment(p => ({ ...p, ...updates }))
+                          save('payment', updates)
+                        }}
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${payment.PAYMENT_DIGITAL_ENABLED === 'true' ? 'bg-blue-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${payment.PAYMENT_DIGITAL_ENABLED === 'true' ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    {payment.PAYMENT_DIGITAL_ENABLED !== 'true' && (
+                      <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                        Digital payments are disabled. eSewa and Khalti will not appear at checkout.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* eSewa */}
+                <div className={payment.PAYMENT_DIGITAL_ENABLED !== 'true' ? 'opacity-40 pointer-events-none' : ''}>
                   <SectionTitle>eSewa</SectionTitle>
                   <div className="border border-slate-100 rounded-2xl p-4 space-y-4">
                     <div className="flex items-center justify-between mb-1">
@@ -1981,7 +2229,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Khalti */}
-                <div>
+                <div className={payment.PAYMENT_DIGITAL_ENABLED !== 'true' ? 'opacity-40 pointer-events-none' : ''}>
                   <SectionTitle>Khalti</SectionTitle>
                   <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between mb-1">
