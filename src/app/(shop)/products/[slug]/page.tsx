@@ -28,21 +28,23 @@ const getProduct = cache(async (slug: string) => {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const product = await getProduct(slug)
-  const { STORE_NAME, STORE_URL: appUrl } = await import('@/lib/config')
-  if (!product) return { title: `Product Not Found | ${STORE_NAME}`, description: 'The product you are looking for does not exist.' }
+  const { getSiteSettings } = await import('@/lib/site-settings')
+  const { siteName, storeUrl: appUrl } = await getSiteSettings()
+  if (!product) return { title: 'Product Not Found', description: 'The product you are looking for does not exist.' }
 
-  const desc   = stripHtml(product.description).slice(0, 160)
-  const image  = product.images[0] ?? null
-  const title  = `${product.name} | ${STORE_NAME} Nepal`
-  const url    = `${appUrl}/products/${slug}`
+  const desc  = stripHtml(product.description).slice(0, 160)
+  const image = product.images[0] ?? null
+  const url   = `${appUrl}/products/${slug}`
+  // Title is just the product name — root layout template appends "| {siteName}"
+  const ogTitle = `${product.name} | ${siteName}`
 
   return {
-    title,
+    title: product.name,
     description: desc,
-    keywords: [...product.tags, product.brand ?? '', product.category.name, 'Nepal', 'buy online', STORE_NAME, 'online shopping Nepal'].filter(Boolean).join(', '),
+    keywords: [...product.tags, product.brand ?? '', product.category.name, 'buy online', siteName, 'online shopping'].filter(Boolean).join(', '),
     alternates: { canonical: url },
-    openGraph: { title, description: desc, url, siteName: STORE_NAME, type: 'website', images: image ? [{ url: image, width: 800, height: 800, alt: product.name }] : [], locale: 'en_US' },
-    twitter: { card: 'summary_large_image', title, description: desc, images: image ? [image] : [] },
+    openGraph: { title: ogTitle, description: desc, url, siteName, type: 'website', images: image ? [{ url: image, width: 800, height: 800, alt: product.name }] : [], locale: 'en_US' },
+    twitter: { card: 'summary_large_image', title: ogTitle, description: desc, images: image ? [image] : [] },
   }
 }
 
