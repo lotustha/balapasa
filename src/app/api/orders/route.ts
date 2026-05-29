@@ -10,7 +10,7 @@ import { createMagicToken, magicLinkUrl } from '@/lib/magic-link'
 import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
-import { createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
+import { createPndOrder, resolveBranchForAddress } from '@/lib/pickndrop'
 import { resolveOrderCodePrefix, assignOrderCode } from '@/lib/order-code'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
@@ -314,8 +314,13 @@ export async function POST(req: NextRequest) {
             ? selectedBranchName.trim()
             : ''
           if (!destinationBranch) {
-            const resolved = await resolveBranchForArea(district ?? municipality ?? city ?? '')
-            destinationBranch = resolved?.branch_name ?? ''
+            // Multi-atom match over the full structured address (same matcher
+            // checkout used to quote the rate) — not a single-atom city lookup,
+            // which fails for valley addresses whose city is just "Kathmandu".
+            const resolved = await resolveBranchForAddress([
+              province, district, municipality, ward, street, tole, structuredLandmark, city,
+            ])
+            destinationBranch = resolved.branch?.branch_name ?? ''
           }
           if (!destinationBranch) throw new Error('no destination branch resolved')
 

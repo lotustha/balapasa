@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
+import { createPndOrder, resolveBranchForAddress, addressAtoms } from '@/lib/pickndrop'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
 
 // Admin-only: re-runs the Pick & Drop create_order call for an order whose
@@ -13,11 +13,16 @@ import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
 // On failure: returns the new error to the admin UI and leaves the order
 // untouched so they can fix the underlying issue and retry again.
 
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
   if (!user || user.role !== 'ADMIN') return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await ctx.params
+
+  // Optional manual override: admin can POST { destinationBranch: "Kalanki" }
+  // when auto-resolution can't pin a branch from the address.
+  const body = (await req.json().catch(() => ({}))) as { destinationBranch?: string }
+  const explicitBranch = (body.destinationBranch ?? '').trim()
 
   const order = await prisma.order.findUnique({
     where: { id },
@@ -33,9 +38,18 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   try {
-    const resolved = (await resolveBranchForArea(order.city ?? ''))?.branch_name ?? ''
+    let resolved = explicitBranch
     if (!resolved) {
-      return Response.json({ error: 'Could not resolve a destination branch from the customer city. Update the address or pick a branch first.' }, { status: 400 })
+      // Multi-atom match over the full flattened address (structured atoms
+      // aren't persisted on the Order row, so tokenise Order.address + city).
+      const match = await resolveBranchForAddress(addressAtoms(order.address, order.city))
+      resolved = match.branch?.branch_name ?? ''
+      if (!resolved) {
+        return Response.json({
+          error: 'Could not resolve a destination branch from the address. Pick one of the suggested branches and retry.',
+          candidates: match.candidates.map(b => b.branch_name),
+        }, { status: 400 })
+      }
     }
 
     const itemNames = order.items.map(i => `${i.quantity}× ${i.name}`).join(', ').slice(0, 120) || `Order ${order.id.slice(0, 8)}`

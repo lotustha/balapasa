@@ -6,7 +6,7 @@
 // via getPicknDropConfig() so admin saves take effect without a restart.
 
 import { getPicknDropConfig } from '@/lib/logistics-config'
-import { matchBranchForAddress, normPnd } from '@/lib/pndBranchMatch'
+import { matchBranchForAddress, rankBranches, normPnd } from '@/lib/pndBranchMatch'
 
 // Default package dims/weight when caller doesn't supply them. PnD rate is
 // usually weight-zone driven, so a sensible mid-sized box (10×10×10 cm @ 1 kg)
@@ -66,6 +66,44 @@ export async function resolveBranchForArea(cityOrArea: string): Promise<PndBranc
 }
 
 function norm(s: string) { return s.toLowerCase().replace(/\s+/g, '') }
+
+// Multi-atom branch resolver — mirrors the scoring match used by checkout's
+// coverage endpoint so an order that successfully quoted a PnD rate can always
+// be dispatched to the same branch. The single-atom resolveBranchForArea()
+// above fails for valley addresses whose `city` is just "Kathmandu" (no branch
+// is named that, nor lists it in area[]); this resolver scores the full address
+// (Sitapaila → Kalanki, etc.).
+//
+// Returns the best branch *only* when it clears `minScore` (an exact area-token
+// hit scores 5, an exact branch-name hit 10 — so a floor of 3 keeps real
+// matches while rejecting weak single-substring noise that could mis-route a
+// parcel). When nothing clears the floor, `branch` is null and `candidates`
+// holds ranked suggestions for an admin to pick from.
+export async function resolveBranchForAddress(
+  atoms: Array<string | null | undefined>,
+  minScore = 3,
+): Promise<{ branch: PndBranch | null; score: number; candidates: PndBranch[] }> {
+  const clean = atoms.filter((s): s is string => typeof s === 'string' && !!s.trim())
+  const active = (await getBranches()).filter(b => b.status === 'Active')
+  if (clean.length === 0 || active.length === 0) return { branch: null, score: 0, candidates: [] }
+
+  const m = matchBranchForAddress(active, clean)
+  if (m && m.score >= minScore) return { branch: m.branch, score: m.score, candidates: [m.branch] }
+
+  const candidates = rankBranches(active, clean.join(' '), 5)
+  return { branch: null, score: m?.score ?? 0, candidates }
+}
+
+// Tokenise a free-text address string ("Sitapaila marga, Nagarjun, Kathmandu")
+// into matching atoms. Used when only the flattened Order.address is available
+// (the structured province/district/municipality atoms aren't persisted on the
+// Order row, only on the Address table).
+export function addressAtoms(address?: string | null, city?: string | null): string[] {
+  const out: string[] = []
+  if (address) for (const piece of address.split(/[,/]/)) { const p = piece.trim(); if (p) out.push(p) }
+  if (city && city.trim()) out.push(city.trim())
+  return out
+}
 
 // ── Live delivery rate ────────────────────────────────────────────────────────
 

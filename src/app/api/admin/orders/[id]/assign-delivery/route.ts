@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { estimateDelivery, createParcel } from '@/lib/pathao'
-import { calculatePndRates, createPndOrder, resolveBranchForArea } from '@/lib/pickndrop'
+import { calculatePndRates, createPndOrder, resolveBranchForAddress, addressAtoms } from '@/lib/pickndrop'
 import { getPicknDropConfig } from '@/lib/logistics-config'
 import { aggregateOrderPackage } from '@/lib/order-package'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
@@ -116,8 +116,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     if (type === 'PICKNDROP') {
       const { destinationBranch, instruction, weightKg, lengthCm, widthCm, heightCm } = body
-      // Resolve destination branch from order.city if admin didn't override.
-      const resolved = destinationBranch ?? (await resolveBranchForArea(order.city))?.branch_name ?? cityToDistrict(order.city)
+      // Resolve destination branch when admin didn't override: multi-atom match
+      // over the full address (same matcher checkout uses), falling back to the
+      // municipality→district map only as a last resort.
+      const resolved = destinationBranch
+        ?? (await resolveBranchForAddress(addressAtoms(order.address, order.city))).branch?.branch_name
+        ?? cityToDistrict(order.city)
 
       const orderItems = await prisma.orderItem.findMany({ where: { orderId: order.id } })
       const itemSummary = orderItems.map(i => `${i.quantity}× ${i.name}`).join(', ')
