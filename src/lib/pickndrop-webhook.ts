@@ -124,7 +124,7 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   // Find the order by PnD tracking number.
   const order = await prisma.order.findFirst({
     where: { pndOrderId: event.tracking_number },
-    select: { id: true, status: true, paymentStatus: true, paymentMethod: true, transactionId: true },
+    select: { id: true, userId: true, status: true, paymentStatus: true, paymentMethod: true, transactionId: true },
   })
   if (!order) return result   // matched stays false; caller returns 200 OK so PnD doesn't retry forever
   result.matched = true
@@ -205,8 +205,10 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   }
 
   if (mapping.pushTitle) {
+    // Pass the order's owner so registered devices actually receive the push.
+    // pushOrderEvent early-returns on a null userId (guest orders get no push).
     pushOrderEvent({
-      userId:  null,
+      userId:  order.userId,
       orderId: order.id,
       title:   mapping.pushTitle,
       body:    event.comments ?? '',

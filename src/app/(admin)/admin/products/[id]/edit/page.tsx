@@ -46,6 +46,8 @@ export default function EditProductPage() {
           freeDelivery:      p.freeDelivery ?? false,
           videoUrl:          p.videoUrl    ?? '',
           boughtTogetherIds: p.boughtTogetherIds ?? [],
+          kind:              p.kind              ?? 'PHYSICAL',
+          planId:            p.planId            ?? '',
         })
       })
       .catch(() => setError('Failed to load product'))

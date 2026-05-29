@@ -11,6 +11,7 @@ export async function GET(_: NextRequest, ctx: RouteContext<'/api/products/slug/
         supplier: true,
         options:  true,
         variants: true,
+        plan:     true,
       },
     })
     if (!product) return Response.json({ error: 'Not found' }, { status: 404 })

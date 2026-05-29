@@ -10,7 +10,7 @@ import { createMagicToken, magicLinkUrl } from '@/lib/magic-link'
 import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
-import { createPndOrder, resolveBranchForAddress } from '@/lib/pickndrop'
+import { createPndOrder, resolveBranchForAddress, cityToDistrict } from '@/lib/pickndrop'
 import { resolveOrderCodePrefix, assignOrderCode } from '@/lib/order-code'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
@@ -320,7 +320,7 @@ export async function POST(req: NextRequest) {
             const resolved = await resolveBranchForAddress([
               province, district, municipality, ward, street, tole, structuredLandmark, city,
             ])
-            destinationBranch = resolved.branch?.branch_name ?? ''
+            destinationBranch = resolved.branch?.branch_name ?? cityToDistrict(city ?? '')
           }
           if (!destinationBranch) throw new Error('no destination branch resolved')
 

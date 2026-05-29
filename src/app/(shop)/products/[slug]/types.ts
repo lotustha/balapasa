@@ -15,6 +15,12 @@ export interface ClientProduct {
   width:  number | null
   height: number | null
   faqs:   Array<{ q: string; a: string }> | null
+  kind:   string
+  planId: string | null
+  plan: {
+    id: string; name: string; description: string | null; image: string | null
+    amount: number; interval: string; intervalCount: number; trialDays: number
+  } | null
   category: { id: string; name: string; slug: string; color: string; icon: string | null; image: string | null }
   options: { id: string; name: string; values: string[]; position: number }[]
   variants: { id: string; title: string; price: number | null; stock: number; image: string | null; options: Record<string, string>; sku: string | null }[]

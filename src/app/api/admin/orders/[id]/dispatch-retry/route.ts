@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { createPndOrder, resolveBranchForAddress, addressAtoms } from '@/lib/pickndrop'
+import { createPndOrder, resolveBranchForAddress, addressAtoms, cityToDistrict } from '@/lib/pickndrop'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
 
 // Admin-only: re-runs the Pick & Drop create_order call for an order whose
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Multi-atom match over the full flattened address (structured atoms
       // aren't persisted on the Order row, so tokenise Order.address + city).
       const match = await resolveBranchForAddress(addressAtoms(order.address, order.city))
-      resolved = match.branch?.branch_name ?? ''
+      resolved = match.branch?.branch_name ?? cityToDistrict(order.city ?? '')
       if (!resolved) {
         return Response.json({
           error: 'Could not resolve a destination branch from the address. Pick one of the suggested branches and retry.',

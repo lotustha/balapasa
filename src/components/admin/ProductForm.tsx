@@ -35,6 +35,8 @@ export interface ProductData {
   categoryId: string; supplierId: string; brand: string; tags: string[]
   isActive: boolean; isFeatured: boolean; isNew: boolean; freeDelivery: boolean
   boughtTogetherIds: string[]
+  kind: string
+  planId: string
 }
 
 const EMPTY: ProductData = {
@@ -50,6 +52,7 @@ const EMPTY: ProductData = {
   categoryId: '', supplierId: '', brand: '', tags: [],
   isActive: true, isFeatured: false, isNew: true, freeDelivery: false,
   boughtTogetherIds: [],
+  kind: 'PHYSICAL', planId: '',
 }
 
 function discountPct(price: string, salePrice: string) {
@@ -879,9 +882,11 @@ const inputCls = 'w-full px-3 py-2.5 rounded-xl text-sm border border-slate-200 
 
 export default function ProductForm({ initial, mode, productId }: Props) {
   const router = useRouter()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [suppliers,  setSuppliers]  = useState<Supplier[]>([])
-  const [brands,     setBrands]     = useState<string[]>([])
+  const [categories,      setCategories]      = useState<Category[]>([])
+  const [suppliers,       setSuppliers]       = useState<Supplier[]>([])
+  const [brands,          setBrands]          = useState<string[]>([])
+  const [plans,           setPlans]           = useState<{ id: string; name: string; amount: number; interval: string; intervalCount: number; trialDays: number }[]>([])
+  const [dropdownsReady,  setDropdownsReady]  = useState(false)
 
   const [form, setForm] = useState<ProductData>({ ...EMPTY, ...initial })
   const [variantOptions, setVariantOptions] = useState<VOption[]>([])
@@ -951,11 +956,13 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       fetch('/api/admin/categories').then(r => r.json()),
       fetch('/api/admin/suppliers').then(r => r.json()),
       fetch('/api/admin/brands').then(r => r.json()),
-    ]).then(([c, s, b]) => {
+      fetch('/api/admin/plans').then(r => r.json()),
+    ]).then(([c, s, b, pl]) => {
       setCategories(c.categories ?? [])
       setSuppliers(s.suppliers ?? [])
       setBrands(b.brands ?? [])
-    }).catch(() => {})
+      setPlans(pl.plans ?? [])
+    }).catch(() => {}).finally(() => setDropdownsReady(true))
   }, [])
 
   useEffect(() => {
@@ -1020,6 +1027,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       width:  form.width  ? Number(form.width)  : null,
       height: form.height ? Number(form.height) : null,
       categoryId: form.categoryId, supplierId: form.supplierId || null,
+      kind: form.kind, planId: form.planId || null,
       brand: form.brand || null, tags: form.tags,
       videoUrl: form.videoUrl || null,
       sku: form.sku || null, isActive: form.isActive,
@@ -1132,7 +1140,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                 description={form.description} onDescriptionChange={v => set('description', v)}
                 tags={form.tags} onTagsChange={v => set('tags', v)}
               />
-              <FaqAIButton productId={form.id} />
+              <FaqAIButton productId={productId} />
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                   Product Images
@@ -1380,6 +1388,39 @@ export default function ProductForm({ initial, mode, productId }: Props) {
 
             {/* Organization */}
             <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+              <h2 className="font-heading font-bold text-slate-800 text-sm">Product Type</h2>
+              <div className="flex gap-2 flex-wrap">
+                {(['PHYSICAL','DIGITAL','SUBSCRIPTION'] as const).map(k => (
+                  <button key={k} type="button" onClick={() => { set('kind', k); if (k !== 'SUBSCRIPTION') set('planId', '') }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${form.kind === k ? 'border-primary bg-primary-bg text-primary' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                    {k === 'PHYSICAL' ? '📦 Physical' : k === 'DIGITAL' ? '💾 Digital' : '🔄 Subscription'}
+                  </button>
+                ))}
+              </div>
+              {form.kind === 'SUBSCRIPTION' && (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Billing Plan <span className="text-red-400">*</span>
+                    </label>
+                    <select value={form.planId} onChange={e => set('planId', e.target.value)}
+                      className={inputCls}>
+                      <option value="">— select a plan —</option>
+                      {plans.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · Rs. {Math.round(p.amount).toLocaleString()} / {p.intervalCount > 1 ? `${p.intervalCount} ` : ''}{p.interval.toLowerCase()}{p.trialDays > 0 ? ` · ${p.trialDays}d trial` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {plans.length === 0 && (
+                      <p className="text-[11px] text-amber-600 mt-1.5">No active plans yet — create one in <a href="/admin/plans" className="underline">Admin → Plans</a> first.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
               <h2 className="font-heading font-bold text-slate-800 text-sm">Organization</h2>
 
               {categoryHint && !form.categoryId && (
@@ -1424,7 +1465,8 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                 value={form.supplierId}
                 options={suppliers.map(s => ({ id: s.id, name: s.name }))}
                 onChange={id => set('supplierId', id)}
-                placeholder="No supplier"
+                placeholder={dropdownsReady ? 'No supplier' : 'Loading…'}
+                disabled={!dropdownsReady}
                 createTitle="Supplier"
                 createFields={[
                   { key: 'name',  label: 'Supplier Name', required: true, placeholder: 'e.g. ABC Traders' },

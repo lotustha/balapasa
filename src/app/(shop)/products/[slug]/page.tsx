@@ -20,7 +20,7 @@ const getProduct = cache(async (slug: string) => {
   try {
     return await prisma.product.findUnique({
       where: { slug },
-      include: { category: true, options: { orderBy: { position: 'asc' } }, variants: { where: { isActive: true } } },
+      include: { category: true, options: { orderBy: { position: 'asc' } }, variants: { where: { isActive: true } }, plan: true },
     })
   } catch { return null }
 })
@@ -100,6 +100,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
     maxPerCustomerOnSale: product.maxPerCustomerOnSale,
     isDealOfTheDay:       product.isDealOfTheDay,
     tags: product.tags,
+    kind:   product.kind,
+    planId: product.planId,
+    plan: product.plan ? {
+      id: product.plan.id, name: product.plan.name, description: product.plan.description,
+      image: product.plan.image, amount: product.plan.amount, interval: product.plan.interval,
+      intervalCount: product.plan.intervalCount, trialDays: product.plan.trialDays,
+    } : null,
     category: { id: product.category.id, name: product.category.name, slug: product.category.slug, color: product.category.color, icon: product.category.icon, image: product.category.image },
     options: product.options.map(o => ({ id: o.id, name: o.name, values: o.values, position: o.position })),
     variants: product.variants.map(v => ({ id: v.id, title: v.title, price: v.price, stock: v.stock, image: v.image, options: v.options as Record<string, string>, sku: v.sku })),

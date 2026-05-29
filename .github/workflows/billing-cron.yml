@@ -1,0 +1,29 @@
+name: Recurring Billing Cron
+
+# Daily recurring-billing engine. Hits POST /api/cron/billing on production,
+# which generates renewal/trial invoices, flips due subscriptions to PAST_DUE,
+# and marks stale invoices OVERDUE. The route is idempotent, so re-runs (and the
+# manual dispatch below) are safe.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   CRON_SECRET  — must match process.env.CRON_SECRET on the production server.
+#                  Sent as the Bearer token to authorize the cron call.
+#   SITE_URL     — production base URL, no trailing slash, e.g. https://balapasa.com
+
+on:
+  schedule:
+    # 02:00 UTC daily (= 07:45 Asia/Kathmandu).
+    - cron: '0 2 * * *'
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  billing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger billing engine
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          curl -fsS -X POST "$SITE_URL/api/cron/billing" \
+            -H "Authorization: Bearer $CRON_SECRET"

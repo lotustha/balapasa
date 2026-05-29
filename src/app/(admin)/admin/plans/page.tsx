@@ -37,7 +37,7 @@ export default function AdminPlansPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [form, setForm] = useState({
-    name: '', description: '', amount: '',
+    name: '', description: '', image: '', amount: '',
     interval: 'MONTHLY' as PlanInterval, intervalCount: '1', trialDays: '0',
   })
 
@@ -63,6 +63,7 @@ export default function AdminPlansPage() {
         body: JSON.stringify({
           name:          form.name,
           description:   form.description || undefined,
+          image:         form.image        || undefined,
           amount:        Number(form.amount),
           interval:      form.interval,
           intervalCount: Number(form.intervalCount) || 1,
@@ -72,7 +73,7 @@ export default function AdminPlansPage() {
       const data = await res.json()
       if (!res.ok) { setCreateError(data.error ?? 'Failed to create'); return }
       setPlans(prev => [{ ...data.plan, _count: { subscriptions: 0 } }, ...prev])
-      setForm({ name: '', description: '', amount: '', interval: 'MONTHLY', intervalCount: '1', trialDays: '0' })
+      setForm({ name: '', description: '', image: '', amount: '', interval: 'MONTHLY', intervalCount: '1', trialDays: '0' })
       setShowForm(false)
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'Network error')
@@ -136,6 +137,12 @@ export default function AdminPlansPage() {
                 <input value={form.description}
                   onChange={e => setForm(s => ({ ...s, description: e.target.value }))}
                   placeholder="What customers get" className={inputCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Image URL <span className="font-normal text-slate-400 normal-case">(optional)</span></label>
+                <input value={form.image}
+                  onChange={e => setForm(s => ({ ...s, image: e.target.value }))}
+                  placeholder="https://…" className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount (NPR) <span className="text-red-400">*</span></label>

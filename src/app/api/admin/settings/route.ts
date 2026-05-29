@@ -6,6 +6,7 @@ import { invalidateActiveVariantCache } from '@/lib/emails/registry'
 import { invalidatePaymentConfigCache } from '@/lib/payment'
 import { invalidateEnabledPaymentMethodsCache } from '@/lib/payment-methods-server'
 import { invalidateReturnWindowCache } from '@/lib/return-eligibility'
+import { invalidateFcmConfigCache } from '@/lib/push'
 
 const SECRET_KEYS = new Set([
   'ANTHROPIC_API_KEY', 'GEMINI_API_KEY',
@@ -13,6 +14,7 @@ const SECRET_KEYS = new Set([
   'WHATSAPP_ACCESS_TOKEN', 'FACEBOOK_PAGE_ACCESS_TOKEN',
   'RESEND_API_KEY',
   'OPENWEATHER_API_KEY',
+  'FCM_PRIVATE_KEY',
 ])
 
 const PUBLIC_SITE_KEYS = new Set([
@@ -88,6 +90,9 @@ export async function POST(req: NextRequest) {
     }
     if (entries.some(([k]) => k === 'RETURN_WINDOW_DAYS')) {
       invalidateReturnWindowCache()
+    }
+    if (entries.some(([k]) => k.startsWith('FCM_'))) {
+      invalidateFcmConfigCache()
     }
 
     return Response.json({ success: true, saved: entries.length })

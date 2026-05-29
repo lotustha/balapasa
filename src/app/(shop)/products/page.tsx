@@ -238,7 +238,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
   return (
     <div className="flex items-center justify-center gap-2 mt-10 flex-wrap">
       {page > 1 && (
-        <Link href={pageUrl(page - 1)} scroll={false}
+        <Link href={pageUrl(page - 1)}
           className={`${btnBase} gap-1.5 px-4 py-2.5 glass-card rounded-2xl text-slate-600 hover:bg-white/90`}>
           <ChevronLeft size={14} /> Prev
         </Link>
@@ -248,7 +248,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
         typeof p === 'string' ? (
           <span key={p} className="text-slate-400 px-1 select-none">…</span>
         ) : (
-          <Link key={p} href={pageUrl(p)} scroll={false}
+          <Link key={p} href={pageUrl(p)}
             className={`${btnBase} w-10 h-10 rounded-2xl ${
               p === page
                 ? 'bg-primary text-white shadow-lg shadow-primary/25'
@@ -260,7 +260,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
       )}
 
       {page < totalPages && (
-        <Link href={pageUrl(page + 1)} scroll={false}
+        <Link href={pageUrl(page + 1)}
           className={`${btnBase} gap-1.5 px-4 py-2.5 glass-card rounded-2xl text-slate-600 hover:bg-white/90`}>
           Next <ChevronRight size={14} />
         </Link>

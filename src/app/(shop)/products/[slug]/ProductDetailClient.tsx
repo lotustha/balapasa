@@ -9,7 +9,7 @@ import {
   ShoppingCart, Star, Shield, Truck, RotateCcw, Minus, Plus, Zap,
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
-  GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List,
+  GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List, Repeat,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
@@ -318,6 +318,10 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   // ── Cart ────────────────────────────────────────────────────────────────
   const [qty,   setQty]   = useState(1)
   const [added, setAdded] = useState(false)
+  const [subscribing,    setSubscribing]    = useState(false)
+  const [subscribed,     setSubscribed]     = useState(false)
+  const [subscribeError, setSubscribeError] = useState('')
+  const [pendingSubId,   setPendingSubId]   = useState<string | null>(null)
   const [wished, setWished] = useState(false)
   const [wishLoading, setWishLoading] = useState(false)
   const [wishMsg, setWishMsg] = useState<string | null>(null)
@@ -394,6 +398,58 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     if (!p) return
     addItem({ id: p.id, name: p.name, price: originalPrice, salePrice: effectivePrice, image: images[0], slug: p.slug, codAvailable: true }, qty)
     setAdded(true); setTimeout(() => setAdded(false), 2000)
+  }
+
+  async function handleSubscribe() {
+    if (!p?.plan) return
+    setSubscribing(true); setSubscribeError('')
+    try {
+      // /api/auth/me returns { role, name } — role is null when not signed in.
+      const me = await fetch('/api/auth/me').then(r => r.json())
+      if (!me?.role) { router.push(`/login?returnTo=/products/${p.slug}`); return }
+      const res = await fetch('/api/subscriptions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: p.plan.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSubscribeError(data.error ?? 'Subscription failed'); return }
+      if (data.requiresPayment) {
+        // Paid plan — reveal the pay buttons (eSewa / Khalti).
+        setPendingSubId(data.subscription.id)
+      } else {
+        // Trial plan — started, no upfront charge.
+        setSubscribed(true)
+      }
+    } catch { setSubscribeError('Something went wrong. Please try again.') }
+    finally { setSubscribing(false) }
+  }
+
+  async function payVia(payMethod: 'esewa' | 'khalti') {
+    if (!pendingSubId) return
+    setSubscribing(true); setSubscribeError('')
+    try {
+      const res = await fetch(`/api/subscriptions/${pendingSubId}/pay`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: payMethod }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSubscribeError(data.error ?? 'Could not start payment.'); return }
+      if (data.method === 'khalti' && data.payment_url) { window.location.href = data.payment_url; return }
+      if (data.method === 'esewa' && data.action && data.fields) {
+        // eSewa expects an HTML form POST — build one and submit.
+        const form = document.createElement('form')
+        form.method = 'POST'; form.action = data.action
+        Object.entries(data.fields as Record<string, string>).forEach(([k, v]) => {
+          const input = document.createElement('input')
+          input.type = 'hidden'; input.name = k; input.value = String(v)
+          form.appendChild(input)
+        })
+        document.body.appendChild(form); form.submit()
+        return
+      }
+      setSubscribeError('Unexpected payment response. Please try again.')
+    } catch { setSubscribeError('Could not start payment.') }
+    finally { setSubscribing(false) }
   }
 
   // ── Video ───────────────────────────────────────────────────────────────
@@ -790,47 +846,117 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 </div>
               )}
 
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-bold text-slate-700">Quantity</span>
-                <div className="flex items-center gap-2 rounded-2xl p-1" style={{ background:'rgba(255,255,255,0.40)' }}>
-                  <button onClick={() => setQty(q => Math.max(1,q-1))} aria-label="Decrease quantity"
-                    className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
-                    <Minus size={15} className="text-slate-600" />
-                  </button>
-                  <span className="w-10 text-center font-bold text-lg tabular-nums text-slate-900" aria-live="polite">{qty}</span>
-                  <button onClick={() => setQty(q => Math.min(Math.min(variantStock, qtyMax || variantStock), q+1))} aria-label="Increase quantity"
-                    className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
-                    <Plus size={15} className="text-slate-600" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button ref={addToCartRef} onClick={handleAdd} disabled={variantStock===0}
-                  className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base cursor-pointer shadow-lg transition-all duration-200 disabled:cursor-not-allowed ${
-                    variantStock === 0
-                      ? 'bg-slate-200 text-slate-400'
-                      : added
-                        ? 'bg-primary-dark text-white'
-                        : 'bg-primary hover:bg-primary-dark text-white'
-                  }`}
-                  style={{ boxShadow: variantStock > 0 ? '0 8px 24px color-mix(in srgb, var(--clr-primary) 30%, transparent)' : 'none' }}>
-                  {added ? <><CheckCircle size={19} /> Added!</> : <><ShoppingCart size={19} /> Add to Cart</>}
-                </button>
-                <button
-                  onClick={() => { setBuyNow({ id:p.id, name:p.name, price:originalPrice, salePrice:effectivePrice, image:images[0], slug:p.slug, codAvailable:true }, qty); router.push('/checkout') }}
-                  disabled={variantStock===0}
-                  className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-slate-800 hover:bg-white/80 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
-                  style={{ background:'rgba(255,255,255,0.42)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
-                  <Zap size={17} className="text-gold-bright" /> Buy Now
-                </button>
-              </div>
+              {p.kind === 'SUBSCRIPTION' && p.plan ? (
+                /* ── Subscription product ── */
+                <div className="space-y-4">
+                  <div className="rounded-2xl p-4 space-y-2" style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Repeat size={15} className="text-primary" />
+                      <p className="text-xs font-bold text-primary uppercase tracking-wide">Subscription Plan</p>
+                    </div>
+                    <p className="font-extrabold text-2xl text-slate-900">
+                      {formatPrice(p.plan.amount)}
+                      <span className="text-sm font-semibold text-slate-500 ml-1">
+                        / {p.plan.intervalCount > 1 ? `${p.plan.intervalCount} ` : ''}{p.plan.interval.toLowerCase()}
+                      </span>
+                    </p>
+                    {p.plan.trialDays > 0 && (
+                      <p className="text-xs text-green-700 font-semibold bg-green-50 inline-block px-2.5 py-1 rounded-full">
+                        {p.plan.trialDays}-day free trial
+                      </p>
+                    )}
+                    {p.plan.description && <p className="text-sm text-slate-600 leading-relaxed">{p.plan.description}</p>}
+                  </div>
 
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-100">
-                <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 10 8" className="w-3 h-3"><path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" fill="none"/></svg>
+                  {subscribeError && (
+                    <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">{subscribeError}</p>
+                  )}
+
+                  {subscribed ? (
+                    /* Trial started — no payment needed */
+                    <div className="rounded-2xl bg-green-50 border border-green-200 p-4 text-center space-y-2">
+                      <p className="font-bold text-green-800 flex items-center justify-center gap-2">
+                        <CheckCircle size={18} /> You&apos;re subscribed!
+                      </p>
+                      <Link href="/account/subscriptions" className="text-sm font-semibold text-primary hover:underline cursor-pointer">
+                        Manage subscription →
+                      </Link>
+                    </div>
+                  ) : pendingSubId ? (
+                    /* Paid plan — choose a payment method */
+                    <div className="space-y-2.5">
+                      <p className="text-xs font-semibold text-slate-500 text-center">
+                        Pay {formatPrice(p.plan.amount)} to activate
+                      </p>
+                      <div className="flex gap-3">
+                        <button onClick={() => payVia('esewa')} disabled={subscribing}
+                          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white cursor-pointer transition-all disabled:opacity-60"
+                          style={{ background: '#60BB46' }}>
+                          {subscribing ? <Loader2 size={16} className="animate-spin" /> : 'Pay with eSewa'}
+                        </button>
+                        <button onClick={() => payVia('khalti')} disabled={subscribing}
+                          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white cursor-pointer transition-all disabled:opacity-60"
+                          style={{ background: '#5C2D91' }}>
+                          {subscribing ? <Loader2 size={16} className="animate-spin" /> : 'Pay with Khalti'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={handleSubscribe} disabled={subscribing}
+                      className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base cursor-pointer shadow-lg transition-all duration-200 disabled:opacity-60"
+                      style={{ background: 'var(--clr-primary)', color: 'white', boxShadow: '0 8px 24px color-mix(in srgb, var(--clr-primary) 30%, transparent)' }}>
+                      {subscribing
+                        ? <><Loader2 size={19} className="animate-spin" /> Starting…</>
+                        : <><Repeat size={19} /> Subscribe Now</>}
+                    </button>
+                  )}
+                  <p className="text-center text-xs text-slate-400">Cancel anytime from your account</p>
                 </div>
-                <p className="text-xs font-bold text-green-700">COD Available — Pay when delivered</p>
-              </div>
+              ) : (
+                /* ── Physical / Digital product ── */
+                <>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-bold text-slate-700">Quantity</span>
+                    <div className="flex items-center gap-2 rounded-2xl p-1" style={{ background:'rgba(255,255,255,0.40)' }}>
+                      <button onClick={() => setQty(q => Math.max(1,q-1))} aria-label="Decrease quantity"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
+                        <Minus size={15} className="text-slate-600" />
+                      </button>
+                      <span className="w-10 text-center font-bold text-lg tabular-nums text-slate-900" aria-live="polite">{qty}</span>
+                      <button onClick={() => setQty(q => Math.min(Math.min(variantStock, qtyMax || variantStock), q+1))} aria-label="Increase quantity"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
+                        <Plus size={15} className="text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button ref={addToCartRef} onClick={handleAdd} disabled={variantStock===0}
+                      className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base cursor-pointer shadow-lg transition-all duration-200 disabled:cursor-not-allowed ${
+                        variantStock === 0
+                          ? 'bg-slate-200 text-slate-400'
+                          : added
+                            ? 'bg-primary-dark text-white'
+                            : 'bg-primary hover:bg-primary-dark text-white'
+                      }`}
+                      style={{ boxShadow: variantStock > 0 ? '0 8px 24px color-mix(in srgb, var(--clr-primary) 30%, transparent)' : 'none' }}>
+                      {added ? <><CheckCircle size={19} /> Added!</> : <><ShoppingCart size={19} /> Add to Cart</>}
+                    </button>
+                    <button
+                      onClick={() => { setBuyNow({ id:p.id, name:p.name, price:originalPrice, salePrice:effectivePrice, image:images[0], slug:p.slug, codAvailable:true }, qty); router.push('/checkout') }}
+                      disabled={variantStock===0}
+                      className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-slate-800 hover:bg-white/80 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
+                      style={{ background:'rgba(255,255,255,0.42)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
+                      <Zap size={17} className="text-gold-bright" /> Buy Now
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-100">
+                    <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                      <svg viewBox="0 0 10 8" className="w-3 h-3"><path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" fill="none"/></svg>
+                    </div>
+                    <p className="text-xs font-bold text-green-700">COD Available — Pay when delivered</p>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Guarantees + share */}

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { esewaVerifyCallback, esewaStatusCheck, khaltiLookup } from '@/lib/payment'
+import { markInvoicePaid } from '@/lib/billing'
 import { pushOrderEvent } from '@/lib/push'
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
@@ -16,6 +17,9 @@ export default async function CheckoutVerifyPage({
 }) {
   const params = await searchParams
   const method = sp(params.method)
+  // type=subscription routes the verified payment to the Invoice/Subscription
+  // pipeline instead of the Order table. Set by payment.ts when kind==='subscription'.
+  const isSub  = sp(params.type) === 'subscription'
 
   // ── eSewa ──────────────────────────────────────────────────────────────────
   if (method === 'esewa') {
@@ -38,15 +42,21 @@ export default async function CheckoutVerifyPage({
       redirect(`/checkout/failed?reason=${statusCheck.status}`)
     }
 
+    const txn = transaction_code ?? statusCheck.ref_id ?? transaction_uuid
+
+    // ── Subscription invoice ──
+    if (isSub) {
+      try { await markInvoicePaid(transaction_uuid, { paymentMethod: 'ESEWA', transactionId: txn }) }
+      catch { /* already paid or invoice gone — don't block redirect */ }
+      redirect(`/account/subscriptions?payment=success&method=esewa`)
+    }
+
+    // ── Order ──
     try {
       const order = await prisma.order.update({
         where: { id: transaction_uuid },
-        data: {
-          paymentStatus: 'PAID',
-          transactionId: transaction_code ?? statusCheck.ref_id ?? transaction_uuid,
-        },
+        data: { paymentStatus: 'PAID', transactionId: txn },
       })
-      // Fire FCM push (fire-and-forget)
       pushOrderEvent({
         userId:  order.userId,
         orderId: order.id,
@@ -73,11 +83,23 @@ export default async function CheckoutVerifyPage({
 
     if (lookup!.status !== 'Completed') redirect(`/checkout/failed?reason=${lookup!.status}`)
 
+    const txn = lookup!.transaction_id ?? pidx
+
+    // ── Subscription invoice ──
+    if (isSub) {
+      if (purchaseOrderId) {
+        try { await markInvoicePaid(purchaseOrderId, { paymentMethod: 'KHALTI', transactionId: txn }) }
+        catch { /* non-fatal */ }
+      }
+      redirect(`/account/subscriptions?payment=success&method=khalti`)
+    }
+
+    // ── Order ──
     try {
       if (purchaseOrderId) {
         const order = await prisma.order.update({
           where: { id: purchaseOrderId },
-          data: { paymentStatus: 'PAID', transactionId: lookup!.transaction_id ?? pidx },
+          data: { paymentStatus: 'PAID', transactionId: txn },
         })
         pushOrderEvent({
           userId:  order.userId,

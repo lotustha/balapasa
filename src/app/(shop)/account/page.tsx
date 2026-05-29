@@ -2,7 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   User, ShoppingBag, MapPin, Heart, ChevronRight, Package, Star,
-  Settings, ArrowRight, Shield, Clock,
+  Settings, ArrowRight, Shield, Clock, Repeat,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -10,8 +10,9 @@ import { formatPrice } from '@/lib/utils'
 import SignOutButton from './SignOutButton'
 
 const NAV = [
-  { href: '/account/orders',    icon: ShoppingBag, label: 'My Orders',          desc: 'Track & manage orders'     },
-  { href: '/account/addresses', icon: MapPin,      label: 'Saved Addresses',    desc: 'Manage delivery locations' },
+  { href: '/account/orders',        icon: ShoppingBag, label: 'My Orders',          desc: 'Track & manage orders'     },
+  { href: '/account/subscriptions', icon: Repeat,      label: 'My Subscriptions',   desc: 'Recurring plans & billing' },
+  { href: '/account/addresses',     icon: MapPin,      label: 'Saved Addresses',    desc: 'Manage delivery locations' },
   { href: '/account/wishlist',  icon: Heart,       label: 'Wishlist',           desc: 'Products you saved'        },
   { href: '/account/profile',   icon: Settings,    label: 'Profile & Security', desc: 'Edit your info & password' },
 ]

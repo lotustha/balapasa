@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { estimateDelivery, createParcel } from '@/lib/pathao'
-import { calculatePndRates, createPndOrder, resolveBranchForAddress, addressAtoms } from '@/lib/pickndrop'
+import { calculatePndRates, createPndOrder, resolveBranchForAddress, addressAtoms, cityToDistrict } from '@/lib/pickndrop'
 import { getPicknDropConfig } from '@/lib/logistics-config'
 import { aggregateOrderPackage } from '@/lib/order-package'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
@@ -14,27 +14,6 @@ type Ctx = { params: Promise<{ id: string }> }
 const PATHAO_RX_LAT = 27.7172
 const PATHAO_RX_LNG = 85.3240
 
-// PnD zones use district names, but order.city stores the municipality.
-// Map municipality → district so calculatePndRates gets the right zone.
-const KTM_MUNICIPALITIES = new Set([
-  'kathmandu','kirtipur','nagarjun','tokha','budhanilkantha','tarakeshwor',
-  'shankharapur','gokarneshwor','kageshworimanohara','chandragiri','dakshinkali',
-])
-const LALITPUR_MUNICIPALITIES = new Set([
-  'lalitpur','godawari','mahalaxmi','bagmati',
-])
-const BHAKTAPUR_MUNICIPALITIES = new Set([
-  'bhaktapur','madhyapurthimi','suryabinayak','changunarayan',
-])
-
-function cityToDistrict(city: string): string {
-  const key = city.toLowerCase().replace(/[\s-_]/g, '')
-  if (KTM_MUNICIPALITIES.has(key))      return 'Kathmandu'
-  if (LALITPUR_MUNICIPALITIES.has(key)) return 'Lalitpur'
-  if (BHAKTAPUR_MUNICIPALITIES.has(key))return 'Bhaktapur'
-  // For other cities, capitalise and return as-is (matches PND_ZONES keys)
-  return city.charAt(0).toUpperCase() + city.slice(1)
-}
 
 // GET — estimate from all active providers
 export async function GET(req: NextRequest, ctx: Ctx) {

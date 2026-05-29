@@ -72,7 +72,7 @@ export default function OrderDetailPage() {
   // Customer edit
   const [editCustomer,  setEditCustomer]  = useState(false)
   const [showAdvanced,  setShowAdvanced]  = useState(false)
-  const [customerDraft, setCustomerDraft] = useState({ name:'', phone:'', email:'', lat:'', lng:'' })
+  const [customerDraft, setCustomerDraft] = useState({ name:'', phone:'', email:'' })
   const [addressDraft,  setAddressDraft]  = useState<NepalAddress>({ province:'', district:'', municipality:'', ward:'', street:'', tole:'' })
   const [savingCustomer,setSavingCustomer]= useState(false)
 
@@ -87,6 +87,8 @@ export default function OrderDetailPage() {
       ward:         o.house?.trim() || '',
       street:       o.road?.trim()  || (len >= 4 ? parts[len-4]?.trim() : ''),
       tole:         len >= 5 ? parts.slice(0, len-4).join(', ').trim() : '',
+      lat:          o.lat  ?? null,
+      lng:          o.lng  ?? null,
     }
   }
 
@@ -177,7 +179,7 @@ export default function OrderDetailPage() {
     ]).then(([o, rd, pv]) => {
       setOrder(o)
       setNotesDraft(o.notes ?? '')
-      setCustomerDraft({ name: o.name, phone: o.phone, email: o.email ?? '', lat: String(o.lat ?? ''), lng: String(o.lng ?? '') })
+      setCustomerDraft({ name: o.name, phone: o.phone, email: o.email ?? '' })
       setAddressDraft(parseAddressToNepal(o))
       setManualTracking({ trackingNo: o.pathaoOrderId ?? '', trackingUrl: o.trackingUrl ?? '', charge: String(o.deliveryCharge || ''), partner: o.shippingOption ?? '' })
       setRiders(rd.riders ?? [])
@@ -201,8 +203,8 @@ export default function OrderDetailPage() {
         city:    a.municipality || order?.city,
         house:   a.ward         || null,
         road:    a.street       || null,
-        lat:     customerDraft.lat ? Number(customerDraft.lat) : null,
-        lng:     customerDraft.lng ? Number(customerDraft.lng) : null,
+        lat:     a.lat  ?? null,
+        lng:     a.lng  ?? null,
       })
       setEditCustomer(false); showToast('Customer details updated')
     } catch (e) { setError(String(e)) }
@@ -430,8 +432,8 @@ export default function OrderDetailPage() {
       house:   addressDraft.ward     || null,
       road:    addressDraft.street   || null,
       city:    addressDraft.municipality || order.city,
-      lat:     customerDraft.lat ? Number(customerDraft.lat) : null,
-      lng:     customerDraft.lng ? Number(customerDraft.lng) : null,
+      lat:     addressDraft.lat  ?? null,
+      lng:     addressDraft.lng  ?? null,
     })
     showToast('Address synced to delivery')
   }
@@ -742,14 +744,14 @@ export default function OrderDetailPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Latitude</label>
-                        <input type="number" step="any" value={customerDraft.lat}
-                          onChange={e => setCustomerDraft(d => ({ ...d, lat: e.target.value }))}
+                        <input type="number" step="any" value={addressDraft.lat ?? ''}
+                          onChange={e => setAddressDraft(d => ({ ...d, lat: e.target.value ? Number(e.target.value) : null }))}
                           placeholder="27.7172" className={inputCls} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Longitude</label>
-                        <input type="number" step="any" value={customerDraft.lng}
-                          onChange={e => setCustomerDraft(d => ({ ...d, lng: e.target.value }))}
+                        <input type="number" step="any" value={addressDraft.lng ?? ''}
+                          onChange={e => setAddressDraft(d => ({ ...d, lng: e.target.value ? Number(e.target.value) : null }))}
                           placeholder="85.3240" className={inputCls} />
                       </div>
                     </div>

@@ -1,36 +1,68 @@
 /**
  * Firebase Cloud Messaging — HTTP v1 API sender
  *
- * Setup (one-time):
- *  1. Firebase Console → Project Settings → Service accounts → Generate new private key
- *  2. Add to .env.local:
- *       FCM_PROJECT_ID=your-project-id
- *       FCM_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com
- *       FCM_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+ * Credentials are admin-editable and live in app_settings (Settings →
+ * Notifications → Firebase Cloud Messaging), so changing them takes effect
+ * without a redeploy. Env vars (FCM_PROJECT_ID / FCM_CLIENT_EMAIL /
+ * FCM_PRIVATE_KEY) are used as a fallback for backward compatibility.
+ *
+ * Get the values from: Firebase Console → Project Settings → Service accounts
+ * → Generate new private key.
  */
 
 import { prisma } from './prisma'
 
-const FCM_PROJECT_ID  = process.env.FCM_PROJECT_ID  ?? ''
-const FCM_CLIENT_EMAIL= process.env.FCM_CLIENT_EMAIL ?? ''
-const FCM_PRIVATE_KEY = (process.env.FCM_PRIVATE_KEY ?? '').replace(/\\n/g, '\n')
+const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
-const FCM_SEND_URL = `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`
-const TOKEN_URL    = 'https://oauth2.googleapis.com/token'
+// ── DB-backed credentials (cached 30s; busted on settings save) ───────────────
+interface FcmConfig { projectId: string; clientEmail: string; privateKey: string }
 
-// In-memory access token cache
-let _accessToken:  string | null = null
-let _tokenExpiry:  number        = 0
+const FCM_CACHE_TTL_MS = 30_000
+let _fcmCache:    { value: FcmConfig; expiresAt: number } | null = null
+let _accessToken: string | null = null
+let _tokenExpiry: number        = 0
 
-async function getAccessToken(): Promise<string | null> {
-  if (!FCM_PROJECT_ID || !FCM_CLIENT_EMAIL || !FCM_PRIVATE_KEY) return null
+async function getFcmConfig(): Promise<FcmConfig> {
+  const now = Date.now()
+  if (_fcmCache && _fcmCache.expiresAt > now) return _fcmCache.value
+
+  let rows: { key: string; value: string }[] = []
+  try {
+    rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+      SELECT key, value FROM app_settings
+      WHERE key IN ('FCM_PROJECT_ID', 'FCM_CLIENT_EMAIL', 'FCM_PRIVATE_KEY')
+    `
+  } catch (e) {
+    console.warn('[push] FCM config DB read failed, using env fallback:', e)
+  }
+  const db = Object.fromEntries(rows.map(r => [r.key, r.value]))
+
+  const value: FcmConfig = {
+    projectId:   db.FCM_PROJECT_ID   || process.env.FCM_PROJECT_ID   || '',
+    clientEmail: db.FCM_CLIENT_EMAIL || process.env.FCM_CLIENT_EMAIL || '',
+    // Stored keys may use escaped "\n" (env-style) or real newlines — normalise both.
+    privateKey:  (db.FCM_PRIVATE_KEY || process.env.FCM_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  }
+  _fcmCache = { value, expiresAt: now + FCM_CACHE_TTL_MS }
+  return value
+}
+
+/** Bust the FCM config + access-token caches. Called from the settings save handler. */
+export function invalidateFcmConfigCache(): void {
+  _fcmCache    = null
+  _accessToken = null
+  _tokenExpiry = 0
+}
+
+async function getAccessToken(cfg: FcmConfig): Promise<string | null> {
+  if (!cfg.projectId || !cfg.clientEmail || !cfg.privateKey) return null
   if (_accessToken && Date.now() < _tokenExpiry - 60_000) return _accessToken
 
   // Build JWT for service account auth (RS256)
   const now    = Math.floor(Date.now() / 1000)
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url')
   const claim  = Buffer.from(JSON.stringify({
-    iss: FCM_CLIENT_EMAIL,
+    iss: cfg.clientEmail,
     scope: 'https://www.googleapis.com/auth/firebase.messaging',
     aud: TOKEN_URL,
     exp: now + 3600, iat: now,
@@ -39,7 +71,7 @@ async function getAccessToken(): Promise<string | null> {
   const { createSign } = await import('crypto')
   const sig = createSign('RSA-SHA256')
     .update(`${header}.${claim}`)
-    .sign(FCM_PRIVATE_KEY, 'base64url')
+    .sign(cfg.privateKey, 'base64url')
 
   const jwt = `${header}.${claim}.${sig}`
 
@@ -67,10 +99,12 @@ export interface PushPayload {
 
 /** Send to a single FCM token. Returns true if sent. */
 export async function sendPush(token: string, payload: PushPayload): Promise<boolean> {
-  const accessToken = await getAccessToken()
+  const cfg         = await getFcmConfig()
+  const accessToken = await getAccessToken(cfg)
   if (!accessToken) return false   // FCM not configured → silently skip
 
-  const res = await fetch(FCM_SEND_URL, {
+  const sendUrl = `https://fcm.googleapis.com/v1/projects/${cfg.projectId}/messages:send`
+  const res = await fetch(sendUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

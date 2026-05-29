@@ -39,7 +39,10 @@ interface PaymentForm {
   PAYMENT_ESEWA_ENABLED:   string
   PAYMENT_KHALTI_ENABLED:  string
 }
-interface NotifForm   { ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string }
+interface NotifForm   {
+  ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string
+  FCM_PROJECT_ID: string; FCM_CLIENT_EMAIL: string; FCM_PRIVATE_KEY: string
+}
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
 interface ContentForm {
   LEGAL_PRIVACY_BODY:      string
@@ -1640,7 +1643,7 @@ export default function SettingsPage() {
     PAYMENT_ESEWA_ENABLED:   'true',
     PAYMENT_KHALTI_ENABLED:  'true',
   })
-  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '' })
+  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '', FCM_PROJECT_ID: '', FCM_CLIENT_EMAIL: '', FCM_PRIVATE_KEY: '' })
   const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
   const [content, setContent] = useState<ContentForm>({
     LEGAL_PRIVACY_BODY: '', LEGAL_TERMS_BODY: '', LEGAL_REFUND_BODY: '', LEGAL_SHIPPING_BODY: '', LEGAL_CANCELLATION_BODY: '',
@@ -1684,6 +1687,9 @@ export default function SettingsPage() {
       setNotif({
         ORDER_NOTIFICATION_EMAIL: settings.ORDER_NOTIFICATION_EMAIL ?? '',
         OPENWEATHER_API_KEY:      settings.OPENWEATHER_API_KEY      ?? '',
+        FCM_PROJECT_ID:           settings.FCM_PROJECT_ID           ?? '',
+        FCM_CLIENT_EMAIL:         settings.FCM_CLIENT_EMAIL         ?? '',
+        FCM_PRIVATE_KEY:          settings.FCM_PRIVATE_KEY          ?? '',
       })
       setAi(a => ({
         ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY ?? a.ANTHROPIC_API_KEY,
@@ -2589,6 +2595,44 @@ export default function SettingsPage() {
                       onChange={v => setNotif(n => ({ ...n, OPENWEATHER_API_KEY: v }))}
                       placeholder="your-openweathermap-key"
                       hint="Powers the live weather widget on the checkout page. Free tier is fine — get one at openweathermap.org/api." />
+                  </div>
+                </div>
+
+                <div>
+                  <SectionTitle>Push Notifications (Firebase Cloud Messaging)</SectionTitle>
+                  <p className="text-xs text-slate-500 mb-3 max-w-xl leading-relaxed">
+                    Powers push notifications to the mobile apps (order, payment and delivery updates).
+                    Get these from <span className="font-semibold">Firebase Console → Project Settings → Service accounts → Generate new private key</span>,
+                    then copy the values out of the downloaded JSON. Until all three are set, pushes are silently skipped.
+                  </p>
+                  <div className="space-y-3 max-w-xl">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label>Project ID</Label>
+                        <input value={notif.FCM_PROJECT_ID}
+                          onChange={e => setNotif(n => ({ ...n, FCM_PROJECT_ID: e.target.value }))}
+                          placeholder="your-project-id" className={inputCls} />
+                        <Hint>The <code>project_id</code> field from the service-account JSON.</Hint>
+                      </div>
+                      <div>
+                        <Label>Client Email</Label>
+                        <input value={notif.FCM_CLIENT_EMAIL}
+                          onChange={e => setNotif(n => ({ ...n, FCM_CLIENT_EMAIL: e.target.value }))}
+                          placeholder="firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com" className={inputCls} />
+                        <Hint>The <code>client_email</code> field.</Hint>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Private Key</Label>
+                      <textarea value={notif.FCM_PRIVATE_KEY}
+                        onChange={e => setNotif(n => ({ ...n, FCM_PRIVATE_KEY: e.target.value }))}
+                        placeholder={'-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----\n'}
+                        rows={4}
+                        className={`${inputCls} font-mono text-xs resize-y`} />
+                      {notif.FCM_PRIVATE_KEY.startsWith('••')
+                        ? <p className="text-[10px] text-amber-600 mt-1">A key is set. Paste a new value to replace it.</p>
+                        : <Hint>The full <code>private_key</code> value, including the BEGIN/END lines. Escaped <code>\n</code> or real line breaks both work.</Hint>}
+                    </div>
                   </div>
                 </div>
 

@@ -90,8 +90,15 @@ export async function getEsewaPaymentUrl(): Promise<string> {
   return `${cfg.esewa.baseUrl}/api/epay/main/v2/form`
 }
 
-/** Build the hidden form fields POSTed to eSewa */
-export async function esewaFormData(orderId: string, amount: number, deliveryCharge: number) {
+/** Build the hidden form fields POSTed to eSewa.
+ *  `kind` controls where the verify page routes the callback — orders update the
+ *  Order row, subscriptions mark the Invoice paid. The signed fields are
+ *  unchanged either way (eSewa only signs total_amount/transaction_uuid/product_code),
+ *  so appending a query param to success_url is safe. */
+export async function esewaFormData(
+  orderId: string, amount: number, deliveryCharge: number,
+  kind: 'order' | 'subscription' = 'order',
+) {
   const cfg          = await getPaymentConfig()
   const totalAmount  = Math.round(amount + deliveryCharge)
   const productCode  = cfg.esewa.merchantId
@@ -104,7 +111,7 @@ export async function esewaFormData(orderId: string, amount: number, deliveryCha
     product_code:            productCode,
     product_service_charge:  '0',
     product_delivery_charge: String(Math.round(deliveryCharge)),
-    success_url:             `${APP_URL}/checkout/verify?method=esewa`,
+    success_url:             `${APP_URL}/checkout/verify?method=esewa${kind === 'subscription' ? '&type=subscription' : ''}`,
     failure_url:             `${APP_URL}/checkout/failed`,
     signed_field_names:      'total_amount,transaction_uuid,product_code',
     signature:               esewaHmac(cfg.esewa.secretKey, message),
@@ -174,6 +181,7 @@ export async function khaltiInitiate(params: {
   customerName:  string
   customerEmail: string
   customerPhone: string
+  kind?:         'order' | 'subscription'   // routes the verify callback; defaults to order
 }): Promise<{ payment_url: string; pidx: string; error?: string }> {
   const cfg = await getPaymentConfig()
   const res = await fetch(`${cfg.khalti.baseUrl}/api/v2/epayment/initiate/`, {
@@ -183,7 +191,7 @@ export async function khaltiInitiate(params: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      return_url:           `${APP_URL}/checkout/verify?method=khalti`,
+      return_url:           `${APP_URL}/checkout/verify?method=khalti${params.kind === 'subscription' ? '&type=subscription' : ''}`,
       website_url:           APP_URL,
       amount:                Math.round(params.amount * 100),
       purchase_order_id:     params.orderId,

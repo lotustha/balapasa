@@ -105,6 +105,27 @@ export function addressAtoms(address?: string | null, city?: string | null): str
   return out
 }
 
+// Maps municipality names to the PnD branch/district name used as
+// `destination_branch` in the create_order API call. Valley municipalities map
+// to their parent district (Kirtipur → "Kathmandu", Godawari → "Lalitpur",
+// etc.) so the branch matcher finds the right pick-up hub. All other cities are
+// returned capitalised as-is — PnD typically names branches after the city
+// (e.g. "Biratnagar", "Pokhara", "Butwal").
+const _KTM_MUNI = new Set([
+  'kathmandu','kirtipur','nagarjun','tokha','budhanilkantha','tarakeshwor',
+  'shankharapur','gokarneshwor','kageshworimanohara','chandragiri','dakshinkali',
+])
+const _LAL_MUNI = new Set(['lalitpur','godawari','mahalaxmi','bagmati'])
+const _BHK_MUNI = new Set(['bhaktapur','madhyapurthimi','suryabinayak','changunarayan'])
+
+export function cityToDistrict(city: string): string {
+  const key = city.toLowerCase().replace(/[\s-_]/g, '')
+  if (_KTM_MUNI.has(key)) return 'Kathmandu'
+  if (_LAL_MUNI.has(key)) return 'Lalitpur'
+  if (_BHK_MUNI.has(key)) return 'Bhaktapur'
+  return city.charAt(0).toUpperCase() + city.slice(1)
+}
+
 // ── Live delivery rate ────────────────────────────────────────────────────────
 
 export interface PndRateInput {

@@ -1,8 +1,15 @@
-# Recurring billing engine — design notes (NOT YET IMPLEMENTED)
+# Recurring billing engine — design notes
 
-This file is a placeholder. The recurring engine is intentionally not built in v1.
+**Implemented.** The engine route now lives at `src/app/api/cron/billing/route.ts`
+and is scheduled by `.github/workflows/billing-cron.yml` (GitHub Actions, daily at
+`0 2 * * *` UTC). It authenticates with `process.env.CRON_SECRET` (Bearer header or
+`?token=`) and returns `{ ok, renewed, trialsEnded, markedOverdue }`. Every step is
+idempotent so the job is safe to re-run.
 
-## What the engine should do
+The notes below describe the design; one decision deviates from the original wording
+(see Trial handling).
+
+## What the engine does
 
 A daily cron job iterates `Subscription` rows where `status = ACTIVE` and
 `currentPeriodEnd <= now()`:
@@ -15,8 +22,12 @@ A daily cron job iterates `Subscription` rows where `status = ACTIVE` and
    - Advance `currentPeriodStart` to the old `currentPeriodEnd`.
    - Advance `currentPeriodEnd` to `nextPeriodEnd(currentPeriodStart, plan.interval, plan.intervalCount)`.
    - Flip status back to `ACTIVE` (or `CANCELLED` if `cancelAtPeriodEnd` was set).
-4. Trial handling: when `trialEndsAt <= now()` and status is `TRIALING`,
-   transition to `ACTIVE` and start the first billing cycle.
+4. Trial handling: when `trialEndsAt <= now()` and status is `TRIALING`, treat it
+   like a renewal — create an OPEN invoice (if none open/overdue) and set status
+   `PAST_DUE`. **This intentionally deviates from the original "→ ACTIVE" wording.**
+   Because Nepal PSPs (eSewa/Khalti) have no card-on-file / auto-debit, we cannot
+   silently charge the customer; they must pay the generated invoice to continue,
+   so we never grant `ACTIVE` for free at trial end.
 5. Stale-OPEN invoices (`dueDate < now() - grace`) flip to `OVERDUE` for visibility.
 
 ## Nepal payment-provider reality
@@ -33,11 +44,16 @@ auto-charge into the same OPEN -> PAID transition above.
 
 ## Scheduler
 
-Recommended options, in order of fit:
+**In use:** GitHub Actions (`.github/workflows/billing-cron.yml`) curls
+`POST $SITE_URL/api/cron/billing` daily with the `CRON_SECRET` Bearer token. The app
+deploys to a VPS (not Vercel), so Actions is the natural fit — it already runs the
+deploy chain. The workflow needs two repo secrets: `CRON_SECRET` (matching
+`process.env.CRON_SECRET` on the server) and `SITE_URL` (production base URL).
 
-- **Vercel Cron** — simplest if the app already deploys on Vercel. Add a
-  `vercel.json` cron entry pointing at `/api/cron/billing` (a route to be built).
-- **Inngest** — better if you want retries, observability, and step functions.
+Other options considered:
+
+- **Vercel Cron** — N/A, not a Vercel deploy.
+- **Inngest** — better if you later want retries, observability, and step functions.
 - **Supabase pg_cron** — works but pushes scheduling into the DB layer; harder to
   reason about.
 

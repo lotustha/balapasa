@@ -76,3 +76,63 @@ export async function createInvoiceForSubscription(subscriptionId: string) {
     },
   })
 }
+
+/**
+ * Canonical OPEN -> PAID transition (billing-cron.md step 3). The single place
+ * an invoice becomes paid — used by the payment-verify path today and by the
+ * recurring cron when it lands. Idempotent: a second call on an already-PAID
+ * invoice is a no-op.
+ *
+ * When the invoice belongs to a subscription it also advances the billing
+ * period and re-activates the subscription:
+ *   - Renewal (period already lapsed): roll the window forward one interval.
+ *   - Initial/early payment (period still in the future): keep the window that
+ *     was set at signup — paying seconds after signup must not double it.
+ * If the customer had flagged cancel-at-period-end, the paid invoice closes the
+ * subscription as CANCELLED instead of re-activating it.
+ */
+export async function markInvoicePaid(
+  invoiceId: string,
+  opts: { paymentMethod: string; transactionId?: string | null },
+): Promise<{ ok: boolean; alreadyPaid: boolean }> {
+  const invoice = await prisma.invoice.findUnique({
+    where:   { id: invoiceId },
+    include: { subscription: { include: { plan: true } } },
+  })
+  if (!invoice) throw new Error('Invoice not found')
+  if (invoice.status === 'PAID') return { ok: true, alreadyPaid: true }
+
+  await prisma.$transaction(async tx => {
+    await tx.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        status:        'PAID',
+        paidAt:        new Date(),
+        paymentMethod: opts.paymentMethod,
+        transactionId: opts.transactionId ?? null,
+      },
+    })
+
+    const sub = invoice.subscription
+    if (sub) {
+      const now = new Date()
+      let periodStart = sub.currentPeriodStart
+      let periodEnd   = sub.currentPeriodEnd
+      if (sub.currentPeriodEnd <= now) {
+        periodStart = sub.currentPeriodEnd
+        periodEnd   = nextPeriodEnd(periodStart, sub.plan.interval, sub.plan.intervalCount)
+      }
+      await tx.subscription.update({
+        where: { id: sub.id },
+        data: {
+          status:             sub.cancelAtPeriodEnd ? 'CANCELLED' : 'ACTIVE',
+          currentPeriodStart: periodStart,
+          currentPeriodEnd:   periodEnd,
+          ...(sub.cancelAtPeriodEnd ? { cancelledAt: now } : {}),
+        },
+      })
+    }
+  })
+
+  return { ok: true, alreadyPaid: false }
+}

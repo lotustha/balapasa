@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if ('error' in guard) return guard.error
   try {
     const body = await req.json() as Partial<{
-      name: string; description: string; amount: number
+      name: string; description: string; image: string; amount: number
       interval: PlanInterval; intervalCount: number; trialDays: number
       isActive: boolean
     }>
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       data: {
         name:          body.name.trim(),
         description:   body.description?.trim() || null,
+        image:         body.image?.trim()       || null,
         amount,
         interval,
         intervalCount: body.intervalCount && body.intervalCount > 0 ? Math.floor(body.intervalCount) : 1,

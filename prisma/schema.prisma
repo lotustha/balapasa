@@ -124,6 +124,7 @@ model Product {
 
   category       Category        @relation(fields: [categoryId], references: [id])
   supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  plan           Plan?           @relation(fields: [planId], references: [id])
   reviews        Review[]
   inventoryLogs  InventoryLog[]
   options        ProductOption[]
@@ -675,6 +676,7 @@ model Plan {
   id            String       @id @default(cuid())
   name          String
   description   String?      @db.Text
+  image         String?
   amount        Float
   interval      PlanInterval
   intervalCount Int          @default(1) @map("interval_count")
@@ -684,6 +686,7 @@ model Plan {
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
   subscriptions Subscription[]
+  products      Product[]
 
   @@map("plans")
 }
