@@ -91,7 +91,12 @@ export default function GettingStartedPage() {
           <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">
             Authorization: Bearer
           </code>{' '}
-          header on subsequent requests.
+          header on subsequent requests. The token is valid for 7 days — call{' '}
+          <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">
+            POST /api/mobile/refresh
+          </code>{' '}
+          on app launch (while the token is still valid) to roll a fresh 7-day
+          window and avoid a silent logout.
         </p>
 
         <CodeBlock
@@ -258,6 +263,41 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`}
                 400
               </code>{' '}
               if the password is under 8 characters.
+            </p>
+          </EndpointCard>
+
+          {/* Token refresh */}
+          <EndpointCard
+            method="POST"
+            path="/api/mobile/refresh"
+            auth="Bearer / Cookie"
+            title="Refresh the session token"
+          >
+            <p className="mb-3 leading-relaxed">
+              Exchanges a still-valid token for a fresh 7-day one (sliding
+              session). Send the current token as a bearer header; the response
+              is the same{' '}
+              <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">
+                {'{ token, user }'}
+              </code>{' '}
+              shape as login. The profile is re-read, so the new token reflects
+              any role or name change. Call it on app launch and/or periodically.
+            </p>
+            <CodeBlock
+              title="Refresh request"
+              language="http"
+              code={`POST /v1/api/mobile/refresh HTTP/1.1
+Host: api.balapasa.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`}
+            />
+            <p className="mt-3 text-xs text-slate-500">
+              Returns{' '}
+              <code className="font-[family-name:var(--font-jetbrains)] text-rose-400">
+                401
+              </code>{' '}
+              when the token has already expired — route the user back through
+              login. There is no separate refresh-token; refresh only works
+              while the access token is still valid.
             </p>
           </EndpointCard>
 

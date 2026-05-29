@@ -212,6 +212,15 @@ export default function ReferencePage() {
             code={`{ "token": "eyJ…", "user": { "id": "clx0…", "email": "asha@example.com", "name": "Asha", "role": "CUSTOMER", "phone": "9800000000" } }`}
           />
         </EndpointCard>
+
+        <EndpointCard method="POST" path="/api/mobile/refresh" auth="Bearer / Cookie" title="Refresh session token (sliding 7-day)">
+          <p className="mb-3">Exchanges a still-valid token for a fresh 7-day one. Re-reads the profile so the new token reflects role/name changes. Returns 401 once the token has expired (re-login required). No separate refresh-token.</p>
+          <CodeBlock
+            title="200 OK"
+            language="json"
+            code={`{ "token": "eyJ…", "user": { "id": "clx0…", "email": "asha@example.com", "name": "Asha", "role": "CUSTOMER", "phone": "9800000000" } }`}
+          />
+        </EndpointCard>
       </section>
 
       {/* ════════════════════════════ ACCOUNT ════════════════════════════ */}
@@ -219,7 +228,7 @@ export default function ReferencePage() {
         <SectionHeading
           id="account"
           title="Account"
-          blurb="The signed-in customer's own profile, password, saved addresses, and order self-service. Cookie-authenticated (web)."
+          blurb="The signed-in customer's own profile, password, saved addresses, and order self-service. Authenticated by bearer token (mobile) or cookie (web)."
         />
 
         <EndpointCard method="GET" path="/api/account/profile" auth="Cookie · CUSTOMER" title="Read my profile">
