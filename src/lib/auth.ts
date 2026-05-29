@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 export const AUTH_COOKIE = 'auth-token'
 const MAX_AGE = 7 * 24 * 60 * 60
@@ -44,9 +44,20 @@ export function cookieOptions(token: string) {
 }
 
 // Read the current request's auth payload (or null if unauthenticated).
+// Accepts BOTH a bearer token (mobile apps — Authorization: Bearer <jwt>) and
+// the httpOnly auth-token cookie (web). Bearer takes precedence so a mobile
+// client is never accidentally resolved from a stale cookie. Every route that
+// uses this (and requireRole, which delegates here) works for mobile + web.
 export async function getCurrentUser(): Promise<AuthPayload | null> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(AUTH_COOKIE)?.value
+  const authz = (await headers()).get('authorization')
+  if (authz && /^bearer\s+/i.test(authz)) {
+    const token = authz.replace(/^bearer\s+/i, '').trim()
+    if (token) {
+      const payload = await verifyToken(token)
+      if (payload) return payload
+    }
+  }
+  const token = (await cookies()).get(AUTH_COOKIE)?.value
   if (!token) return null
   return verifyToken(token)
 }

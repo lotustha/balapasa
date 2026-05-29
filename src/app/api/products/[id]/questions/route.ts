@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -24,8 +24,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { id: productId } = await params
-  const token = req.cookies.get(AUTH_COOKIE)?.value
-  const payload = token ? await verifyToken(token) : null
+  const payload = await getCurrentUser()   // optional — null for guests
 
   try {
     const { body, authorName } = await req.json()

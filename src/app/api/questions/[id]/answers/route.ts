@@ -1,16 +1,13 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { id: questionId } = await params
-  const token = req.cookies.get(AUTH_COOKIE)?.value
-  if (!token) return Response.json({ error: 'You must be logged in to answer' }, { status: 401 })
-
-  const payload = await verifyToken(token)
-  if (!payload) return Response.json({ error: 'Invalid session' }, { status: 401 })
+  const payload = await getCurrentUser()
+  if (!payload) return Response.json({ error: 'You must be logged in to answer' }, { status: 401 })
 
   try {
     const { body } = await req.json()

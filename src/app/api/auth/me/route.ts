@@ -1,13 +1,10 @@
-import { cookies } from 'next/headers'
-import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function GET() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(AUTH_COOKIE)?.value
-  if (!token) return Response.json({ role: null })
-
-  const payload = await verifyToken(token)
+  // Bearer (mobile) or cookie (web). Returns id/email too so a mobile app can
+  // confirm its session and identity from the token it holds.
+  const payload = await getCurrentUser()
   if (!payload) return Response.json({ role: null })
 
-  return Response.json({ role: payload.role, name: payload.name })
+  return Response.json({ id: payload.sub, email: payload.email, role: payload.role, name: payload.name })
 }

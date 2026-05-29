@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { esewaFormData, getEsewaPaymentUrl, khaltiInitiate } from '@/lib/payment'
-import { verifyToken, AUTH_COOKIE } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 import { pushOrderEvent } from '@/lib/push'
 import { validateCoupon } from '@/lib/coupons'
 import { validateGiftCard } from '@/lib/gift-cards'
@@ -32,12 +32,10 @@ export async function POST(req: NextRequest) {
     let userId: string | null = null
     let userEmail: string | null = null
     try {
-      const token = req.cookies.get(AUTH_COOKIE)?.value
-      if (token) {
-        const payload = await verifyToken(token)
-        userId    = payload?.sub    ?? null
-        userEmail = payload?.email  ?? null
-      }
+      // Bearer (mobile) or cookie (web). Null → guest checkout, which is allowed.
+      const me = await getCurrentUser()
+      userId    = me?.sub   ?? null
+      userEmail = me?.email ?? null
     } catch { /* guest checkout */ }
 
     const body = await req.json()
@@ -589,16 +587,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const token = req.cookies.get(AUTH_COOKIE)?.value
-    if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const payload = await verifyToken(token)
-    if (!payload) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await getCurrentUser()
+    if (!me) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
     const orders = await prisma.order.findMany({
-      where: { userId: payload.sub },
+      where: { userId: me.sub },
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     })

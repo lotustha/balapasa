@@ -122,7 +122,17 @@ export default function OrderDetailPage() {
       const res = await fetch(`/api/admin/orders/${order.id}/dispatch-retry`, { method: 'POST' })
       const json = await res.json()
       if (!res.ok || json.error) {
-        setPndRetryError(json.error ?? `HTTP ${res.status}`)
+        // The order may already be dispatched (e.g. a prior retry succeeded while
+        // this page was stale). Re-sync first: if it now has a tracking ID, treat
+        // it as done and show the green card instead of a dead-end error.
+        const r       = await fetch(`/api/admin/orders/${id}`)
+        const updated = r.ok ? await r.json() : null
+        if (updated?.pndOrderId) {
+          setOrder(updated)
+          showToast('Pick & Drop already dispatched.')
+        } else {
+          setPndRetryError(json.error ?? `HTTP ${res.status}`)
+        }
       } else {
         // Refresh the order so the green "Delivery Assigned" card replaces the
         // retry banner and the cleared notes propagate.
@@ -1249,7 +1259,7 @@ export default function OrderDetailPage() {
                     </button>
                   </>
                 ) : (
-                  <p className="text-center py-6 text-slate-400 text-sm">Click "Get rates" to load service options</p>
+                  <p className="text-center py-6 text-slate-400 text-sm">Click &quot;Get rates&quot; to load service options</p>
                 )}
               </div>
             )}
@@ -1262,7 +1272,7 @@ export default function OrderDetailPage() {
                   <button onClick={() => setDeliveryTab('view')} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={14} /></button>
                 </div>
                 <div className="p-3 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700 font-semibold">
-                  Assign this order to one of your store's own delivery riders.
+                  Assign this order to one of your store&apos;s own delivery riders.
                 </div>
 
                 {/* Select from staff */}
