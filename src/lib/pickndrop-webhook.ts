@@ -8,6 +8,7 @@ import { sendEmailLogged } from '@/lib/email'
 import { getSiteSettings } from '@/lib/site-settings'
 import { pushOrderEvent } from '@/lib/push'
 import { restoreStockForOrder } from '@/lib/restore-stock'
+import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
 import type { DeliveryExceptionKind } from '@/lib/emails/types'
 
 // ── PnD event shape ─────────────────────────────────────────────────────────
@@ -202,6 +203,12 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   if (firePaymentReceipt) {
     notifyPaymentReceipt({ orderId: order.id, method: 'COD', transactionId: order.transactionId })
     result.notifications.push('payment-receipt')
+  }
+
+  // Opt-in admin alert when the webhook advanced the order's status.
+  if (result.advanced) {
+    notifyAdminStatusChange({ orderId: order.id, status: result.advanced, source: 'Pick & Drop' })
+    result.notifications.push('admin-status-change')
   }
 
   if (mapping.pushTitle) {

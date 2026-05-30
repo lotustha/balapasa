@@ -8,6 +8,7 @@ import { notifyPaymentReceipt } from '@/lib/notify-payment-receipt'
 import { restoreStockForOrder } from '@/lib/restore-stock'
 import { cancelPndOrder } from '@/lib/pickndrop'
 import { cancelParcel } from '@/lib/pathao'
+import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -101,6 +102,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       if (isPathao && order.pathaoHash) {
         cancelParcel(order.pathaoHash).catch(e => console.warn('[orders PATCH] Pathao cancel failed (non-fatal):', String(e)))
       }
+    }
+
+    // Opt-in admin alert on ANY status change (off by default; gated inside the
+    // helper). Covers PENDING…DELIVERED/CANCELLED, not just the ones with a
+    // customer email above. Fire-and-forget.
+    if (body.status) {
+      notifyAdminStatusChange({ orderId: order.id, status: String(body.status), source: 'Admin' })
     }
 
     if (body.paymentStatus === 'PAID' && order.paymentStatus === 'PAID') {
