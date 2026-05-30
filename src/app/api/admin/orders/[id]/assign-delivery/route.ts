@@ -139,6 +139,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       // so `subtotal + delivery − discounts` would overcharge gift-card orders.
       const newTotal = order.total - order.deliveryCharge + newCharge
 
+      // Unique vendor reference per re-attempt. PnD treats vendorTrackingNumber
+      // as a reference and can reject/duplicate a repeated one after a cancel.
+      // Suffix with the number of prior cancellations recorded in notes:
+      // first dispatch = bare id, after 1 cancel = "<id>-1", after 2 = "<id>-2".
+      const cancelledTimes = (order.notes?.match(/\[Delivery cancelled\]/g) ?? []).length
+      const vendorRef = cancelledTimes > 0 ? `${order.id}-${cancelledTimes}` : order.id
+
       const result = await createPndOrder({
         customerName:        order.name,
         primaryMobileNo:     order.phone.replace(/\D/g, '').slice(-10),
@@ -158,7 +165,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         instruction:         instruction,
         customerLatitude:    order.lat ?? undefined,
         customerLongitude:   order.lng ?? undefined,
-        vendorTrackingNumber: order.id,
+        vendorTrackingNumber: vendorRef,
       })
 
       const updated = await prisma.order.update({
