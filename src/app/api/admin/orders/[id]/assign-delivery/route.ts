@@ -26,9 +26,18 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (provider === 'PICKNDROP') {
       const cfg = await getPicknDropConfig()
       if (!cfg.isActive) return Response.json({ error: 'Pick & Drop is disabled' }, { status: 400 })
-      const toDistrict = cityToDistrict(order.city)
-      const options = await calculatePndRates('Kathmandu', toDistrict)
-      return Response.json({ provider: 'PICKNDROP', options })
+      // Branch resolution mirrors checkout: multi-atom match over the full
+      // address (not just cityToDistrict), so the admin sees the SAME branch the
+      // customer's quote used. `branch` query param locks an explicit branch
+      // (admin override); `fresh=1` bypasses the 1h rate cache.
+      const branchOverride = req.nextUrl.searchParams.get('branch')?.trim() || undefined
+      const fresh          = req.nextUrl.searchParams.get('fresh') === '1'
+      const options = await calculatePndRates('Kathmandu', cityToDistrict(order.city), {
+        destinationAtoms:          addressAtoms(order.address, order.city),
+        destinationBranchOverride: branchOverride,
+        force:                     fresh,
+      })
+      return Response.json({ provider: 'PICKNDROP', options, pickupBranch: cfg.pickupBranch })
     }
 
     // Pathao Nepal: use Kathmandu receiver coordinates as default fallback.
