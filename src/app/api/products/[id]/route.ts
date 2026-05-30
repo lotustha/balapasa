@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
+import { hasDeliveredPurchase } from '@/lib/review-eligibility'
 
 export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[id]'>) {
   const { id } = await ctx.params
@@ -16,7 +18,11 @@ export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[i
       },
     })
     if (!product) return Response.json({ error: 'Not found' }, { status: 404 })
-    return Response.json(product)
+    // canReview: logged-in (bearer/cookie) customer who has had an order for this
+    // product delivered. Lets the mobile app gate the rating UI from one call.
+    const me = await getCurrentUser().catch(() => null)
+    const canReview = me ? await hasDeliveredPurchase(me.sub, product.id) : false
+    return Response.json({ ...product, canReview })
   } catch {
     return Response.json({ error: 'Failed to fetch product' }, { status: 500 })
   }

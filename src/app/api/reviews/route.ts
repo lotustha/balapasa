@@ -1,23 +1,7 @@
 import { NextRequest } from 'next/server'
-import { OrderStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-
-// A customer may review a product only once an order containing it has actually
-// been DELIVERED — not merely confirmed/shipped. This is the "verified delivery"
-// gate the storefront and mobile app read via the `canReview` flag.
-const REVIEWABLE_STATUSES: OrderStatus[] = [OrderStatus.DELIVERED]
-
-async function hasDeliveredPurchase(userId: string, productId: string): Promise<boolean> {
-  const item = await prisma.orderItem.findFirst({
-    where: {
-      productId,
-      order: { userId, status: { in: REVIEWABLE_STATUSES } },
-    },
-    select: { id: true },
-  })
-  return item != null
-}
+import { hasDeliveredPurchase } from '@/lib/review-eligibility'
 
 // GET /api/reviews?productId=… → the product's reviews + whether the current
 // user is allowed to write one (logged in AND has had an order for it delivered).

@@ -139,12 +139,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       // can't drift across cancel/re-assign cycles.
       const newTotal = await computeOrderTotal(order, newCharge)
 
-      // Unique vendor reference per re-attempt. PnD treats vendorTrackingNumber
-      // as a reference and can reject/duplicate a repeated one after a cancel.
-      // Suffix with the number of prior cancellations recorded in notes:
-      // first dispatch = bare id, after 1 cancel = "<id>-1", after 2 = "<id>-2".
-      const cancelledTimes = (order.notes?.match(/\[Delivery cancelled\]/g) ?? []).length
-      const vendorRef = cancelledTimes > 0 ? `${order.id}-${cancelledTimes}` : order.id
+      // Unique vendor reference per dispatch attempt. PnD treats
+      // vendorTrackingNumber as a reference and can reject/duplicate a repeated
+      // one. pndAttempts increments on every dispatch (checkout + each
+      // re-assign): attempt 0 = bare id, attempt 1 = "<id>-1", etc.
+      const attempt   = order.pndAttempts ?? 0
+      const vendorRef = attempt > 0 ? `${order.id}-${attempt}` : order.id
 
       const result = await createPndOrder({
         customerName:        order.name,
@@ -179,6 +179,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           trackingUrl:      result.trackingUrl,
           deliveryCharge:   newCharge,
           total:            newTotal,
+          pndAttempts:      attempt + 1,
           shippingOption:   `Pick & Drop — ${resolved}`,
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },

@@ -214,6 +214,7 @@ model Order {
   pathaoOrderId  String?       @map("pathao_order_id")
   pathaoHash     String?       @map("pathao_hash")
   pndOrderId     String?       @map("pnd_order_id")
+  pndAttempts    Int           @default(0) @map("pnd_attempts")  // count of PnD dispatch attempts → unique vendor ref suffix
   trackingUrl    String?       @map("tracking_url")
   shippingOption   String?  @map("shipping_option")
   shippingProvider String?  @map("shipping_provider")
