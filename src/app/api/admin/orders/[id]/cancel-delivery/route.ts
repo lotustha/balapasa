@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cancelParcel } from '@/lib/pathao'
 import { cancelPndOrder } from '@/lib/pickndrop'
+import { computeOrderTotal } from '@/lib/order-total'
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -39,6 +40,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       }
     }
 
+    // Recompute the total with zero delivery (authoritative: subtotal − discounts).
+    // Self-heals any prior drift so a later re-assign starts from a clean figure.
+    const clearedTotal = await computeOrderTotal(order, 0)
+
     // Clear delivery fields from the order, revert status to PENDING
     const updated = await prisma.order.update({
       where: { id },
@@ -48,10 +53,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         pathaoHash:     null,
         trackingUrl:    null,
         deliveryCharge: 0,
-        // Pull the (now-removed) delivery charge back out of total so a later
-        // re-assign starts from a clean subtotal-only figure. Without this the
-        // old charge stays baked into total and the next assignment double-adds.
-        total:          order.total - order.deliveryCharge,
+        total:          clearedTotal,
         shippingOption: null,
         status:         'PENDING',
         notes: order.notes

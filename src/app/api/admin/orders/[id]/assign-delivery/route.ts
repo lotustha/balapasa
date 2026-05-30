@@ -5,6 +5,7 @@ import { calculatePndRates, createPndOrder, cancelPndOrder, resolveBranchForAddr
 import { getPicknDropConfig } from '@/lib/logistics-config'
 import { aggregateOrderPackage } from '@/lib/order-package'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
+import { computeOrderTotal } from '@/lib/order-total'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       // Pathao response: data.order_id (display), data.hashed_id (cancel ref), data.tracking_url
       const d = parcel.data ?? {}
       const pathaoCharge = deliveryCharge ?? d.charge ?? 0
-      const pathaoTotal  = order.total - order.deliveryCharge + pathaoCharge   // delta-sync, see PnD branch
+      const pathaoTotal  = await computeOrderTotal(order, pathaoCharge)
       const updated = await prisma.order.update({
         where: { id },
         data: {
@@ -134,10 +135,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       // selected estimate; if it's omitted, keep whatever was already on the
       // order so a re-assign never silently zeroes the agreed price.
       const newCharge = typeof deliveryCharge === 'number' ? deliveryCharge : order.deliveryCharge
-      // Keep total in sync with the delivery charge via a DELTA, not a full
-      // recompute: gift-card discounts live in GiftCardRedemption (not on Order),
-      // so `subtotal + delivery − discounts` would overcharge gift-card orders.
-      const newTotal = order.total - order.deliveryCharge + newCharge
+      // Recompute total authoritatively (subtotal − discounts + charge) so it
+      // can't drift across cancel/re-assign cycles.
+      const newTotal = await computeOrderTotal(order, newCharge)
 
       // Unique vendor reference per re-attempt. PnD treats vendorTrackingNumber
       // as a reference and can reject/duplicate a repeated one after a cancel.
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     if (type === 'MANUAL') {
       const manualCharge = deliveryCharge ?? 0
-      const manualTotal  = order.total - order.deliveryCharge + manualCharge   // delta-sync, see PnD branch
+      const manualTotal  = await computeOrderTotal(order, manualCharge)
       const updated = await prisma.order.update({
         where: { id },
         data: {
