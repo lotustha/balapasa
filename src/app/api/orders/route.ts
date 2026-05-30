@@ -355,6 +355,7 @@ export async function POST(req: NextRequest) {
               pathaoHash:    result.trackingId,
               trackingUrl:   result.trackingUrl,
               shippingOption: `Pick & Drop — ${destinationBranch}`,
+              pndAttempts:   1,   // checkout is dispatch attempt #1 → next re-assign refs <id>-1
             },
           })
         } catch (e) {
