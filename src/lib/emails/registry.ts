@@ -5,6 +5,7 @@ import type { ShipmentEmailData }      from './shipment-update'
 import type {
   MagicLinkData,
   AdminNewOrderData,
+  AdminStatusChangeData,
   SignupWelcomeData,
   EmailVerificationData,
   LowStockData,
@@ -36,6 +37,8 @@ import { magicLinkCompact } from './templates/magic-link/compact'
 import { adminNewOrderBranded } from './templates/admin-new-order/branded'
 import { adminNewOrderMinimal } from './templates/admin-new-order/minimal'
 import { adminNewOrderCompact } from './templates/admin-new-order/compact'
+
+import { adminStatusChangeBranded } from './templates/admin-status-change/branded'
 
 import { signupWelcomeBranded } from './templates/signup-welcome/branded'
 import { signupWelcomeMinimal } from './templates/signup-welcome/minimal'
@@ -119,6 +122,7 @@ export interface EventDataMap {
   'shipment-update':     ShipmentEmailData
   'magic-link':          MagicLinkData
   'admin-new-order':     AdminNewOrderData
+  'admin-status-change': AdminStatusChangeData
   'signup-welcome':      SignupWelcomeData
   'email-verification':  EmailVerificationData
   'low-stock':           LowStockData
@@ -195,6 +199,19 @@ const SAMPLE_ADMIN_NEW_ORDER: AdminNewOrderData = {
   itemCount:      3,
   paymentMethod:  'eSewa',
   shippingOption: 'Pick & Drop · Same-day',
+  adminUrl:       'https://balapasa.com/admin/orders/previewid12345678',
+  ...SAMPLE_BRAND,
+}
+
+const SAMPLE_ADMIN_STATUS_CHANGE: AdminStatusChangeData = {
+  orderId:        'previewid12345678',
+  orderCode:      'BLP-AIRP-123-0001',
+  status:         'SHIPPED',
+  source:         'Pick & Drop',
+  customerName:   'Aarav Sharma',
+  customerPhone:  '+977 98XXXXXXXX',
+  total:          4050,
+  shippingOption: 'Pick & Drop — POKHARA',
   adminUrl:       'https://balapasa.com/admin/orders/previewid12345678',
   ...SAMPLE_BRAND,
 }
@@ -383,6 +400,14 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     description: 'Internal email to ORDER_NOTIFICATION_EMAIL when a new order is placed.',
     sampleData:  SAMPLE_ADMIN_NEW_ORDER,
     variants:    [adminNewOrderBranded, adminNewOrderMinimal, adminNewOrderCompact],
+    customerFacing: false,
+  }),
+  'admin-status-change': defineEvent<AdminStatusChangeData>({
+    id:          'admin-status-change',
+    label:       'Admin: order status changed',
+    description: 'Internal alert to ORDER_NOTIFICATION_EMAIL whenever an order status changes (manual or PnD webhook). Opt-in — off by default.',
+    sampleData:  SAMPLE_ADMIN_STATUS_CHANGE,
+    variants:    [adminStatusChangeBranded],
     customerFacing: false,
   }),
   'signup-welcome': defineEvent<SignupWelcomeData>({

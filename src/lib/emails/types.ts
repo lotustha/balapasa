@@ -31,6 +31,20 @@ export interface SignupWelcomeData extends BrandFields {
   accountUrl:     string
 }
 
+// Internal email to the store's notification address whenever an order's status
+// changes — manually (admin) or automatically (PnD webhook). Opt-in.
+export interface AdminStatusChangeData extends BrandFields {
+  orderId:        string
+  orderCode:      string | null
+  status:         string                 // new status (PENDING…DELIVERED/CANCELLED)
+  source:         string | null          // 'Admin' | 'Pick & Drop' | etc.
+  customerName:   string
+  customerPhone:  string
+  total:          number
+  shippingOption: string | null
+  adminUrl:       string
+}
+
 export interface EmailVerificationData extends BrandFields {
   recipientName?: string
   recipientEmail: string

@@ -42,6 +42,7 @@ interface PaymentForm {
 interface NotifForm   {
   ORDER_NOTIFICATION_EMAIL: string; OPENWEATHER_API_KEY: string
   FCM_PROJECT_ID: string; FCM_CLIENT_EMAIL: string; FCM_PRIVATE_KEY: string
+  ADMIN_STATUS_CHANGE_EMAIL: string   // 'true' | 'false' — opt-in, off by default
 }
 interface AIForm      { ANTHROPIC_API_KEY: string; GEMINI_API_KEY: string }
 interface ContentForm {
@@ -1625,7 +1626,7 @@ export default function SettingsPage() {
     PAYMENT_ESEWA_ENABLED:   'true',
     PAYMENT_KHALTI_ENABLED:  'true',
   })
-  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '', FCM_PROJECT_ID: '', FCM_CLIENT_EMAIL: '', FCM_PRIVATE_KEY: '' })
+  const [notif,   setNotif]   = useState<NotifForm>({ ORDER_NOTIFICATION_EMAIL: '', OPENWEATHER_API_KEY: '', FCM_PROJECT_ID: '', FCM_CLIENT_EMAIL: '', FCM_PRIVATE_KEY: '', ADMIN_STATUS_CHANGE_EMAIL: 'false' })
   const [ai,      setAi]      = useState<AIForm>({ ANTHROPIC_API_KEY: '', GEMINI_API_KEY: '' })
   const [content, setContent] = useState<ContentForm>({
     LEGAL_PRIVACY_BODY: '', LEGAL_TERMS_BODY: '', LEGAL_REFUND_BODY: '', LEGAL_SHIPPING_BODY: '', LEGAL_CANCELLATION_BODY: '',
@@ -1672,6 +1673,7 @@ export default function SettingsPage() {
         FCM_PROJECT_ID:           settings.FCM_PROJECT_ID           ?? '',
         FCM_CLIENT_EMAIL:         settings.FCM_CLIENT_EMAIL         ?? '',
         FCM_PRIVATE_KEY:          settings.FCM_PRIVATE_KEY          ?? '',
+        ADMIN_STATUS_CHANGE_EMAIL: settings.ADMIN_STATUS_CHANGE_EMAIL ?? 'false',
       })
       setAi(a => ({
         ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY ?? a.ANTHROPIC_API_KEY,
@@ -2567,6 +2569,16 @@ export default function SettingsPage() {
                       onChange={e => setNotif(n => ({ ...n, ORDER_NOTIFICATION_EMAIL: e.target.value }))}
                       placeholder="admin@yourstore.com" className={inputCls} />
                     <Hint>Receive an email whenever a new order is placed. Leave empty to disable.</Hint>
+
+                    <label className="flex items-start gap-2.5 mt-4 cursor-pointer select-none">
+                      <input type="checkbox" className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
+                        checked={notif.ADMIN_STATUS_CHANGE_EMAIL === 'true'}
+                        onChange={e => setNotif(n => ({ ...n, ADMIN_STATUS_CHANGE_EMAIL: e.target.checked ? 'true' : 'false' }))} />
+                      <span className="text-sm text-slate-700">
+                        Email me on every order status change
+                        <span className="block text-xs text-slate-400 mt-0.5">Sends to the address above each time an order moves to Confirmed / Processing / Shipped / Delivered / Cancelled (manual or Pick &amp; Drop webhook).</span>
+                      </span>
+                    </label>
                   </div>
                 </div>
 
