@@ -148,7 +148,7 @@ export interface PndRateResult {
 const rateCache = new Map<string, { at: number; data: PndRateResult }>()
 const RATE_TTL = 60 * 60 * 1000   // 1h
 
-export async function getDeliveryRate(input: PndRateInput): Promise<PndRateResult> {
+export async function getDeliveryRate(input: PndRateInput, force = false): Promise<PndRateResult> {
   const cfg    = await getPicknDropConfig()
   const pickup = input.pickupBranch ?? cfg.pickupBranch
   const length = input.lengthCm ?? DEFAULT_PKG.lengthCm
@@ -158,8 +158,13 @@ export async function getDeliveryRate(input: PndRateInput): Promise<PndRateResul
   const dims   = `${length}x${width}x${height}@${weight}`
   const key    = `${pickup}|${input.destinationBranch}|${input.cityArea}|${input.location ?? ''}|${dims}`
 
-  const hit = rateCache.get(key)
-  if (hit && Date.now() - hit.at < RATE_TTL) return hit.data
+  // `force` skips the read (admin "Get rates" always wants a live quote). Note
+  // the cache key does NOT include baseUrl, so without force a rate cached while
+  // on the demo server would survive a switch to production for up to an hour.
+  if (!force) {
+    const hit = rateCache.get(key)
+    if (hit && Date.now() - hit.at < RATE_TTL) return hit.data
+  }
 
   const res = await fetch(`${cfg.baseUrl}/api/method/logi360.api.get_delivery_rate`, {
     method: 'POST',   // OAS marks GET but the real endpoint accepts POST with JSON body
@@ -219,7 +224,7 @@ export interface PndServiceOption {
   dropoff_eta: number   // seconds
   distance: number
   zone: string          // branch name (replaces old SAME/NEAR/etc tier label)
-  meta: { destinationBranch: string; surgePrice: number }
+  meta: { destinationBranch: string; surgePrice: number; basePrice: number }
 }
 
 // Resolves the destination branch from the customer's address (multi-atom
@@ -243,10 +248,12 @@ export async function calculatePndRates(
     cityArea?: string
     destinationAtoms?: string[]
     destinationBranchOverride?: string
+    force?: boolean
   },
 ): Promise<PndServiceOption[]> {
   let branchName = ''
   let charge     = 0
+  let basePrice  = 0
   let surge      = 0
   let zoneLabel  = ''
 
@@ -284,16 +291,19 @@ export async function calculatePndRates(
         lengthCm:  opts?.lengthCm,
         widthCm:   opts?.widthCm,
         heightCm:  opts?.heightCm,
-      })
+      }, opts?.force)
       // Test env (app-t.*): drop surge — the test API returns synthetic surge
       // on every request (e.g. 100 + 69 = 169 for KTM→KTM), which doesn't
-      // reflect actual peak-traffic conditions. Production: pass real surge through.
+      // reflect actual peak-traffic conditions.
       const liveSurge = isTest ? 0 : rate.surge_price
-      // Base = delivery_amount. The API's total_delivery_sum already INCLUDES
-      // surge, so when delivery_amount is missing we must subtract surge back
-      // out before re-adding it — otherwise surge double-counts.
+      // Base = delivery_amount. total_delivery_sum already INCLUDES surge, so
+      // when delivery_amount is missing, subtract surge back out to recover it.
       const base = rate.delivery_amount || Math.max(0, rate.total_delivery_sum - rate.surge_price)
-      charge    = base + liveSurge
+      // Customer pays the BASE rate only; Pick & Drop's peak surge is absorbed by
+      // the store. surge is still reported in meta + logs for visibility, and the
+      // admin can override the final charge per order.
+      charge    = base
+      basePrice = base
       surge     = liveSurge
       zoneLabel = branchName
     }
@@ -304,8 +314,9 @@ export async function calculatePndRates(
   // Fallback: hand-tuned matrix when API/branch lookup fails
   if (!charge) {
     const fb = fallbackRate(toCity)
-    charge    = fb.charge
-    zoneLabel = fb.zone
+    charge     = fb.charge
+    basePrice  = fb.charge
+    zoneLabel  = fb.zone
     branchName = fb.branchHint
   }
 
@@ -327,7 +338,7 @@ export async function calculatePndRates(
     dropoff_eta: eta,
     distance: 0,
     zone: zoneLabel,
-    meta: { destinationBranch: branchName, surgePrice: surge },
+    meta: { destinationBranch: branchName, surgePrice: surge, basePrice },
   }]
 }
 

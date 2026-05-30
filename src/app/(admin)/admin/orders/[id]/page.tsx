@@ -241,10 +241,12 @@ export default function OrderDetailPage() {
   }
 
   // Pick & Drop state
-  const [pndOptions,   setPndOptions]   = useState<{ id:string; name:string; charge_after_discount:number; dropoff_eta:number; type:string }[]>([])
+  const [pndOptions,   setPndOptions]   = useState<{ id:string; name:string; charge_after_discount:number; dropoff_eta:number; type:string; zone?:string; meta?:{ basePrice?:number; surgePrice?:number; destinationBranch?:string } }[]>([])
   const [pndSelected,  setPndSelected]  = useState<typeof pndOptions[0] | null>(null)
-  const [pndFromBranch,setPndFromBranch]= useState('KATHMANDU')
-  const [pndToBranch,  setPndToBranch]  = useState('')
+  const [pndBranches,  setPndBranches]  = useState<{ branch_name:string; area?:string[] }[]>([])
+  const [pndPickup,    setPndPickup]    = useState('')   // store pickup branch (from config)
+  const [pndToBranch,  setPndToBranch]  = useState('')   // auto-aligned customer branch
+  const [pndCharge,    setPndCharge]    = useState('')   // editable final delivery charge
 
   async function estimatePathao() {
     if (!order) return
@@ -257,23 +259,48 @@ export default function OrderDetailPage() {
     setEstimating(false)
   }
 
-  async function estimatePnd() {
+  // Fetch the real Pick & Drop branch list once (same source checkout uses).
+  async function loadPndBranches() {
+    if (pndBranches.length) return
+    try {
+      const r = await fetch('/api/shipping/branches')
+      const d = await r.json()
+      setPndBranches(d.branches ?? [])
+    } catch { /* non-fatal — dropdown falls back to the auto-aligned branch */ }
+  }
+
+  // Get a fresh quote. `branchOverride` lets the admin pick a different branch;
+  // otherwise the server multi-atom-resolves the customer's branch (auto-align).
+  async function estimatePnd(branchOverride?: string) {
     if (!order) return
     setEstimating(true); setError(''); setPndOptions([])
-    const res  = await fetch(`/api/admin/orders/${id}/assign-delivery?provider=PICKNDROP`)
+    loadPndBranches()
+    const qs = new URLSearchParams({ provider: 'PICKNDROP', fresh: '1' })
+    if (branchOverride) qs.set('branch', branchOverride)
+    const res  = await fetch(`/api/admin/orders/${id}/assign-delivery?${qs.toString()}`)
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'PnD estimate failed'); setEstimating(false); return }
-    setPndOptions(data.options ?? [])
-    setPndToBranch(order.city.toUpperCase())
+    const opts = data.options ?? []
+    setPndOptions(opts)
+    setPndPickup(data.pickupBranch ?? '')
+    const first = opts[0]
+    if (first) {
+      setPndSelected(first)
+      setPndToBranch(branchOverride || first.meta?.destinationBranch || first.zone || order.city)
+      setPndCharge(String(first.charge_after_discount))
+    }
     setEstimating(false)
   }
 
   async function assignPickNDrop() {
     if (!pndSelected) return
+    const finalCharge = pndCharge.trim() !== '' && Number.isFinite(Number(pndCharge))
+      ? Number(pndCharge)
+      : pndSelected.charge_after_discount
     setAssigning(true); setError('')
     const res = await fetch(`/api/admin/orders/${id}/assign-delivery`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type:'PICKNDROP', fromBranch:pndFromBranch, toBranch:pndToBranch, serviceType:pndSelected.type, deliveryCharge:pndSelected.charge_after_discount, notes:delivNotes }),
+      body: JSON.stringify({ type:'PICKNDROP', destinationBranch: pndToBranch || undefined, serviceType:pndSelected.type, deliveryCharge: finalCharge, notes:delivNotes }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error); setAssigning(false); return }
@@ -380,7 +407,7 @@ export default function OrderDetailPage() {
       isCod:           order!.paymentMethod === 'COD',
       codAmount:       order!.paymentMethod === 'COD' ? order!.total : 0,
       serviceType:     pndSelected?.name,
-      charge:          pndSelected?.charge_after_discount,
+      charge:          pndCharge.trim() !== '' ? Number(pndCharge) : pndSelected?.charge_after_discount,
       eta:             pndSelected ? `~${Math.round(pndSelected.dropoff_eta/3600)}h` : undefined,
     }
   }
@@ -1205,24 +1232,32 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-slate-500">Nepal branch-to-branch delivery</p>
-                  <button onClick={estimatePnd} disabled={estimating} className="flex items-center gap-1 text-xs font-bold text-blue-600 cursor-pointer">
+                  <button onClick={() => estimatePnd()} disabled={estimating} className="flex items-center gap-1 text-xs font-bold text-blue-600 cursor-pointer">
                     <RefreshCw size={11} className={estimating?'animate-spin':''} /> Get rates
                   </button>
                 </div>
 
-                {/* Branch selection */}
+                {/* Branch selection — From = store pickup (read-only, from config);
+                    To = live Pick & Drop branches, auto-aligned to the customer's
+                    address. Changing it re-quotes against the chosen branch. */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">From Branch</label>
-                    <select value={pndFromBranch} onChange={e => setPndFromBranch(e.target.value)} className={inputCls}>
-                      {['KATHMANDU','LALITPUR','BHAKTAPUR','POKHARA','CHITWAN','BUTWAL','BIRATNAGAR'].map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">From Branch (store pickup)</label>
+                    <input value={pndPickup || '—'} readOnly className={`${inputCls} bg-slate-50 text-slate-500 cursor-not-allowed`} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">To Branch (Customer City)</label>
-                    <select value={pndToBranch} onChange={e => setPndToBranch(e.target.value)} className={inputCls}>
-                      {['KATHMANDU','LALITPUR','BHAKTAPUR','POKHARA','CHITWAN','BUTWAL','BIRATNAGAR'].map(b => <option key={b} value={b}>{b}</option>)}
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">To Branch (auto-aligned to customer)</label>
+                    <select value={pndToBranch} disabled={estimating || pndBranches.length === 0}
+                      onChange={e => estimatePnd(e.target.value)} className={inputCls}>
+                      {/* Keep the resolved branch selectable even before the full list loads */}
+                      {pndToBranch && !pndBranches.some(b => b.branch_name === pndToBranch) && (
+                        <option value={pndToBranch}>{pndToBranch}</option>
+                      )}
+                      {pndBranches.map(b => <option key={b.branch_name} value={b.branch_name}>{b.branch_name}</option>)}
                     </select>
+                    {pndBranches.length === 0 && (
+                      <p className="text-[10px] text-slate-400 mt-1">Branch list loads with the first quote.</p>
+                    )}
                   </div>
                 </div>
 
@@ -1234,11 +1269,11 @@ export default function OrderDetailPage() {
                   <>
                     <div className="space-y-2">
                       {pndOptions.map(opt => (
-                        <button key={opt.id} onClick={() => setPndSelected(opt)}
+                        <button key={opt.id} onClick={() => { setPndSelected(opt); setPndCharge(String(opt.charge_after_discount)) }}
                           className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer text-left ${pndSelected?.id===opt.id?'border-blue-500 bg-blue-50':'border-slate-100 hover:border-slate-300'}`}>
                           <div>
                             <p className="font-bold text-slate-800">{opt.name}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">ETA: ~{Math.round(opt.dropoff_eta/3600)}h</p>
+                            <p className="text-xs text-slate-400 mt-0.5">ETA: ~{Math.round(opt.dropoff_eta/3600)}h{opt.meta?.destinationBranch ? ` · ${opt.meta.destinationBranch}` : ''}</p>
                           </div>
                           <div className="text-right">
                             <p className="font-extrabold text-xl text-slate-900">NPR {opt.charge_after_discount}</p>
@@ -1247,6 +1282,28 @@ export default function OrderDetailPage() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Price breakdown + editable final charge. Surge is shown for
+                        transparency but is NOT auto-charged — set whatever you want. */}
+                    {pndSelected && (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>Base rate (Pick &amp; Drop)</span>
+                          <span className="font-semibold text-slate-700">NPR {pndSelected.meta?.basePrice ?? pndSelected.charge_after_discount}</span>
+                        </div>
+                        {(pndSelected.meta?.surgePrice ?? 0) > 0 && (
+                          <div className="flex items-center justify-between text-xs text-amber-600">
+                            <span>Peak surge (not charged to customer)</span>
+                            <span className="font-semibold">+ NPR {pndSelected.meta?.surgePrice}</span>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Final delivery charge (NPR) — editable</label>
+                          <input type="number" min={0} value={pndCharge} onChange={e => setPndCharge(e.target.value)} className={inputCls} placeholder="e.g. 150" />
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Note</label>
                       <input value={delivNotes} onChange={e => setDelivNotes(e.target.value)} placeholder="Fragile, handle with care…" className={inputCls} />
