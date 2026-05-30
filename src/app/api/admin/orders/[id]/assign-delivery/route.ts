@@ -72,6 +72,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       // Pathao response: data.order_id (display), data.hashed_id (cancel ref), data.tracking_url
       const d = parcel.data ?? {}
+      const pathaoCharge = deliveryCharge ?? d.charge ?? 0
+      const pathaoTotal  = order.total - order.deliveryCharge + pathaoCharge   // delta-sync, see PnD branch
       const updated = await prisma.order.update({
         where: { id },
         data: {
@@ -79,7 +81,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           pathaoOrderId:  String(d.order_id  ?? ''),          // display tracking ID e.g. "4LHV8CX"
           pathaoHash:     String(d.hashed_id ?? ''),           // for cancellation
           trackingUrl:    d.tracking_url ?? null,
-          deliveryCharge: deliveryCharge ?? d.charge ?? 0,
+          deliveryCharge: pathaoCharge,
+          total:          pathaoTotal,
           shippingOption: `Pathao`,
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },
@@ -110,13 +113,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const pkg = await aggregateOrderPackage(order.id)
       const { weightKg: totalWeightKg, lengthCm: maxLen, widthCm: maxWid, heightCm: maxHgt } = pkg
 
+      // New delivery charge for this (re)assignment. The admin UI sends the
+      // selected estimate; if it's omitted, keep whatever was already on the
+      // order so a re-assign never silently zeroes the agreed price.
+      const newCharge = typeof deliveryCharge === 'number' ? deliveryCharge : order.deliveryCharge
+      // Keep total in sync with the delivery charge via a DELTA, not a full
+      // recompute: gift-card discounts live in GiftCardRedemption (not on Order),
+      // so `subtotal + delivery − discounts` would overcharge gift-card orders.
+      const newTotal = order.total - order.deliveryCharge + newCharge
+
       const result = await createPndOrder({
         customerName:        order.name,
         primaryMobileNo:     order.phone.replace(/\D/g, '').slice(-10),
         destinationBranch:   resolved,
         destinationCityArea: order.city,
         landmark:            [order.house, order.road, order.address].filter(Boolean).join(', ').slice(0, 200),
-        codAmount:           order.paymentMethod === 'COD' ? order.total : 0,
+        codAmount:           order.paymentMethod === 'COD' ? newTotal : 0,
         orderDescription:    itemSummary || `Order ${order.id}`,
         weightKg:            weightKg ?? (totalWeightKg > 0 ? totalWeightKg : 1),
         dimWeight: (lengthCm || widthCm || heightCm || maxLen || maxWid || maxHgt)
@@ -138,9 +150,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           status:           'CONFIRMED',
           shippingProvider: 'PICKNDROP',
           pathaoOrderId:    result.trackingId,                 // PnD orderID
+          pndOrderId:       result.trackingId,                 // keep both carrier id columns aligned
           pathaoHash:       result.trackingId,                 // reuse for lookup
           trackingUrl:      result.trackingUrl,
-          deliveryCharge:   deliveryCharge ?? result.charge ?? 0,
+          deliveryCharge:   newCharge,
+          total:            newTotal,
           shippingOption:   `Pick & Drop — ${resolved}`,
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },
@@ -155,6 +169,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     if (type === 'MANUAL') {
+      const manualCharge = deliveryCharge ?? 0
+      const manualTotal  = order.total - order.deliveryCharge + manualCharge   // delta-sync, see PnD branch
       const updated = await prisma.order.update({
         where: { id },
         data: {
@@ -162,7 +178,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           pathaoOrderId:  trackingNumber ?? null,
           pathaoHash:     trackingNumber ?? null,
           trackingUrl:    trackingUrl    ?? null,
-          deliveryCharge: deliveryCharge ?? 0,
+          deliveryCharge: manualCharge,
+          total:          manualTotal,
           shippingOption: notes?.split(':')[0] ?? 'Manual delivery',
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },

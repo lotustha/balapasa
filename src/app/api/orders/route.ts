@@ -346,8 +346,15 @@ export async function POST(req: NextRequest) {
           await prisma.order.update({
             where: { id: order.id },
             data: {
-              pndOrderId:  result.trackingId,
-              trackingUrl: result.trackingUrl,
+              pndOrderId:    result.trackingId,
+              // Admin order page + tracking display read pathaoOrderId for ALL
+              // carriers (see assign-delivery). Populate it here too so an
+              // auto-dispatched PnD order shows its tracking code immediately,
+              // instead of looking "assigned" with an empty tracking number.
+              pathaoOrderId: result.trackingId,
+              pathaoHash:    result.trackingId,
+              trackingUrl:   result.trackingUrl,
+              shippingOption: `Pick & Drop — ${destinationBranch}`,
             },
           })
         } catch (e) {

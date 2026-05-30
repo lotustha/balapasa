@@ -188,6 +188,18 @@ export async function getDeliveryRate(input: PndRateInput): Promise<PndRateResul
     surge_price:        Number(msg?.surge_price ?? 0),
     total_delivery_sum: Number(msg?.total_delivery_sum ?? msg?.data?.delivery_amount ?? 0),
   }
+  // Visibility: when a quote looks wrong (e.g. 250 for Pokhara when the base is
+  // 150), this line in the server log shows exactly which server answered and
+  // how the number breaks down — base vs surge vs the test env (app-t.*) which
+  // zeroes surge. Without it the rate is a black box.
+  console.info('[pnd] rate', {
+    baseUrl: cfg.baseUrl,
+    pickup, destinationBranch: input.destinationBranch,
+    cityArea: input.cityArea, location: input.location ?? cfg.pickupLocation, dims,
+    delivery_amount: data.delivery_amount,
+    surge_price: data.surge_price,
+    total_delivery_sum: data.total_delivery_sum,
+  })
   rateCache.set(key, { at: Date.now(), data })
   return data
 }
@@ -280,7 +292,11 @@ export async function calculatePndRates(
       const rawSurge   = isTest ? 0 : rate.surge_price
       const cap        = cfg.maxSurgeNpr > 0 ? cfg.maxSurgeNpr : Infinity
       const cappedSurge = Math.min(rawSurge, cap)
-      charge    = (rate.delivery_amount || rate.total_delivery_sum) + cappedSurge
+      // Base = delivery_amount. The API's total_delivery_sum already INCLUDES
+      // surge, so when delivery_amount is missing we must subtract surge back
+      // out before re-adding the capped surge — otherwise surge double-counts.
+      const base = rate.delivery_amount || Math.max(0, rate.total_delivery_sum - rate.surge_price)
+      charge    = base + cappedSurge
       surge     = cappedSurge
       zoneLabel = branchName
     }
