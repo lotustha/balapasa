@@ -9,6 +9,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[i
       include: {
         category: true,
         supplier: true,
+        options:  true,
+        variants: true,
+        plan:     true,
         reviews: { include: { user: { select: { name: true, avatar: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
       },
     })
