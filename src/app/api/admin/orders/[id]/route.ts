@@ -6,6 +6,8 @@ import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 import { notifyPaymentReceipt } from '@/lib/notify-payment-receipt'
 import { restoreStockForOrder } from '@/lib/restore-stock'
+import { cancelPndOrder } from '@/lib/pickndrop'
+import { cancelParcel } from '@/lib/pathao'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -86,6 +88,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       restoreStockForOrder(order.id, 'ADMIN').catch(e =>
         console.warn('[orders PATCH] stock restore failed (non-fatal):', e),
       )
+      // Propagate cancellation to the carrier — otherwise cancelling the ORDER
+      // leaves the parcel live on Pick & Drop / Pathao. (This is separate from
+      // the "Cancel Delivery" action, which hits cancel-delivery; cancelling the
+      // order via status must do the same.) Best-effort, non-blocking.
+      const isPnd = order.shippingProvider === 'PICKNDROP' || order.shippingOption?.toLowerCase().includes('pick')
+      const pndId = order.pndOrderId || order.pathaoOrderId
+      if (isPnd && pndId) {
+        cancelPndOrder(pndId).catch(e => console.warn('[orders PATCH] PnD cancel failed (non-fatal):', String(e)))
+      }
+      const isPathao = order.shippingProvider === 'PATHAO' || order.shippingOption?.toLowerCase().includes('pathao')
+      if (isPathao && order.pathaoHash) {
+        cancelParcel(order.pathaoHash).catch(e => console.warn('[orders PATCH] Pathao cancel failed (non-fatal):', String(e)))
+      }
     }
 
     if (body.paymentStatus === 'PAID' && order.paymentStatus === 'PAID') {
