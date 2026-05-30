@@ -447,14 +447,30 @@ export async function createPndOrder(p: CreatePndOrderParams): Promise<PndOrderR
   })
   if (!res.ok) throw new Error(`PnD create ${res.status}: ${(await res.text()).slice(0, 300)}`)
   const json = await res.json()
-  const msg  = json?.message ?? json
-  const data = msg?.data ?? {}
+  // Frappe APIs sometimes return `message` as a plain success STRING rather than
+  // the documented object — in that case json.message.data is undefined and the
+  // real payload sits at the root (or under json.data). Probe every shape so we
+  // don't fall through to the internal order id as a fake tracking number.
+  const msgObj = json && typeof json.message === 'object' && json.message !== null ? json.message : null
+  const data   = (msgObj?.data ?? json?.data ?? msgObj ?? json ?? {}) as Record<string, unknown>
+
+  const orderId = (data.orderID ?? data.order_id ?? data.vendor_tracking_number ?? '') as string | number
+  const tracking = (data.tracking_url ?? '') as string
+
+  console.info('[pnd] create', {
+    status: res.status,
+    orderID: data.orderID, vendor_tracking_number: data.vendor_tracking_number,
+    tracking_url: data.tracking_url,
+    dataKeys: Object.keys(data ?? {}),
+  })
 
   return {
-    trackingId:  String(data?.orderID ?? data?.vendor_tracking_number ?? p.vendorTrackingNumber),
-    trackingUrl: String(data?.tracking_url ?? `${cfg.baseUrl}/tracking/${data?.orderID ?? ''}`),
-    charge:      Number(data?.delivery_charge ?? 0),
-    status:      String(data?.status ?? 'Open'),
+    // Only use our internal order id as an absolute last resort — and flag it so
+    // it's obvious in logs that PnD returned no real tracking id.
+    trackingId:  orderId ? String(orderId) : p.vendorTrackingNumber,
+    trackingUrl: tracking ? String(tracking) : (orderId ? `${cfg.baseUrl}/tracking/${orderId}` : ''),
+    charge:      Number(data.delivery_charge ?? 0),
+    status:      String(data.status ?? 'Open'),
     raw:         json,
   }
 }
