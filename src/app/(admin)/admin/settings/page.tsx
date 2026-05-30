@@ -497,7 +497,6 @@ interface ProviderRow {
   storeId?: string; storeName?: string; storePhone?: string; storeAddress?: string
   storeLat?: number | null; storeLng?: number | null; baseUrl?: string; notes?: string
   pickupBranch?: string; pickupArea?: string; pickupLocation?: string
-  maxSurgeNpr?: number | null
   maxWeightKg?: number | null; maxLengthCm?: number | null; maxWidthCm?: number | null; maxHeightCm?: number | null
 }
 
@@ -512,7 +511,6 @@ const PND_DEFAULTS: ProviderRow = {
   provider: 'PICKNDROP', isActive: true, isMock: false,
   apiKey: '', apiSecret: '', baseUrl: 'https://app-t.pickndropnepal.com',
   pickupBranch: 'KATHMANDU VALLEY', pickupArea: 'Kathmandu', pickupLocation: 'Balaju',
-  maxSurgeNpr: 0,
   maxWeightKg: 50, maxLengthCm: 120, maxWidthCm: 80, maxHeightCm: 80,
 }
 
@@ -855,22 +853,6 @@ function DeliverySettingsPanel() {
             <div>
               <Label>Location</Label>
               <input value={pnd.pickupLocation ?? ''} onChange={e => setPnd(p => ({ ...p, pickupLocation: e.target.value }))} className={fieldCls} placeholder="Balaju" />
-            </div>
-          </div>
-
-          <SectionTitle>Surge Cap</SectionTitle>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Max Surge (NPR)</Label>
-              <input
-                type="number"
-                min={0}
-                value={pnd.maxSurgeNpr ?? 0}
-                onChange={e => setPnd(p => ({ ...p, maxSurgeNpr: Number(e.target.value) || 0 }))}
-                className={fieldCls}
-                placeholder="0 = no cap"
-              />
-              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Caps PnD&apos;s peak-traffic surge passed to customer. Anything above this amount is absorbed by the store. Set to <code className="px-1 bg-slate-100 rounded">0</code> to pass surge through unchanged.</p>
             </div>
           </div>
 

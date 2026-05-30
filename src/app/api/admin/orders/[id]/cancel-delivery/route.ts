@@ -27,9 +27,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       where: { id },
       data: {
         pathaoOrderId:  null,
+        pndOrderId:     null,
         pathaoHash:     null,
         trackingUrl:    null,
         deliveryCharge: 0,
+        // Pull the (now-removed) delivery charge back out of total so a later
+        // re-assign starts from a clean subtotal-only figure. Without this the
+        // old charge stays baked into total and the next assignment double-adds.
+        total:          order.total - order.deliveryCharge,
         shippingOption: null,
         status:         'PENDING',
         notes: order.notes

@@ -8,6 +8,7 @@ import type {
   SignupWelcomeData,
   EmailVerificationData,
   LowStockData,
+  SupplierReorderData,
   PaymentReceiptData,
   DeliveryDispatchedData,
   DeliveryExceptionData,
@@ -47,6 +48,8 @@ import { emailVerificationCompact } from './templates/email-verification/compact
 import { lowStockBranded } from './templates/low-stock/branded'
 import { lowStockMinimal } from './templates/low-stock/minimal'
 import { lowStockCompact } from './templates/low-stock/compact'
+
+import { supplierReorderBranded } from './templates/supplier-reorder/branded'
 
 import { paymentReceiptBranded } from './templates/payment-receipt/branded'
 import { paymentReceiptMinimal } from './templates/payment-receipt/minimal'
@@ -119,6 +122,7 @@ export interface EventDataMap {
   'signup-welcome':      SignupWelcomeData
   'email-verification':  EmailVerificationData
   'low-stock':           LowStockData
+  'supplier-reorder':    SupplierReorderData
   'payment-receipt':     PaymentReceiptData
   'delivery-dispatched': DeliveryDispatchedData
   'delivery-exception':  DeliveryExceptionData
@@ -217,6 +221,22 @@ const SAMPLE_LOW_STOCK: LowStockData = {
   threshold:      5,
   productUrl:     'https://balapasa.com/admin/products/prod_abc123xyz/edit',
   recipientEmail: 'admin@balapasa.com',
+  ...SAMPLE_BRAND,
+}
+
+const SAMPLE_SUPPLIER_REORDER: SupplierReorderData = {
+  kind:           'PURCHASE_ORDER',
+  supplierName:   'Himalayan Imports Pvt. Ltd.',
+  contactName:    'Bina Gurung',
+  productName:    'Wireless Earbuds Pro',
+  sku:            'AIRP-366',
+  currentStock:   3,
+  threshold:      10,
+  quantity:       50,
+  note:           'Please prioritise the matte-black variant if available.',
+  storePhone:     '+977 98XXXXXXXX',
+  storeEmail:     'orders@balapasa.com',
+  recipientEmail: 'sales@himalayanimports.com',
   ...SAMPLE_BRAND,
 }
 
@@ -387,6 +407,14 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     description: 'Internal email when a product’s stock drops below the configured threshold.',
     sampleData:  SAMPLE_LOW_STOCK,
     variants:    [lowStockBranded, lowStockMinimal, lowStockCompact],
+    customerFacing: false,
+  }),
+  'supplier-reorder': defineEvent<SupplierReorderData>({
+    id:          'supplier-reorder',
+    label:       'Supplier: reorder / low stock',
+    description: 'Sent to a product’s supplier — a firm purchase order (admin clicks Reorder) or an automatic low-stock alert when stock crosses the threshold.',
+    sampleData:  SAMPLE_SUPPLIER_REORDER,
+    variants:    [supplierReorderBranded],
     customerFacing: false,
   }),
   'payment-receipt': defineEvent<PaymentReceiptData>({

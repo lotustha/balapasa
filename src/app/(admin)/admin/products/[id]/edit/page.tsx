@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import ProductForm, { type ProductData } from '@/components/admin/ProductForm'
+import SupplierReorderCard from '@/components/admin/SupplierReorderCard'
 import { Loader2 } from 'lucide-react'
 
 export default function EditProductPage() {
@@ -64,5 +65,10 @@ export default function EditProductPage() {
     <div className="p-8 text-center text-red-500 font-semibold">{error}</div>
   )
 
-  return <ProductForm mode="edit" productId={id} initial={data ?? undefined} />
+  return (
+    <>
+      <ProductForm mode="edit" productId={id} initial={data ?? undefined} />
+      <SupplierReorderCard productId={id} />
+    </>
+  )
 }

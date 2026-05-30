@@ -346,8 +346,15 @@ export async function POST(req: NextRequest) {
           await prisma.order.update({
             where: { id: order.id },
             data: {
-              pndOrderId:  result.trackingId,
-              trackingUrl: result.trackingUrl,
+              pndOrderId:    result.trackingId,
+              // Admin order page + tracking display read pathaoOrderId for ALL
+              // carriers (see assign-delivery). Populate it here too so an
+              // auto-dispatched PnD order shows its tracking code immediately,
+              // instead of looking "assigned" with an empty tracking number.
+              pathaoOrderId: result.trackingId,
+              pathaoHash:    result.trackingId,
+              trackingUrl:   result.trackingUrl,
+              shippingOption: `Pick & Drop — ${destinationBranch}`,
             },
           })
         } catch (e) {
@@ -491,7 +498,8 @@ export async function POST(req: NextRequest) {
         const settings = await getSiteSettings()
         const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
           SELECT key, value FROM app_settings
-          WHERE key IN ('ORDER_NOTIFICATION_EMAIL', 'LOW_STOCK_THRESHOLD', 'LOW_STOCK_NOTIFICATION_EMAIL')
+          WHERE key IN ('ORDER_NOTIFICATION_EMAIL', 'LOW_STOCK_THRESHOLD', 'LOW_STOCK_NOTIFICATION_EMAIL',
+                        'SUPPLIER_AUTO_REORDER', 'STORE_PHONE', 'STORE_EMAIL')
         `
         const cfg = Object.fromEntries(rows.map(r => [r.key, r.value]))
         const adminTo  = cfg.ORDER_NOTIFICATION_EMAIL?.trim()
@@ -531,6 +539,46 @@ export async function POST(req: NextRequest) {
               tagline:        settings.seo.description,
             })
             await sendEmailLogged('low-stock', { to: lowTo, subject: rendered.subject, html: rendered.html, context: { productId: p.id, stock: p.stock } })
+          }
+        }
+
+        // Auto low-stock alert to suppliers — same crossed-threshold products as
+        // the admin alert, but only those with a linked supplier email. Each
+        // product is judged against its OWN lowStockThreshold. Gated by
+        // SUPPLIER_AUTO_REORDER (defaults on). This is a heads-up notice, not a
+        // firm PO — the admin sends a quantity from the product page.
+        const supplierAuto = (cfg.SUPPLIER_AUTO_REORDER ?? 'true') !== 'false'
+        if (supplierAuto && crossedLowStock.length) {
+          const withSuppliers = await prisma.product.findMany({
+            where:  { id: { in: crossedLowStock.map(p => p.id) }, supplier: { email: { not: null } } },
+            select: {
+              id: true, name: true, sku: true, stock: true, lowStockThreshold: true,
+              supplier: { select: { name: true, contactName: true, email: true } },
+            },
+          })
+          for (const p of withSuppliers) {
+            if (!p.supplier?.email || p.stock > p.lowStockThreshold) continue
+            const rendered = await renderEmail('supplier-reorder', {
+              kind:           'LOW_STOCK_ALERT',
+              supplierName:   p.supplier.name,
+              contactName:    p.supplier.contactName,
+              productName:    p.name,
+              sku:            p.sku,
+              currentStock:   p.stock,
+              threshold:      p.lowStockThreshold,
+              quantity:       null,
+              note:           null,
+              storePhone:     cfg.STORE_PHONE || null,
+              storeEmail:     cfg.STORE_EMAIL || null,
+              recipientEmail: p.supplier.email,
+              siteUrl:        settings.storeUrl,
+              siteName:       settings.siteName,
+              tagline:        settings.seo.description,
+            })
+            await sendEmailLogged('supplier-reorder', {
+              to: p.supplier.email, subject: rendered.subject, html: rendered.html,
+              context: { productId: p.id, auto: true },
+            })
           }
         }
       } catch (e) {
