@@ -47,6 +47,25 @@ export interface LowStockData extends BrandFields {
   recipientEmail: string
 }
 
+// Sent to a product's SUPPLIER — either a firm purchase order (admin clicks
+// "Reorder" on the product page, quantity set) or an automatic low-stock alert
+// (stock crossed the threshold, quantity may be null = "please prepare to
+// restock"). One template handles both via `kind`.
+export interface SupplierReorderData extends BrandFields {
+  kind:           'PURCHASE_ORDER' | 'LOW_STOCK_ALERT'
+  supplierName:   string
+  contactName:    string | null
+  productName:    string
+  sku:            string | null
+  currentStock:   number
+  threshold:      number
+  quantity:       number | null         // requested units (null for a bare alert)
+  note:           string | null         // optional message from admin
+  storePhone:     string | null         // so the supplier can confirm the order
+  storeEmail:     string | null
+  recipientEmail: string                // supplier email (logging/context)
+}
+
 export interface PaymentReceiptData extends BrandFields {
   orderId:       string
   orderCode:     string | null
