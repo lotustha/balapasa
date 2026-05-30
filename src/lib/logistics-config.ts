@@ -38,7 +38,6 @@ export interface PicknDropConfig extends CarrierLimits {
   pickupBranch:   string
   pickupArea:     string
   pickupLocation: string
-  maxSurgeNpr:    number      // cap on surge passed through; 0 = no cap
   isActive:       boolean
 }
 
@@ -126,7 +125,6 @@ export async function getPicknDropConfig(): Promise<PicknDropConfig> {
     pickupBranch,
     pickupArea,
     pickupLocation,
-    maxSurgeNpr: row?.maxSurgeNpr ?? 0,
     isActive,
     maxWeightKg: row?.maxWeightKg ?? PND_LIMIT_DEFAULTS.maxWeightKg,
     maxLengthCm: row?.maxLengthCm ?? PND_LIMIT_DEFAULTS.maxLengthCm,

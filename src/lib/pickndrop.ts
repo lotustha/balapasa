@@ -285,19 +285,16 @@ export async function calculatePndRates(
         widthCm:   opts?.widthCm,
         heightCm:  opts?.heightCm,
       })
-      // Production: respect real surge but cap it at cfg.maxSurgeNpr (admin setting).
       // Test env (app-t.*): drop surge — the test API returns synthetic surge
       // on every request (e.g. 100 + 69 = 169 for KTM→KTM), which doesn't
-      // reflect actual peak-traffic conditions.
-      const rawSurge   = isTest ? 0 : rate.surge_price
-      const cap        = cfg.maxSurgeNpr > 0 ? cfg.maxSurgeNpr : Infinity
-      const cappedSurge = Math.min(rawSurge, cap)
+      // reflect actual peak-traffic conditions. Production: pass real surge through.
+      const liveSurge = isTest ? 0 : rate.surge_price
       // Base = delivery_amount. The API's total_delivery_sum already INCLUDES
       // surge, so when delivery_amount is missing we must subtract surge back
-      // out before re-adding the capped surge — otherwise surge double-counts.
+      // out before re-adding it — otherwise surge double-counts.
       const base = rate.delivery_amount || Math.max(0, rate.total_delivery_sum - rate.surge_price)
-      charge    = base + cappedSurge
-      surge     = cappedSurge
+      charge    = base + liveSurge
+      surge     = liveSurge
       zoneLabel = branchName
     }
   } catch {
