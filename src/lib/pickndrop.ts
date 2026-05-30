@@ -475,6 +475,28 @@ export async function createPndOrder(p: CreatePndOrderParams): Promise<PndOrderR
   }
 }
 
+// Cancel an order on Pick & Drop's side (PUT cancel_order). `orderId` must be
+// the PnD orderID (e.g. "ZEAD-850") — NOT our internal order id / vendor
+// reference. Throws on a real failure so the caller can record a warning;
+// callers should treat this as best-effort and still clear local state.
+export async function cancelPndOrder(orderId: string): Promise<{ ok: boolean; message: string }> {
+  if (!orderId) return { ok: false, message: 'No Pick & Drop order id to cancel' }
+  const cfg = await getPicknDropConfig()
+  const res = await fetch(`${cfg.baseUrl}/api/method/logi360.api.cancel_order`, {
+    method: 'PUT',
+    headers: { Authorization: authHeader(cfg.apiKey, cfg.apiSecret), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderID: orderId }),
+  })
+  const text = await res.text()
+  let msg: { status?: string; message?: string } | undefined
+  try { const j = JSON.parse(text); msg = typeof j?.message === 'object' ? j.message : undefined } catch { /* non-JSON */ }
+  console.info('[pnd] cancel', { orderId, httpStatus: res.status, body: text.slice(0, 200) })
+  if (!res.ok || msg?.status === 'error') {
+    throw new Error(`PnD cancel ${orderId}: ${msg?.message || `HTTP ${res.status}`}`)
+  }
+  return { ok: true, message: msg?.message || 'Order cancelled' }
+}
+
 // ── Order status / details ────────────────────────────────────────────────────
 
 export interface PndOrderDetails {

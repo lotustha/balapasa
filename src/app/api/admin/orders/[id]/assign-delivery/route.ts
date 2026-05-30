@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { estimateDelivery, createParcel } from '@/lib/pathao'
-import { calculatePndRates, createPndOrder, resolveBranchForAddress, addressAtoms, cityToDistrict } from '@/lib/pickndrop'
+import { calculatePndRates, createPndOrder, cancelPndOrder, resolveBranchForAddress, addressAtoms, cityToDistrict } from '@/lib/pickndrop'
 import { getPicknDropConfig } from '@/lib/logistics-config'
 import { aggregateOrderPackage } from '@/lib/order-package'
 import { notifyDeliveryDispatched } from '@/lib/notify-delivery-dispatched'
@@ -107,6 +107,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     if (type === 'PICKNDROP') {
       const { destinationBranch, instruction, weightKg, lengthCm, widthCm, heightCm } = body
+
+      // Re-assign hygiene: if this order already has a PnD order, cancel it on
+      // PnD's side before creating a new one — otherwise each re-assign leaves a
+      // live duplicate on their dashboard. Best-effort; never blocks the new one.
+      const existingPndId = order.pndOrderId || order.pathaoOrderId
+      if ((order.shippingProvider === 'PICKNDROP' || order.shippingOption?.toLowerCase().includes('pick')) && existingPndId) {
+        try { await cancelPndOrder(existingPndId) } catch (e) { console.warn('[assign-delivery] prior PnD cancel failed (non-fatal):', String(e)) }
+      }
       // Resolve destination branch when admin didn't override: multi-atom match
       // over the full address (same matcher checkout uses), falling back to the
       // municipality→district map only as a last resort.

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cancelParcel } from '@/lib/pathao'
+import { cancelPndOrder } from '@/lib/pickndrop'
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -19,6 +20,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       } catch (e) {
         // Log but don't block DB cleanup — parcel may already be cancelled or expired
         errors.push(`Pathao cancel: ${String(e)}`)
+      }
+    }
+
+    // If Pick & Drop — cancel on PnD's side too, otherwise the order stays live
+    // on their dashboard and re-assigning piles up duplicates. Use the PnD
+    // orderID (pndOrderId; pathaoOrderId holds the same value for PnD).
+    const isPnd = order.shippingProvider === 'PICKNDROP' ||
+                  order.shippingOption?.toLowerCase().includes('pick')
+    const pndId = order.pndOrderId || order.pathaoOrderId
+    if (isPnd && pndId) {
+      try {
+        await cancelPndOrder(pndId)
+      } catch (e) {
+        // Non-fatal: still clear local state. The warning surfaces in the UI so
+        // the admin knows to cancel manually on the PnD dashboard if needed.
+        errors.push(`Pick & Drop cancel: ${String(e)}`)
       }
     }
 
