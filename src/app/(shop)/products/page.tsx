@@ -145,7 +145,12 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
 async function getCategories(): Promise<SidebarCategory[]> {
   try {
     return await prisma.category.findMany({
-      select: { name: true, slug: true, color: true },
+      // Hide empty categories from the filter sidebar — only list categories
+      // that have at least one active product (same rule the homepage's
+      // /api/categories endpoint applies). A category with no purchasable
+      // products is a dead-end filter, so we drop it here and on the homepage.
+      where:   { products: { some: { isActive: true } } },
+      select:  { name: true, slug: true, color: true },
       orderBy: { name: 'asc' },
     })
   } catch {

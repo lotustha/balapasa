@@ -23,7 +23,10 @@ export async function GET(req: Request) {
         LEFT JOIN orders o ON o.id = oi.order_id
           AND o.created_at >= ${weekAgo}
         GROUP BY c.id, c.name, c.slug, c.color, c.icon, c.image
-        ORDER BY sales DESC
+        -- Popular first (7-day sales); break ties by catalogue depth then name
+        -- so the shown set is stable instead of arbitrary DB order when many
+        -- categories have no recent sales (e.g. a new store).
+        ORDER BY sales DESC, product_count DESC, c.name ASC
         LIMIT ${limit}
       `)
       // Fetch up to 4 latest product preview images per visible category so
