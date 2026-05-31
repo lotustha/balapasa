@@ -374,8 +374,8 @@ export default function FinancePage() {
   async function load() {
     setLoading(true)
     const [s, e] = await Promise.all([
-      fetch(`/api/admin/finance/summary?months=${months}`).then(r => r.json()),
-      fetch('/api/admin/finance/expenses?limit=500').then(r => r.json()),
+      fetch(`/api/admin/finance/summary?months=${months}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/admin/finance/expenses?limit=500', { cache: 'no-store' }).then(r => r.json()),
     ])
     if (!s.error) setSummary(s)
     if (!e.error) setExpenses(e.expenses ?? [])
@@ -421,10 +421,10 @@ export default function FinancePage() {
     setReportLoading(type)
     try {
       if (type === 'cashbook') {
-        const data: CashbookData = await fetch(`/api/admin/finance/cashbook?from=${reportFrom}&to=${reportTo}`).then(r => r.json())
+        const data: CashbookData = await fetch(`/api/admin/finance/cashbook?from=${reportFrom}&to=${reportTo}`, { cache: 'no-store' }).then(r => r.json())
         setReportModal({ type, title: 'Bank Cash Book', data })
       } else if (type === 'daybook') {
-        const cb: CashbookData = await fetch(`/api/admin/finance/cashbook?from=${reportFrom}&to=${reportTo}`).then(r => r.json())
+        const cb: CashbookData = await fetch(`/api/admin/finance/cashbook?from=${reportFrom}&to=${reportTo}`, { cache: 'no-store' }).then(r => r.json())
         const dayMap: Record<string, { cashIn: number; cashOut: number; count: number }> = {}
         for (const e of cb.entries) {
           if (!dayMap[e.date]) dayMap[e.date] = { cashIn: 0, cashOut: 0, count: 0 }
@@ -436,7 +436,7 @@ export default function FinancePage() {
           .map(([date, v]) => ({ date, cashIn: v.cashIn, cashOut: v.cashOut, count: v.count, net: v.cashIn - v.cashOut }))
         setReportModal({ type, title: 'Day Book', data: { from: cb.from, to: cb.to, days, totalIn: cb.totalIn, totalOut: cb.totalOut } })
       } else if (type === 'sales') {
-        const data: SalesData = await fetch(`/api/admin/finance/sales-register?from=${reportFrom}&to=${reportTo}`).then(r => r.json())
+        const data: SalesData = await fetch(`/api/admin/finance/sales-register?from=${reportFrom}&to=${reportTo}`, { cache: 'no-store' }).then(r => r.json())
         setReportModal({ type, title: 'Sales Register', data })
       } else if (type === 'expense-ledger') {
         const filtered = expenses.filter(e => { const d = e.date.slice(0, 10); return d >= reportFrom && d <= reportTo })
