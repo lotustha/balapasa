@@ -10,7 +10,7 @@ import {
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
   GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List, Repeat,
-  MapPin,
+  MapPin, Pencil, Trash2,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
@@ -521,21 +521,60 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   const [myReview,      setMyReview]      = useState('')
   const [reviewSaving,  setReviewSaving]  = useState(false)
   const [reviewMsg,     setReviewMsg]     = useState<{ text: string; ok: boolean } | null>(null)
+  // Ownership of reviews is resolved client-side (the page is ISR-cached, so we
+  // can't read the cookie server-side without making it dynamic). GET /api/reviews
+  // returns a `mine` flag per review; we keep the ids of the user's own reviews.
+  const [myReviewIds,   setMyReviewIds]   = useState<Set<string>>(new Set())
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!p?.id) return
+    fetch(`/api/reviews?productId=${p.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { reviews?: Array<{ id: string; mine: boolean }> } | null) => {
+        if (d?.reviews) setMyReviewIds(new Set(d.reviews.filter(x => x.mine).map(x => x.id)))
+      })
+      .catch(() => {})
+  }, [p?.id])
+
   async function submitReview() {
     if (!p || myRating === 0) return
     setReviewSaving(true); setReviewMsg(null)
-    const res = await fetch('/api/reviews', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId: p.id, rating: myRating, comment: myReview }),
-    })
+    const res = editingReviewId
+      ? await fetch(`/api/reviews/${editingReviewId}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating: myRating, comment: myReview }),
+        })
+      : await fetch('/api/reviews', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: p.id, rating: myRating, comment: myReview }),
+        })
     const data = await res.json()
     if (res.ok) {
-      setReviewMsg({ text: 'Review submitted! Thank you.', ok: true })
-      setMyRating(0); setMyReview(''); setShowReviewForm(false)
+      setReviewMsg({ text: editingReviewId ? 'Review updated!' : 'Review submitted! Thank you.', ok: true })
+      setMyRating(0); setMyReview(''); setShowReviewForm(false); setEditingReviewId(null)
+      router.refresh()
     } else {
       setReviewMsg({ text: data.error ?? 'Failed to submit review', ok: false })
     }
     setReviewSaving(false)
+  }
+
+  function startEditReview(r: ClientReview) {
+    setEditingReviewId(r.id)
+    setMyRating(r.rating)
+    setMyReview(r.comment ?? '')
+    setReviewMsg(null)
+    setShowReviewForm(true)
+  }
+
+  async function deleteReview(id: string) {
+    if (!confirm('Delete your review? This cannot be undone.')) return
+    const res = await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setMyReviewIds(prev => { const s = new Set(prev); s.delete(id); return s })
+      if (editingReviewId === id) { setEditingReviewId(null); setShowReviewForm(false); setMyRating(0); setMyReview('') }
+      router.refresh()
+    }
   }
 
   const ratingBreakdown = [5,4,3,2,1].map(stars => ({
@@ -1243,10 +1282,10 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 <p className={`text-xs font-semibold ${reviewMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{reviewMsg.text}</p>
               )}
               <div className="flex justify-end gap-2">
-                <button onClick={()=>setShowReviewForm(false)} className="px-4 py-2 text-sm text-slate-500 cursor-pointer">Cancel</button>
+                <button onClick={()=>{ setShowReviewForm(false); setEditingReviewId(null) }} className="px-4 py-2 text-sm text-slate-500 cursor-pointer">Cancel</button>
                 <button onClick={submitReview} disabled={reviewSaving || myRating === 0}
                   className="flex items-center gap-1.5 px-5 py-2 bg-primary hover:bg-primary-dark disabled:opacity-50 text-white text-sm font-bold rounded-xl cursor-pointer transition-colors">
-                  {reviewSaving ? <><Loader2 size={13} className="animate-spin" /> Submitting…</> : 'Submit Review'}
+                  {reviewSaving ? <><Loader2 size={13} className="animate-spin" /> {editingReviewId ? 'Saving…' : 'Submitting…'}</> : (editingReviewId ? 'Update Review' : 'Submit Review')}
                 </button>
               </div>
             </div>
@@ -1349,10 +1388,24 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       </time>
                     </div>
                     <p className="text-slate-600 text-sm leading-relaxed mt-3">{r.comment ?? 'No comment provided.'}</p>
-                    <button onClick={() => { const s=new Set(helpful); s.has(r.id)?s.delete(r.id):s.add(r.id); setHelpful(s) }}
-                      className={`mt-3 inline-flex items-center gap-1 text-xs font-semibold cursor-pointer transition-colors ${helpful.has(r.id)?'text-primary':'text-slate-400 hover:text-slate-600'}`}>
-                      <ThumbsUp size={12} /> {helpful.has(r.id)?'Helpful':'Mark helpful'}
-                    </button>
+                    <div className="mt-3 flex items-center gap-4 flex-wrap">
+                      <button onClick={() => { const s=new Set(helpful); s.has(r.id)?s.delete(r.id):s.add(r.id); setHelpful(s) }}
+                        className={`inline-flex items-center gap-1 text-xs font-semibold cursor-pointer transition-colors ${helpful.has(r.id)?'text-primary':'text-slate-400 hover:text-slate-600'}`}>
+                        <ThumbsUp size={12} /> {helpful.has(r.id)?'Helpful':'Mark helpful'}
+                      </button>
+                      {myReviewIds.has(r.id) && (
+                        <>
+                          <button onClick={() => startEditReview(r)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
+                            <Pencil size={11} /> Edit
+                          </button>
+                          <button onClick={() => deleteReview(r.id)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-500 cursor-pointer transition-colors">
+                            <Trash2 size={11} /> Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </article>
                 ))}
 
