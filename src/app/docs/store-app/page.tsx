@@ -9,6 +9,8 @@ import {
   CreditCard,
   Bell,
   AlertTriangle,
+  MessageSquare,
+  Wallet,
 } from 'lucide-react'
 import EndpointCard from '../components/EndpointCard'
 import CodeBlock from '../components/CodeBlock'
@@ -797,6 +799,247 @@ export default function StoreAppPage() {
               { name: 'notes', type: 'string', desc: 'Invoice note.' },
             ]}
           />
+        </EndpointCard>
+      </section>
+
+      {/* Store credit */}
+      <section className="space-y-5">
+        <SectionHeading
+          id="store-credit"
+          icon={Wallet}
+          eyebrow="Customers"
+          title="Store credit"
+        >
+          Issue and adjust customer wallet balances — goodwill, compensation, a
+          refund-to-credit, or a loyalty/referral payout. Both endpoints enforce{' '}
+          <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+            requireRole(&apos;MANAGER&apos;)
+          </code>{' '}
+          server-side and are mobile-ready via the bearer header.
+        </SectionHeading>
+
+        <EndpointCard
+          method="GET"
+          path="/api/admin/store-credit"
+          auth="requireRole('MANAGER')"
+          title="List wallets / one customer's ledger"
+        >
+          <p className="mb-3">
+            With no query it returns up to 200 wallets (each with the customer&apos;s
+            <code> name</code>/<code>email</code>, joined manually — there is no FK
+            on <code>userId</code>), newest-updated first. Pass{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">?userId=</code>{' '}
+            to get that customer&apos;s <code>balance</code> + full{' '}
+            <code>transactions</code> ledger and resolved <code>user</code>.
+          </p>
+          <ParamTable
+            rows={[
+              { name: 'userId', type: 'string', desc: 'Return one customer’s balance + ledger instead of the wallet list.' },
+            ]}
+          />
+        </EndpointCard>
+
+        <EndpointCard
+          method="POST"
+          path="/api/admin/store-credit"
+          auth="requireRole('MANAGER')"
+          title="Grant or adjust credit"
+        >
+          <p className="mb-3">
+            Applies a delta to the customer&apos;s wallet and appends a ledger
+            row, atomically. A positive <code>amount</code> adds (
+            <code>GRANT</code>), a negative one deducts (<code>ADJUSTMENT</code>);
+            the balance is floored at 0 and the ledger records the{' '}
+            <em>effective</em> delta, so an over-deduction is clamped rather than
+            going negative. Creates the wallet on first grant. Returns the new{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+              &#123; balance, applied &#125;
+            </code>{' '}
+            (400 if <code>amount</code> is 0 / missing or <code>reason</code> is
+            blank; 404 if the customer doesn&apos;t exist).
+          </p>
+          <ParamTable
+            rows={[
+              { name: 'userId', type: 'string', required: true, desc: 'Profile id of the customer.' },
+              { name: 'amount', type: 'number', required: true, desc: 'Non-zero NPR delta. Positive adds, negative deducts.' },
+              { name: 'reason', type: 'string', required: true, desc: 'Why the credit changed (shown in the ledger).' },
+              { name: 'type', type: 'string', desc: "Optional override: GRANT | REFUND | ADJUSTMENT. Defaults by sign." },
+            ]}
+          />
+          <div className="mt-4">
+            <CodeBlock
+              title="Grant NPR 500 of goodwill credit"
+              language="bash"
+              code={`curl -X POST https://api.balapasa.com/v1/api/admin/store-credit \\
+  -H "Authorization: Bearer <jwt>" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "userId": "prof_1", "amount": 500, "reason": "Goodwill — late delivery" }'`}
+            />
+          </div>
+        </EndpointCard>
+      </section>
+
+      {/* Community moderation */}
+      <section className="space-y-5">
+        <SectionHeading
+          id="community"
+          icon={MessageSquare}
+          eyebrow="Community"
+          title="Q&amp;A &amp; review moderation"
+        >
+          Answer customer questions and keep the public Q&amp;A and reviews clean.
+          Unlike the order/catalog routes above, every endpoint here enforces{' '}
+          <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+            requireRole(&apos;MANAGER&apos;)
+          </code>{' '}
+          server-side, so a bearer JWT for a MANAGER/ADMIN is required — they are
+          safe to expose to a mobile store app.
+        </SectionHeading>
+
+        <EndpointCard
+          method="GET"
+          path="/api/admin/questions"
+          auth="requireRole('MANAGER')"
+          title="Moderation queue"
+        >
+          <p className="mb-3">
+            Every product question (visible or hidden), newest first, each with
+            its <code>answers</code> and the <code>product</code> it belongs to
+            (joined manually — <code>ProductQuestion</code> has no FK to{' '}
+            <code>Product</code>). Also returns <code>counts</code> for the tab
+            badges. Max 200 rows.
+          </p>
+          <ParamTable
+            rows={[
+              { name: 'filter', type: 'string', desc: "'all' (default) | 'unanswered' (no answers yet) | 'hidden' (isApproved=false)." },
+              { name: 'search', type: 'string', desc: 'Case-insensitive match on the question body.' },
+            ]}
+          />
+          <p className="mb-2 mt-4 text-slate-400">Response <code className="font-[family-name:var(--font-jetbrains)]">200</code></p>
+          <CodeBlock
+            language="json"
+            code={`{
+  "questions": [
+    {
+      "id": "clx...",
+      "body": "Is this gluten free?",
+      "authorName": "Asha",
+      "isApproved": true,
+      "createdAt": "2026-05-31T...",
+      "answers": [ { "id": "cla...", "body": "Yes!", "isOfficial": true, "authorName": "Store" } ],
+      "product": { "id": "prd_1", "name": "Himalayan Tea 250g", "slug": "himalayan-tea-250g", "images": ["..."] }
+    }
+  ],
+  "counts": { "all": 42, "unanswered": 7, "hidden": 2 }
+}`}
+          />
+        </EndpointCard>
+
+        <EndpointCard
+          method="PATCH"
+          path="/api/admin/questions/[id]"
+          auth="requireRole('MANAGER')"
+          title="Hide or restore a question"
+        >
+          <p className="mb-3">
+            Sets <code>isApproved</code>. A hidden question (<code>false</code>)
+            disappears from the public product page, which only lists{' '}
+            <code>isApproved: true</code>. Returns the updated question; 400 if{' '}
+            <code>isApproved</code> is missing/non-boolean.
+          </p>
+          <ParamTable
+            rows={[
+              { name: 'isApproved', type: 'boolean', required: true, desc: 'false hides the question from the store; true restores it.' },
+            ]}
+          />
+        </EndpointCard>
+
+        <EndpointCard
+          method="POST"
+          path="/api/questions/[id]/answers"
+          auth="Bearer or cookie (any signed-in user)"
+          title="Answer a question"
+        >
+          <p className="mb-3">
+            Posts an answer. The reply is flagged{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">isOfficial: true</code>{' '}
+            automatically when the author&apos;s role is STAFF/MANAGER/ADMIN
+            (i.e. anyone but CUSTOMER), so a store operator&apos;s answers render
+            with the official badge. Body must be 2–1000 chars.
+          </p>
+          <ParamTable
+            rows={[
+              { name: 'body', type: 'string', required: true, desc: 'The answer text (2–1000 chars).' },
+            ]}
+          />
+        </EndpointCard>
+
+        <EndpointCard
+          method="DELETE"
+          path="/api/admin/answers/[id]"
+          auth="requireRole('MANAGER')"
+          title="Delete an answer"
+        >
+          <p>
+            Removes a single answer (e.g. an incorrect reply) without touching
+            the question. Returns{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+              &#123; success: true &#125;
+            </code>
+            .
+          </p>
+        </EndpointCard>
+
+        <EndpointCard
+          method="DELETE"
+          path="/api/admin/questions/[id]"
+          auth="requireRole('MANAGER')"
+          title="Delete a question"
+        >
+          <p>
+            Hard-deletes the question and cascades to its answers. Returns{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+              &#123; success: true &#125;
+            </code>
+            .
+          </p>
+        </EndpointCard>
+
+        <EndpointCard
+          method="GET"
+          path="/api/admin/reviews"
+          auth="requireRole('MANAGER')"
+          title="List reviews"
+        >
+          <p className="mb-3">
+            Reviews across all products, newest first (max 200), each joined with
+            the reviewer (<code>author</code>) and a slim <code>product</code>.
+            Filter to triage low ratings or find a specific complaint.
+          </p>
+          <ParamTable
+            rows={[
+              { name: 'productId', type: 'string', desc: 'Limit to one product.' },
+              { name: 'rating', type: 'number', desc: 'Exact star rating 1–5.' },
+              { name: 'search', type: 'string', desc: 'Case-insensitive match on the review comment.' },
+            ]}
+          />
+        </EndpointCard>
+
+        <EndpointCard
+          method="DELETE"
+          path="/api/admin/reviews/[id]"
+          auth="requireRole('MANAGER')"
+          title="Delete a review"
+        >
+          <p>
+            Removes a review (spam/abuse) and recomputes the product&apos;s
+            aggregate <code>rating</code> and <code>reviewCount</code> in the same
+            request, so the storefront stays consistent. Returns{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+              &#123; success: true &#125;
+            </code>{' '}
+            (404 if the id is unknown).
+          </p>
         </EndpointCard>
       </section>
 

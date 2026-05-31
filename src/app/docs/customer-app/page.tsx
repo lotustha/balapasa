@@ -10,6 +10,7 @@ import {
   Bell,
   Info,
   AlertTriangle,
+  Wallet,
 } from 'lucide-react'
 import EndpointCard from '../components/EndpointCard'
 import CodeBlock from '../components/CodeBlock'
@@ -363,6 +364,7 @@ export default function CustomerAppPage() {
               { name: 'shippingProvider', type: 'string', desc: 'e.g. PICKNDROP — triggers carrier dispatch.' },
               { name: 'couponCode', type: 'string', desc: 'Re-validated and discount recomputed server-side.' },
               { name: 'giftCardCode', type: 'string', desc: 'Re-validated; balance decremented atomically.' },
+              { name: 'storeCreditAmount', type: 'number', desc: 'Redeem store credit (signed-in only; COD/Khalti only — rejected on eSewa/PARTIAL_COD). Server clamps to min(balance, total), debits the wallet, and writes a REDEMPTION ledger row, all in the order tx.' },
               { name: 'deliveryNote', type: 'string', desc: 'Optional note for the rider (max 500 chars).' },
             ]}
           />
@@ -755,6 +757,48 @@ const { orderId, orderCode } = await res.json()
             Removes the given product from the wishlist regardless of current
             state. Returns{' '}
             <code className="font-[family-name:var(--font-jetbrains)]">{`{ "removed": true }`}</code>.
+          </p>
+        </EndpointCard>
+      </section>
+
+      {/* ── Store credit ───────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeading id="store-credit" icon={Wallet}>
+          Store credit
+        </SectionHeading>
+        <p className="max-w-2xl text-sm leading-relaxed text-slate-400">
+          A per-customer wallet. Staff issue credit (goodwill, a refund to
+          credit, a loyalty/referral payout); the customer spends it at
+          checkout. Read the balance to show it in the account screen and to
+          offer it as a payment option.
+        </p>
+
+        <EndpointCard method="GET" path="/api/account/store-credit" auth="Bearer or Cookie" title="Wallet balance & history">
+          <p className="mb-3">
+            Returns the signed-in customer&apos;s current{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">balance</code>{' '}
+            (NPR) and recent ledger entries, newest first. A customer who has
+            never received credit gets{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">{`{ "balance": 0, "transactions": [] }`}</code>.
+          </p>
+          <p className="mb-2 mt-4 text-slate-400">Response <code className="font-[family-name:var(--font-jetbrains)]">200</code></p>
+          <CodeBlock
+            language="json"
+            code={`{
+  "balance": 300,
+  "transactions": [
+    { "id": "clx...", "amount": -200, "balanceAfter": 300, "type": "REDEMPTION", "reason": "Order VCS-1042", "orderId": "ord_1", "createdAt": "2026-05-31T..." },
+    { "id": "clw...", "amount": 500,  "balanceAfter": 500, "type": "GRANT",      "reason": "Goodwill", "orderId": null, "createdAt": "2026-05-30T..." }
+  ]
+}`}
+          />
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            <code className="font-[family-name:var(--font-jetbrains)]">type</code> is one of{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">GRANT</code>,{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">REDEMPTION</code>,{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">REFUND</code>,{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">ADJUSTMENT</code>. Positive{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">amount</code> adds, negative spends.
           </p>
         </EndpointCard>
       </section>

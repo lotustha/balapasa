@@ -11,7 +11,7 @@ import {
   Phone, User, Truck, CreditCard, Loader2, CheckCircle,
   AlertCircle, Clock, Zap, Package, Store, MapPin, Info,
   ChevronRight, ArrowRight, Banknote, Tag, Gift,
-  X as XIcon, Check, Globe, Building2, Home, Mail, ShoppingBag,
+  X as XIcon, Check, Globe, Building2, Home, Mail, ShoppingBag, Wallet,
 } from 'lucide-react'
 import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/NepalAddressSelector'
 import type { WeatherData } from '@/components/checkout/WeatherWidget'
@@ -279,6 +279,19 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const [giftCardBalance, setGiftCardBalance] = useState(0)
   const [giftCardValidating, setGiftCardValidating] = useState(false)
 
+  // Store credit — balance is fetched for signed-in customers; 401 (guest) leaves
+  // it at 0 so the toggle simply never appears.
+  const [storeCreditBalance, setStoreCreditBalance] = useState(0)
+  const [useStoreCredit,     setUseStoreCredit]     = useState(false)
+  useEffect(() => {
+    let active = true
+    fetch('/api/account/store-credit')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active && d && typeof d.balance === 'number') setStoreCreditBalance(d.balance) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
+
   const [couponValidating, setCouponValidating] = useState(false)
   async function applyCoupon() {
     const code = coupon.trim().toUpperCase()
@@ -410,7 +423,14 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const totalBeforeGiftCard = Math.max(0, subtotal + deliveryCharge - couponDiscount - autoDiscount)
   // Gift card is applied last — uses whatever's left, up to its balance
   const giftCardDiscount = giftCardApplied ? Math.min(giftCardBalance, totalBeforeGiftCard) : 0
-  const total = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
+  const totalAfterGiftCard = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
+  // Store credit applies after gift card, and ONLY on COD/Khalti — the eSewa
+  // amount ignores discounts server-side, so the API rejects credit on eSewa.
+  const storeCreditEligible = payment === 'COD' || payment === 'KHALTI'
+  const storeCreditUsed = useStoreCredit && storeCreditEligible
+    ? Math.min(storeCreditBalance, totalAfterGiftCard)
+    : 0
+  const total = Math.max(0, totalAfterGiftCard - storeCreditUsed)
 
   const fetchCoverage = useCallback(async (addr: NepalAddress, branchName?: string) => {
     if (!addr.province || !addr.district || !addr.municipality) return
@@ -612,6 +632,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
           couponDiscount: couponApplied ? couponDiscount : undefined,
           autoDiscount:   autoDiscount > 0 ? autoDiscount : undefined,
           giftCardCode:   giftCardApplied ? giftCard.trim().toUpperCase() : undefined,
+          storeCreditAmount: storeCreditUsed > 0 ? storeCreditUsed : undefined,
           paymentMethod: payment,
           shippingOption:   deliveryMode === 'FREE' ? 'FREE_DELIVERY' : selectedOption!.name,
           shippingProvider: deliveryMode === 'FREE' ? null : selectedOption!.provider,
@@ -1484,6 +1505,38 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                   )}
                 </div>
 
+                {/* Store credit toggle — only for signed-in customers with a
+                    balance. Disabled on eSewa (its charge ignores discounts). */}
+                {storeCreditBalance > 0 && (
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={() => storeCreditEligible && setUseStoreCredit(v => !v)}
+                      disabled={!storeCreditEligible}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border transition-all text-left ${
+                        useStoreCredit && storeCreditEligible
+                          ? 'bg-emerald-50 border-emerald-300'
+                          : 'bg-white/80 border-slate-200'
+                      } ${storeCreditEligible ? 'cursor-pointer hover:border-emerald-300' : 'opacity-60 cursor-not-allowed'}`}
+                    >
+                      <Wallet size={15} className="text-emerald-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800">Use store credit</p>
+                        <p className="text-[10px] text-slate-500">
+                          {formatPrice(storeCreditBalance)} available
+                          {!storeCreditEligible && <span> · pay with COD or Khalti to use it</span>}
+                          {useStoreCredit && storeCreditEligible && storeCreditUsed > 0 && (
+                            <span> · applying {formatPrice(storeCreditUsed)}</span>
+                          )}
+                        </p>
+                      </div>
+                      <span className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${useStoreCredit && storeCreditEligible ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${useStoreCredit && storeCreditEligible ? 'left-[18px]' : 'left-0.5'}`} />
+                      </span>
+                    </button>
+                  </div>
+                )}
+
                 <div className="border-t border-slate-100 pt-4 space-y-2.5 text-sm">
                   <div className="flex justify-between text-slate-500">
                     <span>Subtotal</span>
@@ -1536,6 +1589,12 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                     <div className="flex justify-between text-amber-600">
                       <span className="flex items-center gap-1.5"><Gift size={12} /> Gift card</span>
                       <span className="font-semibold">− {formatPrice(giftCardDiscount)}</span>
+                    </div>
+                  )}
+                  {storeCreditUsed > 0 && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span className="flex items-center gap-1.5"><Wallet size={12} /> Store credit</span>
+                      <span className="font-semibold">− {formatPrice(storeCreditUsed)}</span>
                     </div>
                   )}
                   {/* Free-delivery banner — only when the threshold unlocked it

@@ -222,6 +222,7 @@ model Order {
   couponCode     String?       @map("coupon_code")
   couponDiscount Float?        @map("coupon_discount")
   autoDiscount   Float?        @map("auto_discount")
+  storeCreditUsed Float?       @map("store_credit_used")   // store credit redeemed at checkout (COD/Khalti only)
   deliveryNote   String?       @db.Text @map("delivery_note")
   deliveryMode   String        @default("PAID") @map("delivery_mode")
   notes          String?
@@ -755,4 +756,42 @@ enum InvoiceStatus {
   PAID
   OVERDUE
   VOID
+}
+
+// Per-customer store credit / wallet. One balance row per user (userId is a bare
+// column, no FK — same convention as WishlistItem / GiftCard.issuedToUserId), with
+// an append-only transaction ledger. Amounts are Float NPR to match GiftCard.
+model StoreCredit {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  balance   Float    @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  transactions StoreCreditTransaction[]
+
+  @@map("store_credits")
+}
+
+model StoreCreditTransaction {
+  id           String             @id @default(cuid())
+  creditId     String             @map("credit_id")
+  amount       Float                                    // + = added, − = spent
+  balanceAfter Float              @map("balance_after")
+  type         StoreCreditTxnType
+  reason       String
+  orderId      String?            @map("order_id")      // set when spent on / refunded from an order
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  credit StoreCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([creditId, createdAt])
+  @@map("store_credit_transactions")
+}
+
+enum StoreCreditTxnType {
+  GRANT       // issued by staff
+  REDEMPTION  // spent at checkout
+  REFUND      // credited back from a refund/cancellation
+  ADJUSTMENT  // manual correction (can be negative)
 }

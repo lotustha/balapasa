@@ -27,6 +27,10 @@ class StockRaceError extends Error {
   readonly _stock = true
 }
 
+class StoreCreditRaceError extends Error {
+  readonly _storeCredit = true
+}
+
 export async function POST(req: NextRequest) {
   try {
     let userId: string | null = null
@@ -45,6 +49,8 @@ export async function POST(req: NextRequest) {
       advancePaid, codAmount, advanceMethod,
       couponCode: rawCouponCode, autoDiscount,
       giftCardCode: rawGiftCardCode,
+      // Store-credit redemption (logged-in customers only; COD/Khalti only)
+      storeCreditAmount: rawStoreCreditAmount,
       // Structured Nepal address (used when saving address to a new/existing Profile)
       province, district, municipality, ward, street, tole, landmark: structuredLandmark,
       // Guest signup nudge — "Save my info for next time" checkbox
@@ -138,7 +144,33 @@ export async function POST(req: NextRequest) {
       giftCardDiscount = Math.min(result.balance, totalBeforeGiftCard)
     }
 
-    const serverTotal = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
+    const totalAfterGiftCard = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
+
+    // ── Store-credit redemption ────────────────────────────────────────
+    // Logged-in customers only. Gated to COD + Khalti: the eSewa amount is
+    // computed from subtotal+delivery (see esewaFormData) and ignores discounts,
+    // so folding credit there would debit the wallet AND charge full — reject it.
+    // PARTIAL_COD's advance split isn't reconciled here either, so reject too.
+    // Server clamps the redeemed amount to [0, min(balance, total)] — never trust
+    // the client figure. The race-safe decrement happens inside the tx below.
+    let storeCreditUsed = 0
+    const requestedCredit = rawStoreCreditAmount ? Math.max(0, Number(rawStoreCreditAmount)) : 0
+    if (requestedCredit > 0) {
+      if (!userId) {
+        return Response.json({ error: 'Please sign in to use store credit.' }, { status: 401 })
+      }
+      if (paymentMethod === 'ESEWA' || paymentMethod === 'PARTIAL_COD') {
+        return Response.json(
+          { error: 'Store credit can be used with Cash on Delivery or Khalti. Please switch payment method or remove the credit.' },
+          { status: 400 },
+        )
+      }
+      const wallet = await prisma.storeCredit.findUnique({ where: { userId }, select: { balance: true } })
+      const available = wallet?.balance ?? 0
+      storeCreditUsed = Math.round(Math.min(requestedCredit, available, totalAfterGiftCard) * 100) / 100
+    }
+
+    const serverTotal = Math.max(0, totalAfterGiftCard - storeCreditUsed)
 
     // Snapshot the item list once so the tx + post-tx logging can share it.
     const itemList = items as {
@@ -182,6 +214,25 @@ export async function POST(req: NextRequest) {
         if (updated === 0) {
           throw new GiftCardRaceError('Gift card balance changed during checkout. Please remove it and try again.')
         }
+      }
+
+      // Race-safe store-credit decrement. WHERE balance >= amount stops two
+      // concurrent checkouts from overspending the same wallet; RETURNING gives
+      // us the post-decrement balance for the ledger row written after create.
+      let storeCreditId: string | null = null
+      let storeCreditBalanceAfter = 0
+      if (storeCreditUsed > 0 && userId) {
+        const rows = await tx.$queryRaw<Array<{ id: string; balance: number }>>`
+          UPDATE store_credits
+          SET balance = balance - ${storeCreditUsed}, updated_at = NOW()
+          WHERE user_id = ${userId} AND balance >= ${storeCreditUsed}
+          RETURNING id, balance
+        `
+        if (rows.length === 0) {
+          throw new StoreCreditRaceError('Your store credit balance changed during checkout. Please try again.')
+        }
+        storeCreditId = rows[0].id
+        storeCreditBalanceAfter = rows[0].balance
       }
 
       // ── Race-safe stock decrement ───────────────────────────────────────
@@ -243,6 +294,7 @@ export async function POST(req: NextRequest) {
           couponCode:     couponCode,
           couponDiscount: serverCouponDiscount,
           autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
+          storeCreditUsed: storeCreditUsed > 0 ? storeCreditUsed : null,
           deliveryNote:   typeof deliveryNote === 'string' && deliveryNote.trim() ? deliveryNote.trim().slice(0, 500) : null,
           deliveryMode,
           items: {
@@ -271,6 +323,20 @@ export async function POST(req: NextRequest) {
             stockAfter:  u.stock,
             referenceId: created.id,
             note:        `Order ${created.id.slice(0, 8).toUpperCase()}`,
+          },
+        })
+      }
+
+      // Store-credit ledger entry (atomic with the wallet decrement above).
+      if (storeCreditId && storeCreditUsed > 0) {
+        await tx.storeCreditTransaction.create({
+          data: {
+            creditId:     storeCreditId,
+            amount:       -storeCreditUsed,
+            balanceAfter: storeCreditBalanceAfter,
+            type:         'REDEMPTION',
+            reason:       `Order ${created.id.slice(0, 8).toUpperCase()}`,
+            orderId:      created.id,
           },
         })
       }
@@ -624,7 +690,7 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     )
   } catch (e) {
-    if (e instanceof CouponRaceError || e instanceof GiftCardRaceError || e instanceof StockRaceError) {
+    if (e instanceof CouponRaceError || e instanceof GiftCardRaceError || e instanceof StockRaceError || e instanceof StoreCreditRaceError) {
       return Response.json({ error: e.message }, { status: 409 })
     }
     console.error('[orders] create failed:', e)
