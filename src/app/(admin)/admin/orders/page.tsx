@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ShoppingBag, Search, ChevronDown, Check, Loader2, Package, Phone, MapPin, CreditCard, X, Printer } from 'lucide-react'
+import { ShoppingBag, Search, ChevronDown, Check, Loader2, Package, Phone, MapPin, CreditCard, X, Printer, Trash2 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/useConfirm'
 
 interface OrderItem { id: string; name: string; quantity: number; price: number; image?: string }
 interface Order {
@@ -154,6 +155,8 @@ export default function OrdersPage() {
   const [printing,  setPrinting]  = useState(false)
   const [printMenu, setPrintMenu] = useState(false)
   const [detail,  setDetail]  = useState<Order | null>(null)
+  const [role,    setRole]    = useState('')
+  const { confirm, dialog } = useConfirm()
 
   useEffect(() => {
     fetch('/api/admin/orders?limit=500')
@@ -161,7 +164,21 @@ export default function OrdersPage() {
       .then(d => setOrders(d.orders ?? []))
       .catch(() => {})
       .finally(() => setLoading(false))
+    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.role) setRole(d.role) }).catch(() => {})
   }, [])
+
+  async function deleteOrder(order: Order) {
+    const ok = await confirm({
+      title: 'Delete order?',
+      message: <>Order <span className="font-bold text-slate-700">#{order.orderCode ?? order.id.slice(0, 8).toUpperCase()}</span> and its items will be permanently removed. This does not restore stock or refund — use Cancel for that. This can&rsquo;t be undone.</>,
+      confirmLabel: 'Delete order',
+      tone: 'danger',
+    })
+    if (!ok) return
+    const res = await fetch(`/api/admin/orders/${order.id}`, { method: 'DELETE' })
+    if (res.ok) setOrders(prev => prev.filter(o => o.id !== order.id))
+    else { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Failed to delete order') }
+  }
 
   async function printDocs(type: string) {
     const ids = selected.size > 0 ? [...selected] : filtered.map(o => o.id)
@@ -339,6 +356,12 @@ export default function OrdersPage() {
                         className="px-2.5 py-1.5 text-xs font-bold bg-primary text-white hover:bg-primary-dark rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1">
                         Manage
                       </Link>
+                      {role === 'ADMIN' && (
+                        <button onClick={() => deleteOrder(order)} title="Delete order"
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -350,6 +373,7 @@ export default function OrdersPage() {
       </div>
 
       {detail && <OrderDetail order={detail} onClose={() => setDetail(null)} onUpdate={handleUpdate} />}
+      {dialog}
     </div>
   )
 }

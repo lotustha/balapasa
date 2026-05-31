@@ -11,6 +11,7 @@ import { cancelParcel } from '@/lib/pathao'
 import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
 import { awardLoyaltyForOrder } from '@/lib/loyalty'
 import { rewardReferralForOrder } from '@/lib/referral'
+import { requireRole } from '@/lib/auth'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -199,5 +200,28 @@ export async function GET(_: NextRequest, ctx: { params: Promise<{ id: string }>
     })
   } catch {
     return Response.json({ error: 'Failed' }, { status: 500 })
+  }
+}
+
+// DELETE /api/admin/orders/[id] — hard-remove an order (ADMIN only). For cleaning
+// up test/erroneous orders, so it does NOT restore stock or refund — use Cancel
+// for that. Removes status logs + line items first (the OrderItem FK has no
+// cascade), then the order, in one transaction. Other orderId references
+// (gift-card/store-credit/referral ledgers, returns) are bare columns and remain
+// as historical records.
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await requireRole('ADMIN')
+  if ('error' in guard) return guard.error
+  const { id } = await ctx.params
+  try {
+    await prisma.$transaction([
+      prisma.orderStatusLog.deleteMany({ where: { orderId: id } }),
+      prisma.orderItem.deleteMany({ where: { orderId: id } }),
+      prisma.order.delete({ where: { id } }),
+    ])
+    return Response.json({ success: true })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return Response.json({ error: msg }, { status: 500 })
   }
 }
