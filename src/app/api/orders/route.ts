@@ -147,10 +147,11 @@ export async function POST(req: NextRequest) {
     const totalAfterGiftCard = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
 
     // ── Store-credit redemption ────────────────────────────────────────
-    // Logged-in customers only. Gated to COD + Khalti: the eSewa amount is
-    // computed from subtotal+delivery (see esewaFormData) and ignores discounts,
-    // so folding credit there would debit the wallet AND charge full — reject it.
-    // PARTIAL_COD's advance split isn't reconciled here either, so reject too.
+    // Logged-in customers only. Gated to COD + Khalti for now. eSewa now charges
+    // the discounted serverTotal (which already nets out store credit), so credit
+    // on eSewa would be correct — but enabling it also needs the CheckoutClient
+    // toggle + docs, so it stays deferred rather than silently flipped. PARTIAL_COD
+    // is rejected because its advance/COD split isn't reconciled here.
     // Server clamps the redeemed amount to [0, min(balance, total)] — never trust
     // the client figure. The race-safe decrement happens inside the tx below.
     let storeCreditUsed = 0
@@ -654,7 +655,12 @@ export async function POST(req: NextRequest) {
     })()
 
     if (paymentMethod === 'ESEWA') {
-      const esewaData = await esewaFormData(order.id, subtotal, deliveryCharge)
+      // Charge the discounted server total (coupon + gift card + autoDiscount
+      // already applied), passed as the full amount with 0 delivery so the
+      // signed total_amount = total. eSewa previously charged subtotal+delivery
+      // and ignored every discount. Verification reconciles against the signed
+      // callback amount (not order.total), so this stays self-consistent.
+      const esewaData = await esewaFormData(order.id, total, 0)
       const esewaUrl  = await getEsewaPaymentUrl()
       return Response.json({ orderId: order.id, orderCode, esewaData, esewaUrl })
     }

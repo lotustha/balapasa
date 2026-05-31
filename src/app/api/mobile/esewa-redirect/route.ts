@@ -10,12 +10,14 @@ export async function GET(req: NextRequest) {
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, subtotal: true, deliveryCharge: true, paymentStatus: true },
+      select: { id: true, total: true, paymentStatus: true },
     })
     if (!order) return new Response('Order not found', { status: 404 })
     if (order.paymentStatus === 'PAID') return new Response('Already paid', { status: 400 })
 
-    const fields    = await esewaFormData(order.id, order.subtotal, order.deliveryCharge)
+    // Charge the order's stored (discounted) total, not subtotal+delivery — the
+    // total already reflects coupon/gift-card/autoDiscount. Mirrors the web flow.
+    const fields    = await esewaFormData(order.id, order.total, 0)
     const actionUrl = await getEsewaPaymentUrl()
     const inputs = Object.entries(fields)
       .map(([k, v]) => `<input type="hidden" name="${k}" value="${v}">`)
