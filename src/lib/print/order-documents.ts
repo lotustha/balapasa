@@ -653,7 +653,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111;
 .notes-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 4mm 5mm; margin-bottom: 6mm; font-size: 12px; }
 
 /* ── Invoice A4 ── */
-.inv-a4-page { padding: 14mm 16mm; width: 210mm; margin: 0; }
+.inv-a4-page { padding: 12mm 14mm; width: 210mm; height: 297mm; margin: 0; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
 .inv-a4-hdr { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6mm; border-bottom: 3px solid #111; margin-bottom: 7mm; gap: 10mm; }
 .inv-a4-lhs { flex: 1; }
 .inv-a4-rhs { text-align: right; flex-shrink: 0; }
@@ -769,12 +769,12 @@ body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111;
 .inv-a5-footer-qr { width: 18mm; height: 18mm; flex-shrink: 0; display: block; }
 .inv-a5-footer-qr svg { width: 100% !important; height: 100% !important; display: block; }
 
-/* ── Shipping Label A6 (105mm × 148mm) ── */
-.label-page { width: 105mm; height: 148mm; padding: 4mm 5mm; margin: 0; display: flex; flex-direction: column; gap: 2mm; box-sizing: border-box; overflow: hidden; }
+/* ── Shipping Label A5 (148mm × 210mm) ── */
+.label-page { width: 148mm; height: 210mm; padding: 7mm 9mm; margin: 0; display: flex; flex-direction: column; gap: 3mm; box-sizing: border-box; overflow: hidden; }
 .label-page * { box-sizing: border-box; word-break: break-word; overflow-wrap: anywhere; }
 .lbl-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #111; padding-bottom: 2mm; flex-shrink: 0; gap: 2mm; }
-.lbl-brand { font-size: 15px; font-weight: 900; color: #16A34A; letter-spacing: -0.5px; }
-.lbl-ordno { font-family: monospace; font-size: 12px; font-weight: 900; background: #111; color: #fff; padding: 1mm 2.5mm; flex-shrink: 0; }
+.lbl-brand { font-size: 20px; font-weight: 900; color: #16A34A; letter-spacing: -0.5px; }
+.lbl-ordno { font-family: monospace; font-size: 15px; font-weight: 900; background: #111; color: #fff; padding: 1mm 3mm; flex-shrink: 0; }
 .lbl-from { display: flex; align-items: baseline; gap: 1.5mm; background: #f8f9fa; padding: 1.5mm 2mm; border-radius: 3px; flex-shrink: 0; flex-wrap: wrap; }
 .lbl-sec { font-size: 7px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #aaa; flex-shrink: 0; }
 .lbl-sec-inv { color: #fff; opacity: 0.7; }
@@ -782,20 +782,20 @@ body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111;
 .lbl-from-addr { font-size: 8.5px; color: #888; }
 .lbl-divider { text-align: center; font-size: 8.5px; font-weight: 700; letter-spacing: 0.5px; color: #555; border-top: 1px dashed #bbb; border-bottom: 1px dashed #bbb; padding: 1.5mm 0; flex-shrink: 0; }
 .lbl-to { border: 2px solid #16A34A; border-radius: 4px; padding: 2.5mm 3mm; background: #f0fdf4; flex-shrink: 0; }
-.lbl-to-name { font-size: 18px; font-weight: 900; line-height: 1.15; }
-.lbl-to-addr { font-size: 9.5px; color: #444; line-height: 1.4; margin-top: 1mm; }
-.lbl-to-city { font-size: 14px; font-weight: 900; letter-spacing: 0.3px; margin-top: 1mm; }
-.lbl-to-phone { font-size: 14px; font-weight: 700; font-family: monospace; letter-spacing: 0.5px; }
+.lbl-to-name { font-size: 26px; font-weight: 900; line-height: 1.15; }
+.lbl-to-addr { font-size: 12px; color: #444; line-height: 1.45; margin-top: 1.5mm; }
+.lbl-to-city { font-size: 19px; font-weight: 900; letter-spacing: 0.3px; margin-top: 1.5mm; }
+.lbl-to-phone { font-size: 19px; font-weight: 700; font-family: monospace; letter-spacing: 0.5px; }
 .lbl-track { display: flex; align-items: center; gap: 2mm; background: #111; color: #fff; border-radius: 3px; padding: 1.5mm 2.5mm; flex-shrink: 0; }
-.lbl-track-num { font-size: 14px; font-weight: 900; font-family: monospace; letter-spacing: 1.5px; word-break: break-all; }
+.lbl-track-num { font-size: 19px; font-weight: 900; font-family: monospace; letter-spacing: 1.5px; word-break: break-all; }
 .lbl-bottom { display: flex; gap: 2mm; align-items: stretch; flex-shrink: 0; }
 .lbl-cod { flex: 1; border-radius: 4px; padding: 2mm 2.5mm; }
 .lbl-cod.cod { background: #fef3c7; border: 1.5px solid #f59e0b; }
 .lbl-cod.prepaid { background: #d1fae5; border: 1.5px solid #10b981; }
 .lbl-cod-tag { font-size: 7px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 1px; }
-.lbl-cod-amt { font-size: 20px; font-weight: 900; color: #111; line-height: 1.1; }
-.lbl-items { width: 19mm; border: 1.5px solid #ddd; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
-.lbl-items-n { font-size: 24px; font-weight: 900; line-height: 1; color: #111; }
+.lbl-cod-amt { font-size: 28px; font-weight: 900; color: #111; line-height: 1.1; }
+.lbl-items { width: 26mm; border: 1.5px solid #ddd; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+.lbl-items-n { font-size: 34px; font-weight: 900; line-height: 1; color: #111; }
 .lbl-items-l { font-size: 6.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #aaa; }
 .lbl-contents { flex: 1; border: 1px solid #e5e7eb; border-radius: 3px; padding: 1.5mm 2mm; min-height: 0; overflow: hidden; }
 .lbl-contents-items { display: flex; flex-wrap: wrap; gap: 1.5mm; margin-top: 1mm; align-content: flex-start; }
@@ -1025,10 +1025,10 @@ export async function renderPrintDocument(ids: string[], type = 'shipping'): Pro
 
     // Inject correct @page size after main CSS so it wins the cascade
     const pageOverride =
-        (type === 'awb' || type === 'shipping' || type === 'invoice' || type === 'all')
+        (type === 'awb' || type === 'invoice' || type === 'all')
           ? `<style>@media print { @page { size: 105mm 148mm; margin: 0; } }</style>`
-      : (type === 'awb-a5' || type === 'invoice-a5')
-          ? `<style>@media print { @page { size: 148mm 210mm; margin: 0; } }</style>`
+      : (type === 'awb-a5' || type === 'invoice-a5' || type === 'shipping')
+          ? `<style>@media print { @page { size: A5; margin: 0; } }</style>`
       : (type === 'invoice-a4' || type === 'awb-a4' || type === 'packing' || type === 'packing-list')
           ? `<style>@media print { @page { size: A4; margin: 0; } }</style>`
       : ''
