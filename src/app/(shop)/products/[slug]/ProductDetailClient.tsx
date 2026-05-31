@@ -4,17 +4,19 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import DeferOnVisible from '@/components/ui/DeferOnVisible'
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
 import {
   ShoppingCart, Star, Shield, Truck, RotateCcw, Minus, Plus, Zap,
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
   GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List, Repeat,
+  MapPin,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
 import { getClaimedPercent } from '@/lib/sale-status'
+import { estimateDelivery, DELIVERY_CITIES } from '@/lib/delivery-zone'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
 
 // ── Countdown hook ──────────────────────────────────────────────────────────
@@ -183,14 +185,6 @@ function writeRecentlyViewed(slugs: string[]) {
   try { localStorage.setItem(RV_KEY, JSON.stringify(slugs.slice(0, 12))) } catch { /* quota */ }
 }
 
-function estimatedDeliveryRange(): string {
-  const base = new Date()
-  const min = new Date(base); min.setDate(min.getDate() + 2)
-  const max = new Date(base); max.setDate(max.getDate() + 4)
-  const fmt = (d: Date) => d.toLocaleDateString('en-NP', { weekday: 'short', month: 'short', day: 'numeric' })
-  return `${fmt(min)} – ${fmt(max)}`
-}
-
 interface Props {
   initialProduct: ClientProduct | null
   similar: ClientSlimProduct[]
@@ -326,6 +320,23 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   const [wishLoading, setWishLoading] = useState(false)
   const [wishMsg, setWishMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+
+  // Location-aware delivery estimate. `mounted` is an effect-free hydration gate
+  // (server snapshot = false, client = true) so the time-of-day-sensitive 2 PM
+  // same-day cut-off is only computed on the client — otherwise SSR (UTC) and
+  // the client (NPT) could disagree around the boundary and break hydration.
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
+  const [deliveryCity, setDeliveryCity] = useState(() => {
+    try { return localStorage.getItem('deliveryCity') || 'Kathmandu' } catch { return 'Kathmandu' }
+  })
+  const changeDeliveryCity = useCallback((c: string) => {
+    setDeliveryCity(c)
+    try { localStorage.setItem('deliveryCity', c) } catch { /* private mode */ }
+  }, [])
+  const deliveryEstimate = useMemo(
+    () => (mounted ? estimateDelivery(deliveryCity) : null),
+    [mounted, deliveryCity],
+  )
 
   // Hydrate wishlist state on mount so the heart shows the right colour
   // immediately when the user revisits a product they already saved.
@@ -607,7 +618,6 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     </div>
   )
 
-  const deliveryWindow = estimatedDeliveryRange()
   const allMedia: { src: string; isVideo?: boolean }[] = videoYtId
     ? [...images.map(src => ({ src })), { src: `https://img.youtube.com/vi/${videoYtId}/mqdefault.jpg`, isVideo: true }]
     : images.map(src => ({ src }))
@@ -804,12 +814,33 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 isDealOfTheDay={p.isDealOfTheDay}
               />
 
-              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-blue-50/80 border border-blue-100">
-                <Truck size={16} className="text-blue-600 shrink-0" />
-                <p className="text-xs text-slate-700">
-                  <span className="font-bold">Estimated delivery:</span>{' '}
-                  <span className="text-blue-700 font-semibold">{deliveryWindow}</span>
-                </p>
+              <div className="px-3 py-2.5 rounded-xl bg-blue-50/80 border border-blue-100 space-y-1.5">
+                <div className="flex items-center gap-2.5">
+                  <Truck size={16} className="text-blue-600 shrink-0" />
+                  <p className="text-xs text-slate-700 flex-1 min-w-0">
+                    <span className="font-bold">Estimated delivery:</span>{' '}
+                    {mounted && deliveryEstimate
+                      ? <span className={`font-semibold ${deliveryEstimate.sameDay ? 'text-green-700' : 'text-blue-700'}`}>{deliveryEstimate.primary}</span>
+                      : <span className="text-slate-400">Calculating…</span>}
+                  </p>
+                </div>
+                {mounted && deliveryEstimate && (
+                  <p className="text-[11px] text-slate-500 leading-snug pl-[26px]">{deliveryEstimate.note}</p>
+                )}
+                {mounted && (
+                  <div className="flex items-center gap-1.5 pl-[26px]">
+                    <MapPin size={12} className="text-slate-400 shrink-0" aria-hidden="true" />
+                    <label htmlFor="deliver-to" className="text-[11px] text-slate-500">Deliver to</label>
+                    <select
+                      id="deliver-to"
+                      value={deliveryCity}
+                      onChange={e => changeDeliveryCity(e.target.value)}
+                      className="text-[11px] font-semibold text-slate-700 bg-transparent border-0 border-b border-slate-300 hover:border-slate-400 focus:border-primary outline-none cursor-pointer py-0.5 -ml-0.5"
+                    >
+                      {DELIVERY_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Options */}
@@ -962,7 +993,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             {/* Guarantees + share */}
             <div className="glass-panel p-5 space-y-4">
               <div className="grid grid-cols-3 gap-3">
-                {[{icon:Shield,label:'Warranty',sub:'6 months'},{icon:Truck,label:'Fast Delivery',sub:'2-4 days'},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
+                {[{icon:Shield,label:'Warranty',sub:'6 months'},{icon:Truck,label:'Fast Delivery',sub:(mounted && deliveryEstimate ? deliveryEstimate.short : 'Nationwide')},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
                   <div key={label} className="flex flex-col items-center text-center p-3 rounded-2xl"
                     style={{ background:'rgba(255,255,255,0.50)', border:'1px solid rgba(255,255,255,0.72)' }}>
                     <div className="w-8 h-8 rounded-xl mb-1.5 flex items-center justify-center bg-primary-bg">
