@@ -19,6 +19,7 @@ export interface Address {
 
 interface FormState {
   label:   'Home' | 'Office' | 'Other'
+  customLabel: string   // free-text name when label === 'Other' (e.g. "Parents' house")
   name:    string
   phone:   string
   address: string
@@ -29,7 +30,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  label: 'Home', name: '', phone: '', address: '',
+  label: 'Home', customLabel: '', name: '', phone: '', address: '',
   house: '', road: '', city: 'Kathmandu', isDefault: false,
 }
 
@@ -57,9 +58,10 @@ export default function AddressDialog({ open, onClose, onSaved, address, isFirst
   useEffect(() => {
     if (!open) return
     if (address) {
-      const lbl = (['Home', 'Office', 'Other'] as const).includes(address.label as 'Home') ? address.label as 'Home' : 'Other'
+      const isStd = (['Home', 'Office'] as const).includes(address.label as 'Home')
       setForm({
-        label:     lbl,
+        label:       isStd ? address.label as 'Home' : 'Other',
+        customLabel: isStd ? '' : address.label,
         name:      address.name,
         phone:     address.phone,
         address:   address.address,
@@ -94,10 +96,12 @@ export default function AddressDialog({ open, onClose, onSaved, address, isFirst
     try {
       const url = isEdit ? `/api/account/addresses/${address!.id}` : '/api/account/addresses'
       const method = isEdit ? 'PATCH' : 'POST'
+      // When "Other", store the custom name as the label (falls back to "Other").
+      const label = form.label === 'Other' ? (form.customLabel.trim() || 'Other') : form.label
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, label }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -183,6 +187,13 @@ export default function AddressDialog({ open, onClose, onSaved, address, isFirst
                 )
               })}
             </div>
+            {form.label === 'Other' && (
+              <input type="text" value={form.customLabel}
+                onChange={e => update('customLabel', e.target.value)}
+                placeholder="Name this address (e.g. Parents' house, Warehouse)"
+                maxLength={40}
+                className={`${inputCls} mt-2`} />
+            )}
           </div>
 
           {/* Name + phone */}
