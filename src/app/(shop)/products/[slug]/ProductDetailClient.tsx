@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import DeferOnVisible from '@/components/ui/DeferOnVisible'
 import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
 import {
-  ShoppingCart, Star, Shield, Truck, RotateCcw, Minus, Plus, Zap,
+  ShoppingCart, Star, Truck, RotateCcw, Minus, Plus, Zap,
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
   GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List, Repeat,
@@ -1031,8 +1031,8 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
             {/* Guarantees + share */}
             <div className="glass-panel p-5 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                {[{icon:Shield,label:'Warranty',sub:'6 months'},{icon:Truck,label:'Fast Delivery',sub:(mounted && deliveryEstimate ? deliveryEstimate.short : 'Nationwide')},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
+              <div className="grid grid-cols-2 gap-3">
+                {[{icon:Truck,label:'Fast Delivery',sub:(mounted && deliveryEstimate ? deliveryEstimate.short : 'Nationwide')},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
                   <div key={label} className="flex flex-col items-center text-center p-3 rounded-2xl"
                     style={{ background:'rgba(255,255,255,0.50)', border:'1px solid rgba(255,255,255,0.72)' }}>
                     <div className="w-8 h-8 rounded-xl mb-1.5 flex items-center justify-center bg-primary-bg">
