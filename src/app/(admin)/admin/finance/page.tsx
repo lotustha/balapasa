@@ -59,6 +59,56 @@ const REPORT_DOCS: Array<{ type: ReportType; title: string; desc: string; icon: 
 
 const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-slate-300'
 
+/* Searchable "Paid To" combobox. Suggestions depend on the expense category —
+   SUPPLIER → active suppliers (also sets supplierId), SALARY → team members.
+   Other categories stay free-text. Typing is always allowed (it's a combobox,
+   not a strict select), so any payee can be recorded. */
+function PaidToField({ value, category, suppliers, team, onChange }: {
+  value: string
+  category: string
+  suppliers: { id: string; name: string }[]
+  team: { id: string; name: string | null; email: string }[]
+  onChange: (name: string, supplierId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const options: { id: string; label: string }[] =
+      category === 'SUPPLIER' ? suppliers.map(s => ({ id: s.id, label: s.name }))
+    : category === 'SALARY'   ? team.map(t => ({ id: '', label: t.name || t.email }))
+    : []
+  const q = value.trim().toLowerCase()
+  const filtered = options.filter(o => o.label.toLowerCase().includes(q)).slice(0, 8)
+  const hint = category === 'SUPPLIER' ? 'Search suppliers…' : category === 'SALARY' ? 'Search team…' : 'Vendor / person'
+
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value, '')}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={hint}
+        autoComplete="off"
+        className={inputCls}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
+          {filtered.map(o => (
+            <button
+              key={o.id || o.label}
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onChange(o.label, o.id); setOpen(false) }}
+              className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Print / CSV helpers (outside component) ─────────────────────── */
 const fmtNPR = (n: number) => 'Rs. ' + Math.abs(Math.round(n)).toLocaleString('en-IN')
 
@@ -304,8 +354,16 @@ export default function FinancePage() {
   const [saving,        setSaving]        = useState(false)
   const [months,        setMonths]        = useState(6)
   const [tooltip,       setTooltip]       = useState<{ x: number; y: number; text: string } | null>(null)
-  const [form, setForm] = useState({ amount: '', category: 'SUPPLIER', description: '', paidTo: '', date: new Date().toISOString().slice(0, 10) })
+  const [form, setForm] = useState({ amount: '', category: 'SUPPLIER', description: '', paidTo: '', supplierId: '', date: new Date().toISOString().slice(0, 10) })
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
+  const [team,      setTeam]      = useState<{ id: string; name: string | null; email: string }[]>([])
   const fileRef = useRef<HTMLAnchorElement>(null)
+
+  // Payee suggestion sources for the "Paid To" combobox (fetched once).
+  useEffect(() => {
+    fetch('/api/admin/suppliers').then(r => r.ok ? r.json() : null).then(d => { if (d?.suppliers) setSuppliers(d.suppliers) }).catch(() => {})
+    fetch('/api/admin/team').then(r => r.ok ? r.json() : null).then(d => { if (d?.team) setTeam(d.team) }).catch(() => {})
+  }, [])
 
   // Reports state
   const [reportFrom,    setReportFrom]    = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10) })
@@ -333,7 +391,7 @@ export default function FinancePage() {
     })
     if (res.ok) {
       setShowForm(false)
-      setForm({ amount: '', category: 'SUPPLIER', description: '', paidTo: '', date: new Date().toISOString().slice(0, 10) })
+      setForm({ amount: '', category: 'SUPPLIER', description: '', paidTo: '', supplierId: '', date: new Date().toISOString().slice(0, 10) })
       load()
     }
     setSaving(false)
@@ -852,7 +910,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Category</label>
-                  <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className={inputCls}>
+                  <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, paidTo: '', supplierId: '' }))} className={inputCls}>
                     {EXP_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
@@ -864,7 +922,16 @@ export default function FinancePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Paid To</label>
-                  <input value={form.paidTo} onChange={e => setForm(f => ({ ...f, paidTo: e.target.value }))} placeholder="Vendor / person" className={inputCls} />
+                  <PaidToField
+                    value={form.paidTo}
+                    category={form.category}
+                    suppliers={suppliers}
+                    team={team}
+                    onChange={(paidTo, supplierId) => setForm(f => ({ ...f, paidTo, supplierId }))}
+                  />
+                  {form.category === 'SUPPLIER' && form.supplierId && (
+                    <p className="text-[10px] text-emerald-600 mt-1">Linked to supplier record</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
