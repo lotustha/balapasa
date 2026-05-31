@@ -177,7 +177,19 @@ export async function GET(_: NextRequest, ctx: { params: Promise<{ id: string }>
       include: { items: true },
     })
     if (!order) return Response.json({ error: 'Not found' }, { status: 404 })
-    return Response.json({ ...order, createdAt: order.createdAt.toISOString(), updatedAt: order.updatedAt.toISOString() })
+    // Carrier/admin status timeline — the granular logistics sub-states
+    // (pickup, hub, out-for-delivery, …) that roll up to order.status.
+    const timeline = await prisma.orderStatusLog.findMany({
+      where:   { orderId: id },
+      orderBy: { createdAt: 'asc' },
+      select:  { id: true, source: true, rawStatus: true, mappedStatus: true, comment: true, createdAt: true },
+    })
+    return Response.json({
+      ...order,
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
+      timeline:  timeline.map(t => ({ ...t, createdAt: t.createdAt.toISOString() })),
+    })
   } catch {
     return Response.json({ error: 'Failed' }, { status: 500 })
   }

@@ -11,6 +11,7 @@ import {
   Navigation, FileText, ChevronUp, Search, Plus, Minus,
 } from 'lucide-react'
 import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/NepalAddressSelector'
+import { friendlyStatusLabel } from '@/lib/pnd-status-labels'
 import { formatPrice } from '@/lib/utils'
 
 interface OrderItem { id: string; name: string; quantity: number; price: number; image?: string | null }
@@ -26,6 +27,12 @@ interface Order {
   deliveryNote: string | null; deliveryMode: string | null
   orderCode: string | null
   createdAt: string; items: OrderItem[]
+  timeline?: StatusLog[]
+}
+
+interface StatusLog {
+  id: string; source: string; rawStatus: string
+  mappedStatus: string | null; comment: string | null; createdAt: string
 }
 
 // What gets sent to each delivery API
@@ -816,6 +823,41 @@ export default function OrderDetailPage() {
               </div>
             )}
           </div>
+
+          {/* ── Delivery activity (carrier sub-states) ── */}
+          {order.timeline && order.timeline.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2 mb-4">
+                <Truck size={14} className="text-primary" /> Delivery activity
+              </h2>
+              <ol className="relative pl-5 border-l-2 border-slate-100 space-y-4">
+                {order.timeline.map(log => {
+                  // Granular carrier sub-states (pickup, hub, out-for-delivery,
+                  // rider nearby, …) for every logistics provider. friendlyStatusLabel
+                  // maps PnD raw codes to labels+icons and Title-Cases anything else.
+                  const { label, icon } = friendlyStatusLabel(log.rawStatus)
+                  return (
+                    <li key={log.id} className="relative">
+                      <span className="absolute -left-[27px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow" />
+                      <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 flex-wrap">
+                        <span aria-hidden="true">{icon}</span> {label}
+                        {log.mappedStatus && (
+                          <span className="ml-1 font-normal text-[9px] text-slate-400 uppercase tracking-wider bg-slate-100 rounded px-1.5 py-0.5">{log.mappedStatus}</span>
+                        )}
+                      </p>
+                      {log.comment && (
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{log.comment}</p>
+                      )}
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {new Date(log.createdAt).toLocaleString('en-NP', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        <span className="ml-2 uppercase tracking-wider">{log.source}</span>
+                      </p>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          )}
 
           {/* ── Order Items ── */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5">

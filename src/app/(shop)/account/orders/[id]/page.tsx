@@ -8,6 +8,7 @@ import {
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { isOrderReturnable } from '@/lib/return-eligibility'
+import { friendlyStatusLabel } from '@/lib/pnd-status-labels'
 import { formatPrice } from '@/lib/utils'
 
 export const metadata = {
@@ -229,19 +230,32 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <h2 className="font-heading font-bold text-sm text-slate-800">Order activity</h2>
             </div>
             <ol className="relative pl-5 border-l-2 border-slate-100 space-y-4">
-              {timeline.map(log => (
-                <li key={log.id} className="relative">
-                  <span className="absolute -left-[27px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow" />
-                  <p className="text-xs font-bold text-slate-700">
-                    {log.mappedStatus ?? log.rawStatus}
-                    <span className="ml-2 font-normal text-[10px] text-slate-400 uppercase tracking-wider">{log.source}</span>
-                  </p>
-                  {log.comment && (
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{log.comment}</p>
-                  )}
-                  <p className="text-[10px] text-slate-400 mt-1">{fmtDateTime(log.createdAt)}</p>
-                </li>
-              ))}
+              {timeline.map(log => {
+                // Carrier sub-states (e.g. "Picked up", "Out for delivery",
+                // "Rider is nearby") render with their friendly label + icon.
+                // Internal/admin statuses fall back to Title Case. The mapped
+                // stage (SHIPPED, DELIVERED…) is shown as a small chip so each
+                // carrier step reads clearly as a sub-state of that stage.
+                const { label, icon } = friendlyStatusLabel(log.rawStatus)
+                return (
+                  <li key={log.id} className="relative">
+                    <span className="absolute -left-[27px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow" />
+                    <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <span aria-hidden="true">{icon}</span> {label}
+                      {log.mappedStatus && (
+                        <span className="ml-1 font-normal text-[9px] text-slate-400 uppercase tracking-wider bg-slate-100 rounded px-1.5 py-0.5">{log.mappedStatus}</span>
+                      )}
+                    </p>
+                    {log.comment && (
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{log.comment}</p>
+                    )}
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {fmtDateTime(log.createdAt)}
+                      <span className="ml-2 uppercase tracking-wider">{log.source}</span>
+                    </p>
+                  </li>
+                )
+              })}
             </ol>
           </div>
         )}
