@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import QRCode from 'qrcode'
 import bwipjs from 'bwip-js/node'
 
+// Env-based defaults. DB-backed shop info (from app_settings) is overlaid per
+// request in buildStore(); `url` always stays on env — it backs functional QR
+// links (track-order, /follow), so a blank/typo DB value must never break it.
 const STORE = {
   name:    process.env.NEXT_PUBLIC_APP_NAME ?? 'Balapasa',
   url:     process.env.NEXT_PUBLIC_APP_URL  ?? 'https://balapasa.com',
@@ -10,6 +13,20 @@ const STORE = {
   email:   process.env.STORE_EMAIL  ?? 'hello@balapasa.com',
   address: process.env.STORE_ADDRESS ?? 'Kathmandu, Nepal',
   pan:     process.env.STORE_PAN    ?? '',
+}
+type Store = typeof STORE
+
+// Overlay admin-editable app_settings over env defaults. `||` (not `??`) so an
+// existing-but-empty DB row falls back to env instead of rendering blank.
+function buildStore(db: Record<string, string>): Store {
+  return {
+    name:    db.STORE_NAME    || STORE.name,
+    url:     STORE.url,
+    phone:   db.STORE_PHONE   || STORE.phone,
+    email:   db.STORE_EMAIL   || STORE.email,
+    address: db.STORE_ADDRESS || STORE.address,
+    pan:     db.STORE_PAN     || STORE.pan,
+  }
 }
 const VAT_RATE = 0.13
 
@@ -30,11 +47,11 @@ async function generateBarcodes(orders: Awaited<ReturnType<typeof fetchOrders>>)
   }))
 }
 
-async function generateQRSvgs(orders: Awaited<ReturnType<typeof fetchOrders>>): Promise<string[]> {
+async function generateQRSvgs(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store): Promise<string[]> {
   return Promise.all(orders.map(async order => {
     const url = order.orderCode
-      ? `${STORE.url}/track-order?code=${encodeURIComponent(order.orderCode)}`
-      : `${STORE.url}/track-order?id=${order.id}`
+      ? `${store.url}/track-order?code=${encodeURIComponent(order.orderCode)}`
+      : `${store.url}/track-order?id=${order.id}`
     try {
       const svg = await QRCode.toString(url, { type: 'svg', margin: 1, width: 512 })
       return svg.replace('<svg ', '<svg width="100%" height="100%" ')
@@ -45,9 +62,8 @@ async function generateQRSvgs(orders: Awaited<ReturnType<typeof fetchOrders>>): 
 // ── Document generators ───────────────────────────────────────────────────────
 
 // Invoice A6 — 105mm × 148mm compact
-function invoice(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = '', socialQrSvg = '') {
+function invoice(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store, logoUrl = '', socialQrSvg = '') {
   return orders.map((order) => {
-    const vatAmount = Math.round(order.subtotal - order.subtotal / (1 + VAT_RATE))
     const trackId   = order.pathaoOrderId || order.pndOrderId || null
     const invNo     = order.orderCode || order.id.slice(0, 8).toUpperCase()
     const isPartial = order.paymentMethod === 'PARTIAL_COD'
@@ -59,11 +75,11 @@ function invoice(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = '', 
 <div class="page inv-a6">
   <div class="inv-a6-hdr">
     <div class="inv-a6-lhs">
-      ${logoUrl ? `<img src="${logoUrl}" alt="${STORE.name}" class="inv-logo-sm" />` : ''}
-      <div class="${logoUrl ? 'inv-a6-name-sub' : 'inv-a6-brand'}">${STORE.name}</div>
-      <div class="inv-a6-store">${STORE.address}</div>
-      <div class="inv-a6-store">${STORE.phone}${STORE.email ? ' · ' + STORE.email : ''}</div>
-      ${STORE.pan ? `<div class="inv-a6-store">PAN: ${STORE.pan}</div>` : ''}
+      ${logoUrl ? `<img src="${logoUrl}" alt="${store.name}" class="inv-logo-sm" />` : ''}
+      <div class="${logoUrl ? 'inv-a6-name-sub' : 'inv-a6-brand'}">${store.name}</div>
+      <div class="inv-a6-store">${store.address}</div>
+      <div class="inv-a6-store">${store.phone}${store.email ? ' · ' + store.email : ''}</div>
+      ${store.pan ? `<div class="inv-a6-store">PAN: ${store.pan}</div>` : ''}
     </div>
     <div class="inv-a6-hdr-r">
       <div class="inv-a6-title">INVOICE</div>
@@ -95,7 +111,7 @@ function invoice(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = '', 
   </table>
   <div class="inv-a6-totals">
     <div class="inv-a6-tr"><span>Subtotal</span><span>NPR ${order.subtotal.toLocaleString()}</span></div>
-    ${order.total > 0 ? `<div class="inv-a6-tr sm"><span>VAT (13%) incl.</span><span>NPR ${vatAmount.toLocaleString()}</span></div>` : ''}
+    ${order.hasVat ? `<div class="inv-a6-tr sm"><span>VAT (13%) incl.</span><span>NPR ${order.vatAmount.toLocaleString()}</span></div>` : ''}
     ${order.deliveryCharge > 0 ? `<div class="inv-a6-tr"><span>Delivery</span><span>NPR ${order.deliveryCharge.toLocaleString()}</span></div>` : ''}
     <div class="inv-a6-tr grand"><span>TOTAL</span><span>NPR ${order.total.toLocaleString()}</span></div>
     ${isCod ? `<div class="inv-a6-cod${isPartial ? ' partial' : ''}"><span>${isPartial ? 'COLLECT ON DELIVERY' : 'CASH ON DELIVERY'}</span><span>NPR ${collect.toLocaleString()}</span></div>` : ''}
@@ -112,9 +128,8 @@ function invoice(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = '', 
 }
 
 // Invoice A5 — 148mm × 210mm standard
-function invoiceA5(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = '', socialQrSvg = '') {
+function invoiceA5(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store, logoUrl = '', socialQrSvg = '') {
   return orders.map((order) => {
-    const vatAmount = Math.round(order.subtotal - order.subtotal / (1 + VAT_RATE))
     const trackId   = order.pathaoOrderId || order.pndOrderId || null
     const invNo     = order.orderCode || order.id.slice(0, 8).toUpperCase()
     const isPartial = order.paymentMethod === 'PARTIAL_COD'
@@ -126,11 +141,11 @@ function invoiceA5(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
 <div class="page inv-a5">
   <div class="inv-a5-hdr">
     <div class="inv-a5-lhs">
-      ${logoUrl ? `<img src="${logoUrl}" alt="${STORE.name}" class="inv-logo-md" />` : ''}
-      <div class="${logoUrl ? 'inv-a5-name-sub' : 'inv-a5-brand'}">${STORE.name}</div>
-      <div class="inv-a5-store">${STORE.address}</div>
-      <div class="inv-a5-store">${STORE.phone}${STORE.email ? ' · ' + STORE.email : ''}</div>
-      ${STORE.pan ? `<div class="inv-a5-store">PAN: ${STORE.pan}</div>` : ''}
+      ${logoUrl ? `<img src="${logoUrl}" alt="${store.name}" class="inv-logo-md" />` : ''}
+      <div class="${logoUrl ? 'inv-a5-name-sub' : 'inv-a5-brand'}">${store.name}</div>
+      <div class="inv-a5-store">${store.address}</div>
+      <div class="inv-a5-store">${store.phone}${store.email ? ' · ' + store.email : ''}</div>
+      ${store.pan ? `<div class="inv-a5-store">PAN: ${store.pan}</div>` : ''}
     </div>
     <div class="inv-a5-hdr-r">
       <div class="inv-a5-title">INVOICE</div>
@@ -162,7 +177,7 @@ function invoiceA5(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
   </table>
   <div class="inv-a5-totals">
     <div class="inv-a5-tr"><span>Subtotal</span><span>NPR ${order.subtotal.toLocaleString()}</span></div>
-    ${order.total > 0 ? `<div class="inv-a5-tr sm"><span>VAT (13%) incl.</span><span>NPR ${vatAmount.toLocaleString()}</span></div>` : ''}
+    ${order.hasVat ? `<div class="inv-a5-tr sm"><span>VAT (13%) incl.</span><span>NPR ${order.vatAmount.toLocaleString()}</span></div>` : ''}
     ${order.deliveryCharge > 0 ? `<div class="inv-a5-tr"><span>Delivery</span><span>NPR ${order.deliveryCharge.toLocaleString()}</span></div>` : ''}
     <div class="inv-a5-tr grand"><span>TOTAL</span><span>NPR ${order.total.toLocaleString()}</span></div>
     ${isCod ? `<div class="inv-a5-cod${isPartial ? ' partial' : ''}"><span>${isPartial ? 'COLLECT ON DELIVERY' : 'CASH ON DELIVERY'}</span><span>NPR ${collect.toLocaleString()}</span></div>` : ''}
@@ -170,7 +185,7 @@ function invoiceA5(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
   <div class="inv-a5-footer">
     <div class="inv-a5-footer-mid">
       <div class="inv-a5-footer-thanks">Thank you for your order!</div>
-      <div class="inv-a5-footer-sub">${STORE.url}</div>
+      <div class="inv-a5-footer-sub">${store.url}</div>
     </div>
     ${socialQrSvg ? `
     <div class="inv-footer-social">
@@ -183,9 +198,8 @@ function invoiceA5(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
 }
 
 // Invoice A4 — 210mm × 297mm full-page professional
-function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = '', socialQrSvg = '') {
+function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store, logoUrl = '', socialQrSvg = '') {
   return orders.map((order) => {
-    const vatAmount = Math.round(order.subtotal - order.subtotal / (1 + VAT_RATE))
     const trackId   = order.pathaoOrderId || order.pndOrderId || null
     const invNo     = order.orderCode || order.id.slice(0, 8).toUpperCase()
     const isPartial = order.paymentMethod === 'PARTIAL_COD'
@@ -197,11 +211,11 @@ function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
 <div class="page inv-a4-page">
   <div class="inv-a4-hdr">
     <div class="inv-a4-lhs">
-      ${logoUrl ? `<img src="${logoUrl}" alt="${STORE.name}" class="inv-logo-lg" />` : ''}
-      <div class="${logoUrl ? 'inv-a4-name-sub' : 'brand'}">${STORE.name}</div>
-      <div class="inv-a4-store-detail">${STORE.address}</div>
-      <div class="inv-a4-store-detail">${STORE.phone}${STORE.email ? ' · ' + STORE.email : ''}</div>
-      ${STORE.pan ? `<div class="inv-a4-store-detail">PAN: ${STORE.pan}</div>` : ''}
+      ${logoUrl ? `<img src="${logoUrl}" alt="${store.name}" class="inv-logo-lg" />` : ''}
+      <div class="${logoUrl ? 'inv-a4-name-sub' : 'brand'}">${store.name}</div>
+      <div class="inv-a4-store-detail">${store.address}</div>
+      <div class="inv-a4-store-detail">${store.phone}${store.email ? ' · ' + store.email : ''}</div>
+      ${store.pan ? `<div class="inv-a4-store-detail">PAN: ${store.pan}</div>` : ''}
     </div>
     <div class="inv-a4-rhs">
       <div class="doc-title">INVOICE</div>
@@ -250,7 +264,7 @@ function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
   <div class="totals-section">
     <div class="totals-box">
       <div class="total-row"><span>Subtotal</span><span>NPR ${order.subtotal.toLocaleString()}</span></div>
-      ${order.total > 0 ? `<div class="total-row muted"><span>VAT (13%) incl.</span><span>NPR ${vatAmount.toLocaleString()}</span></div>` : ''}
+      ${order.hasVat ? `<div class="total-row muted"><span>VAT (13%) incl.</span><span>NPR ${order.vatAmount.toLocaleString()}</span></div>` : ''}
       ${order.deliveryCharge > 0 ? `<div class="total-row"><span>Delivery Charge</span><span>NPR ${order.deliveryCharge.toLocaleString()}</span></div>` : ''}
       <div class="total-row grand"><span>TOTAL</span><span>NPR ${order.total.toLocaleString()}</span></div>
     </div>
@@ -266,7 +280,7 @@ function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
     <div class="inv-a4-footer-row">
       <div class="inv-a4-footer-mid">
         <div class="inv-a4-footer-thanks">Thank you for your order!</div>
-        <div class="inv-a4-footer-note">${STORE.url}</div>
+        <div class="inv-a4-footer-note">${store.url}</div>
         <div class="inv-a4-footer-note">Computer-generated document · No signature required</div>
       </div>
       ${socialQrSvg ? `
@@ -281,7 +295,7 @@ function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, logoUrl = ''
 }
 
 // Shipping Label — A6 (105mm × 148mm), one per page. Bottom: Code 128 barcode.
-function shippingLabel(orders: Awaited<ReturnType<typeof fetchOrders>>, barcodePngs: string[] = []) {
+function shippingLabel(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store, barcodePngs: string[] = []) {
   return orders.map((order, idx) => {
     const barcodeDataUri = barcodePngs[idx] ?? ''
     const trackId   = order.pathaoOrderId || order.pndOrderId || null
@@ -294,13 +308,13 @@ function shippingLabel(orders: Awaited<ReturnType<typeof fetchOrders>>, barcodeP
     return `
 <div class="page label-page">
   <div class="lbl-hdr">
-    <div class="lbl-brand">${STORE.name}</div>
+    <div class="lbl-brand">${store.name}</div>
     <div class="lbl-ordno">#${displayNo}</div>
   </div>
   <div class="lbl-from">
     <span class="lbl-sec">FROM</span>
-    <span class="lbl-from-name">${STORE.name}</span>
-    <span class="lbl-from-addr">${STORE.address} · ${STORE.phone}</span>
+    <span class="lbl-from-name">${store.name}</span>
+    <span class="lbl-from-addr">${store.address} · ${store.phone}</span>
   </div>
   <div class="lbl-divider">▼ &nbsp; ▼ &nbsp; ▼ &nbsp;&nbsp; DELIVER TO &nbsp;&nbsp; ▼ &nbsp; ▼ &nbsp; ▼</div>
   <div class="lbl-to">
@@ -340,7 +354,7 @@ function shippingLabel(orders: Awaited<ReturnType<typeof fetchOrders>>, barcodeP
 }
 
 // Air Waybill — unified for A6 (105×148mm) and A5 (148×210mm)
-function awb(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[] = [], size: 'a6' | 'a5' = 'a6') {
+function awb(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store, qrSvgs: string[] = [], size: 'a6' | 'a5' = 'a6') {
   const pageCls = size === 'a5' ? 'awb-a5-page' : 'awb-page'
   const qrDim   = size === 'a5' ? '35mm' : '26mm'
   return orders.map((order, idx) => {
@@ -355,12 +369,12 @@ function awb(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[] =
     return `
 <div class="page ${pageCls}">
   <div class="awb-hdr">
-    <div class="awb-brand">${STORE.name}</div>
+    <div class="awb-brand">${store.name}</div>
     <div class="awb-orderno">#${displayNo}</div>
   </div>
   <div class="awb-from-row">
     <span class="awb-from-label">FROM</span>
-    <span class="awb-from-val">${STORE.name} · ${STORE.address} · ${STORE.phone}</span>
+    <span class="awb-from-val">${store.name} · ${store.address} · ${store.phone}</span>
   </div>
   <div class="awb-to-box">
     <div class="awb-to-label">DELIVER TO</div>
@@ -404,7 +418,7 @@ function awb(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[] =
 }
 
 // Air Waybill A4 — 210mm × 297mm professional layout
-function awbA4(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[] = []) {
+function awbA4(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store, qrSvgs: string[] = []) {
   return orders.map((order, idx) => {
     const qrSvg    = qrSvgs[idx] ?? ''
     const trackId  = order.pathaoOrderId || order.pndOrderId || null
@@ -419,7 +433,7 @@ function awbA4(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[]
     return `
 <div class="page awb-a4-page">
   <div class="awb-a4-hdr">
-    <div class="awb-a4-brand">${STORE.name}</div>
+    <div class="awb-a4-brand">${store.name}</div>
     <div class="awb-a4-title-block">
       <div class="awb-a4-title">AIR WAYBILL</div>
       <div class="awb-a4-no">#${displayNo}</div>
@@ -429,10 +443,10 @@ function awbA4(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[]
   <div class="awb-a4-addr-row">
     <div class="awb-a4-addr-box">
       <div class="awb-a4-addr-label">SENDER</div>
-      <div class="awb-a4-addr-name">${STORE.name}</div>
-      <div class="awb-a4-addr-line">${STORE.address}</div>
-      <div class="awb-a4-addr-line">${STORE.phone}</div>
-      ${STORE.email ? `<div class="awb-a4-addr-line">${STORE.email}</div>` : ''}
+      <div class="awb-a4-addr-name">${store.name}</div>
+      <div class="awb-a4-addr-line">${store.address}</div>
+      <div class="awb-a4-addr-line">${store.phone}</div>
+      ${store.email ? `<div class="awb-a4-addr-line">${store.email}</div>` : ''}
     </div>
     <div class="awb-a4-addr-box awb-a4-addr-to">
       <div class="awb-a4-addr-label">RECIPIENT</div>
@@ -483,7 +497,7 @@ function awbA4(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[]
     ${qrSvg ? `<div class="awb-a4-qr">${qrSvg}</div>` : ''}
     <div class="awb-a4-footer-text">
       <div class="awb-a4-awbno">${awbNo}</div>
-      <div class="awb-a4-footer-meta">${STORE.name} &nbsp;·&nbsp; ${STORE.url} &nbsp;·&nbsp; ${STORE.phone}</div>
+      <div class="awb-a4-footer-meta">${store.name} &nbsp;·&nbsp; ${store.url} &nbsp;·&nbsp; ${store.phone}</div>
     </div>
   </div>
 </div>`
@@ -491,7 +505,7 @@ function awbA4(orders: Awaited<ReturnType<typeof fetchOrders>>, qrSvgs: string[]
 }
 
 // Compact list-style packing slip — multiple orders per A4 page
-function packingSlipCompact(orders: Awaited<ReturnType<typeof fetchOrders>>) {
+function packingSlipCompact(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store) {
   const rows = orders.map((order, idx) => {
     const itemCount = order.items.reduce((s, i) => s + i.quantity, 0)
     const codText = order.paymentMethod === 'COD'
@@ -526,8 +540,8 @@ function packingSlipCompact(orders: Awaited<ReturnType<typeof fetchOrders>>) {
 <div class="page psc-page">
   <div class="psc-pageheader">
     <div>
-      <div class="brand">${STORE.name}</div>
-      <div class="muted">${STORE.address} · ${STORE.phone}</div>
+      <div class="brand">${store.name}</div>
+      <div class="muted">${store.address} · ${store.phone}</div>
     </div>
     <div style="text-align:right">
       <div class="doc-title" style="font-size:20px">PACKING LIST</div>
@@ -543,12 +557,12 @@ function packingSlipCompact(orders: Awaited<ReturnType<typeof fetchOrders>>) {
 </div>`
 }
 
-function packingSlip(orders: Awaited<ReturnType<typeof fetchOrders>>) {
+function packingSlip(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store) {
   return orders.map(order => `
 <div class="page packing-page">
   <div class="ps-header">
     <div>
-      <div class="brand">${STORE.name}</div>
+      <div class="brand">${store.name}</div>
       <div class="doc-title" style="font-size:18px">PACKING SLIP</div>
     </div>
     <div style="text-align:right">
@@ -594,7 +608,7 @@ function packingSlip(orders: Awaited<ReturnType<typeof fetchOrders>>) {
   </div>
   <div class="ps-message">
     <strong>Thank you for your order!</strong>
-    <span>Questions? Contact us at ${STORE.email} or ${STORE.phone}</span>
+    <span>Questions? Contact us at ${store.email} or ${store.phone}</span>
   </div>
 </div>`).join('')
 }
@@ -926,10 +940,34 @@ body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111;
 // ── Data fetch ────────────────────────────────────────────────────────────────
 
 async function fetchOrders(ids: string[]) {
-  return prisma.order.findMany({
+  const orders = await prisma.order.findMany({
     where: { id: { in: ids } },
     include: { items: true },
     orderBy: { createdAt: 'desc' },
+  })
+
+  // OrderItem doesn't snapshot taxability, so resolve Product.isTaxable now.
+  // VAT is shown only for the taxable portion: a non-taxable-only order shows
+  // no VAT line; a mixed order shows VAT computed on the taxable items alone.
+  // Prices are VAT-inclusive, so vatAmount is the tax already inside the total.
+  const productIds = [...new Set(orders.flatMap(o => o.items.map(i => i.productId)))]
+  let taxable = new Set<string>()
+  if (productIds.length) {
+    try {
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, isTaxable: true },
+      })
+      taxable = new Set(products.filter(p => p.isTaxable).map(p => p.id))
+    } catch { /* product lookup failed → treat all as non-taxable, hide VAT */ }
+  }
+
+  return orders.map(order => {
+    const vatableSubtotal = order.items
+      .filter(i => taxable.has(i.productId))
+      .reduce((sum, i) => sum + i.price * i.quantity, 0)
+    const vatAmount = Math.round(vatableSubtotal - vatableSubtotal / (1 + VAT_RATE))
+    return { ...order, vatAmount, hasVat: vatableSubtotal > 0 }
   })
 }
 
@@ -944,8 +982,8 @@ async function fetchStoreSettings(): Promise<Record<string, string>> {
   }
 }
 
-async function generateSocialQRSvg(_storeDB: Record<string, string>): Promise<string> {
-  const url = `${STORE.url}/follow`
+async function generateSocialQRSvg(store: Store): Promise<string> {
+  const url = `${store.url}/follow`
   try {
     const svg = await QRCode.toString(url, { type: 'svg', margin: 1, width: 512 })
     return svg.replace('<svg ', '<svg width="100%" height="100%" ')
@@ -960,6 +998,7 @@ export async function POST(req: NextRequest) {
     if (!ids?.length) return Response.json({ error: 'ids required' }, { status: 400 })
 
     const [orders, storeDB] = await Promise.all([fetchOrders(ids), fetchStoreSettings()])
+    const store = buildStore(storeDB)
     const logoUrl = storeDB.STORE_LOGO_URL ?? ''
 
     const isInvoice    = ['invoice', 'invoice-a5', 'invoice-a4', 'all'].includes(type)
@@ -967,23 +1006,23 @@ export async function POST(req: NextRequest) {
     const needsBarcode = type === 'shipping' || type === 'all'
 
     const [socialQrSvg, qrSvgs, barcodePngs] = await Promise.all([
-      isInvoice ? generateSocialQRSvg(storeDB) : Promise.resolve(''),
-      isAwb     ? generateQRSvgs(orders)        : Promise.resolve(orders.map(() => '')),
+      isInvoice ? generateSocialQRSvg(store)    : Promise.resolve(''),
+      isAwb     ? generateQRSvgs(orders, store)  : Promise.resolve(orders.map(() => '')),
       needsBarcode ? generateBarcodes(orders)   : Promise.resolve(orders.map(() => '')),
     ])
 
     let body = ''
     switch (type) {
-      case 'invoice':      body = invoice(orders, logoUrl, socialQrSvg); break
-      case 'invoice-a5':   body = invoiceA5(orders, logoUrl, socialQrSvg); break
-      case 'invoice-a4':   body = invoiceA4(orders, logoUrl, socialQrSvg); break
-      case 'awb':          body = awb(orders, qrSvgs, 'a6'); break
-      case 'awb-a5':       body = awb(orders, qrSvgs, 'a5'); break
-      case 'awb-a4':       body = awbA4(orders, qrSvgs); break
-      case 'packing':      body = packingSlip(orders); break
-      case 'packing-list': body = packingSlipCompact(orders); break
-      case 'all':          body = invoice(orders, logoUrl, socialQrSvg) + shippingLabel(orders, barcodePngs) + packingSlip(orders); break
-      default:             body = shippingLabel(orders, barcodePngs)
+      case 'invoice':      body = invoice(orders, store, logoUrl, socialQrSvg); break
+      case 'invoice-a5':   body = invoiceA5(orders, store, logoUrl, socialQrSvg); break
+      case 'invoice-a4':   body = invoiceA4(orders, store, logoUrl, socialQrSvg); break
+      case 'awb':          body = awb(orders, store, qrSvgs, 'a6'); break
+      case 'awb-a5':       body = awb(orders, store, qrSvgs, 'a5'); break
+      case 'awb-a4':       body = awbA4(orders, store, qrSvgs); break
+      case 'packing':      body = packingSlip(orders, store); break
+      case 'packing-list': body = packingSlipCompact(orders, store); break
+      case 'all':          body = invoice(orders, store, logoUrl, socialQrSvg) + shippingLabel(orders, store, barcodePngs) + packingSlip(orders, store); break
+      default:             body = shippingLabel(orders, store, barcodePngs)
     }
 
     // Inject correct @page size after main CSS so it wins the cascade
@@ -1012,7 +1051,7 @@ export async function POST(req: NextRequest) {
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>${STORE.name} — ${title}</title>
+<title>${store.name} — ${title}</title>
 <style>${CSS}</style>
 ${pageOverride}
 </head>
