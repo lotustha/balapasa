@@ -64,6 +64,11 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
   const code     = order.orderCode ?? order.id.slice(0, 8).toUpperCase()
   const status   = STATUS_META[order.status]        ?? { label: order.status,        cls: 'bg-slate-100 text-slate-600 border-slate-200' }
+  // Latest carrier sub-state (out for delivery, at hub, …) shown under the
+  // SHIPPED badge so customers see the current leg at a glance.
+  const latestSub = order.status === 'SHIPPED' && timeline.length
+    ? friendlyStatusLabel(timeline[timeline.length - 1].rawStatus)
+    : null
   const pay      = PAY_META[order.paymentStatus]    ?? { label: order.paymentStatus, cls: 'bg-slate-100 text-slate-500' }
   const canEdit  = PRE_SHIPPED.has(order.status)
   const returnInfo = order.status === 'DELIVERED' ? await isOrderReturnable(order.id) : null
@@ -92,9 +97,16 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <span className="font-mono">#{code}</span>
             </h1>
           </div>
-          <span className={`ml-auto px-2.5 py-1 rounded-full text-[10px] font-bold border ${status.cls}`}>
-            {status.label}
-          </span>
+          <div className="ml-auto flex flex-col items-end gap-1 shrink-0">
+            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${status.cls}`}>
+              {status.label}
+            </span>
+            {latestSub && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 inline-flex items-center gap-1">
+                <span aria-hidden="true">{latestSub.icon}</span> {latestSub.label}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Summary card */}

@@ -487,6 +487,11 @@ export default function OrderDetailPage() {
 
   const isCancelled = order.status === 'CANCELLED'
   const statusIdx   = STATUS_FLOW.indexOf(order.status)
+  // Latest carrier sub-state, shown inline beside the SHIPPED badge so the
+  // current leg (out for delivery, at hub, …) is visible without scrolling.
+  const latestSub = order.status === 'SHIPPED' && order.timeline && order.timeline.length
+    ? friendlyStatusLabel(order.timeline[order.timeline.length - 1].rawStatus)
+    : null
   const hasDelivery = !!(order.pathaoOrderId || order.trackingUrl)
 
   // Kathmandu Valley — all 3 districts (Kathmandu, Lalitpur, Bhaktapur)
@@ -640,6 +645,11 @@ export default function OrderDetailPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="font-heading font-extrabold text-xl text-slate-900 font-mono">{order.orderCode ? order.orderCode : `#${order.id.slice(0,8).toUpperCase()}`}</h1>
             <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${STATUS_CLS[order.status]}`}>{order.status}</span>
+            {latestSub && (
+              <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-600 inline-flex items-center gap-1">
+                <span aria-hidden="true">{latestSub.icon}</span> {latestSub.label}
+              </span>
+            )}
             <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${PAY_CLS[order.paymentStatus]}`}>{order.paymentStatus}</span>
           </div>
           <p className="text-slate-400 text-xs mt-0.5">{new Date(order.createdAt).toLocaleString('en-NP', {dateStyle:'medium',timeStyle:'short'})}</p>
