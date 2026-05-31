@@ -1,0 +1,31 @@
+name: Abandoned Cart Recovery Cron
+
+# Hourly cart-recovery engine. Hits POST /api/cron/abandoned-carts on production,
+# which sends a reminder (WhatsApp + best-effort email) for every cart left
+# unpaid past its reminder window, marking each one reminded exactly once. The
+# route is idempotent, so re-runs (and the manual dispatch below) are safe.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions) —
+# the same two the billing cron uses:
+#   CRON_SECRET  — must match process.env.CRON_SECRET on the production server.
+#                  Sent as the Bearer token to authorize the cron call.
+#   SITE_URL     — production base URL, no trailing slash, e.g. https://balapasa.com
+
+on:
+  schedule:
+    # Top of every hour. Carts become eligible 2h after the last update, so an
+    # hourly sweep reminds within ~1h of eligibility.
+    - cron: '0 * * * *'
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger abandoned-cart recovery
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          curl -fsS -X POST "$SITE_URL/api/cron/abandoned-carts" \
+            -H "Authorization: Bearer $CRON_SECRET"
