@@ -9,6 +9,7 @@ import { restoreStockForOrder } from '@/lib/restore-stock'
 import { cancelPndOrder } from '@/lib/pickndrop'
 import { cancelParcel } from '@/lib/pathao'
 import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
+import { awardLoyaltyForOrder } from '@/lib/loyalty'
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
@@ -73,6 +74,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         body:    `Order #${order.id.slice(0, 8).toUpperCase()} was delivered. Enjoy your purchase!`,
       }).catch(() => {})
       maybeSendStatusEmail('DELIVERED')
+      // Award loyalty points (idempotent; no-op if disabled, guest, or already
+      // awarded — e.g. the PnD webhook also marked it delivered).
+      awardLoyaltyForOrder(order.id).catch(e => console.warn('[orders PATCH] loyalty award failed (non-fatal):', e))
     }
 
     if (body.status === 'CANCELLED') {

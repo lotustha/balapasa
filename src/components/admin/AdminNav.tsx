@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, LogOut, Ticket, Zap, MessageCircle, DollarSign, Monitor,
   ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles, RotateCcw,
-  MessageCircleQuestion, Star, Wallet,
+  MessageCircleQuestion, Star, Wallet, Award,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import BrandText from '@/components/ui/BrandText'
@@ -63,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/promotions', icon: Zap,    label: 'Promotions', minRole: 'MANAGER' },
       { href: '/admin/coupons',    icon: Ticket, label: 'Coupons',    minRole: 'MANAGER' },
       { href: '/admin/gift-cards', icon: Gift,   label: 'Gift Cards', minRole: 'MANAGER' },
+      { href: '/admin/loyalty',    icon: Award,  label: 'Loyalty',    minRole: 'MANAGER' },
     ],
   },
   {

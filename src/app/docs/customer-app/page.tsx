@@ -11,6 +11,7 @@ import {
   Info,
   AlertTriangle,
   Wallet,
+  Sparkles,
 } from 'lucide-react'
 import EndpointCard from '../components/EndpointCard'
 import CodeBlock from '../components/CodeBlock'
@@ -799,6 +800,52 @@ const { orderId, orderCode } = await res.json()
             <code className="font-[family-name:var(--font-jetbrains)]">REFUND</code>,{' '}
             <code className="font-[family-name:var(--font-jetbrains)]">ADJUSTMENT</code>. Positive{' '}
             <code className="font-[family-name:var(--font-jetbrains)]">amount</code> adds, negative spends.
+          </p>
+        </EndpointCard>
+      </section>
+
+      {/* ── Loyalty points ─────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeading id="loyalty" icon={Sparkles}>
+          Loyalty points
+        </SectionHeading>
+        <p className="max-w-2xl text-sm leading-relaxed text-slate-400">
+          Customers earn points when an order is delivered and redeem them into
+          store credit. Earn/redeem rates are store-configured and returned in
+          the summary so the app never hard-codes them.
+        </p>
+
+        <EndpointCard method="GET" path="/api/account/loyalty" auth="Bearer or Cookie" title="Points balance, history & rates">
+          <p className="mb-2 mt-1 text-slate-400">Response <code className="font-[family-name:var(--font-jetbrains)]">200</code></p>
+          <CodeBlock
+            language="json"
+            code={`{
+  "config": { "enabled": true, "nprPerPoint": 100, "pointValue": 1, "minRedeem": 100 },
+  "balance": 240,
+  "lifetimePoints": 240,
+  "transactions": [
+    { "id": "clx...", "points": 240, "balanceAfter": 240, "type": "EARN", "reason": "Order VCS-1042", "orderId": "ord_1", "createdAt": "..." }
+  ]
+}`}
+          />
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            <code className="font-[family-name:var(--font-jetbrains)]">balance × config.pointValue</code> = the NPR of store credit those points are worth.
+            When <code className="font-[family-name:var(--font-jetbrains)]">config.enabled</code> is false, hide the rewards UI.
+          </p>
+        </EndpointCard>
+
+        <EndpointCard method="POST" path="/api/account/loyalty/redeem" auth="Bearer or Cookie" title="Redeem points for store credit">
+          <p className="mb-3">
+            Atomically debits <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">points</code> and credits the
+            store-credit wallet by <code className="font-[family-name:var(--font-jetbrains)]">points × pointValue</code>. Must be ≥{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">config.minRedeem</code> and ≤ the current balance.
+          </p>
+          <ParamTable rows={[{ name: 'points', type: 'number', required: true, desc: 'Points to redeem (integer ≥ minRedeem, ≤ balance).' }]} />
+          <p className="mb-2 mt-4 text-slate-400">Response <code className="font-[family-name:var(--font-jetbrains)]">200</code></p>
+          <CodeBlock language="json" code={`{ "pointsBalance": 140, "creditAdded": 100, "creditBalance": 100 }`} />
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            Errors: <code className="font-[family-name:var(--font-jetbrains)]">400</code> below minimum, not enough points, or loyalty disabled.
+            The credit then spends via <code className="font-[family-name:var(--font-jetbrains)]">storeCreditAmount</code> at checkout.
           </p>
         </EndpointCard>
       </section>

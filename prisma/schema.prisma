@@ -795,3 +795,42 @@ enum StoreCreditTxnType {
   REFUND      // credited back from a refund/cancellation
   ADJUSTMENT  // manual correction (can be negative)
 }
+
+// Loyalty points — earned on delivered orders, redeemed into store credit.
+// Points are a separate integer currency; redemption converts them to wallet
+// balance via the configured point value. One account per user (no FK, same
+// convention as StoreCredit).
+model LoyaltyAccount {
+  id             String   @id @default(cuid())
+  userId         String   @unique @map("user_id")
+  pointsBalance  Int      @default(0) @map("points_balance")
+  lifetimePoints Int      @default(0) @map("lifetime_points")  // total ever earned (never decremented)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  transactions LoyaltyTransaction[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id           String         @id @default(cuid())
+  accountId    String         @map("account_id")
+  points       Int                                  // + earned, − redeemed
+  balanceAfter Int            @map("balance_after")
+  type         LoyaltyTxnType
+  reason       String
+  orderId      String?        @map("order_id")      // set on EARN (the order) / REDEEM context
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("loyalty_transactions")
+}
+
+enum LoyaltyTxnType {
+  EARN    // earned from a delivered order
+  REDEEM  // converted to store credit
+  ADJUST  // manual correction (can be negative)
+}

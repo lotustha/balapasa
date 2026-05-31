@@ -9,6 +9,7 @@ import { getSiteSettings } from '@/lib/site-settings'
 import { pushOrderEvent } from '@/lib/push'
 import { restoreStockForOrder } from '@/lib/restore-stock'
 import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
+import { awardLoyaltyForOrder } from '@/lib/loyalty'
 import type { DeliveryExceptionKind } from '@/lib/emails/types'
 
 // ── PnD event shape ─────────────────────────────────────────────────────────
@@ -177,6 +178,14 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   if (dataUpdate.status === 'CANCELLED') {
     await restoreStockForOrder(order.id, 'PICKNDROP').catch(e =>
       console.warn('[pickndrop-webhook] stock restore failed (non-fatal):', e),
+    )
+  }
+
+  // Award loyalty points on delivery (idempotent; no-op if disabled, guest, or
+  // already awarded by the admin status update).
+  if (dataUpdate.status === 'DELIVERED') {
+    await awardLoyaltyForOrder(order.id).catch(e =>
+      console.warn('[pickndrop-webhook] loyalty award failed (non-fatal):', e),
     )
   }
 
