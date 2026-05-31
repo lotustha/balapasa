@@ -13,6 +13,21 @@ export interface MagicLinkData extends BrandFields {
   expiresInDays:  number
 }
 
+export interface AbandonedCartItem {
+  name:     string
+  quantity: number
+  price:    number
+  image?:   string
+}
+
+export interface AbandonedCartData extends BrandFields {
+  recipientName: string
+  cartUrl:       string
+  items:         AbandonedCartItem[]
+  itemCount:     number
+  subtotal:      number
+}
+
 export interface AdminNewOrderData extends BrandFields {
   orderId:        string
   customerName:   string

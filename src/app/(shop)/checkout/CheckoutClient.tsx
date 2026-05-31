@@ -190,6 +190,29 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
     defaultSaved ? savedToNepalAddress(defaultSaved) : EMPTY_ADDRESS,
   )
 
+  // Abandoned-cart recording. Once the customer has entered a valid phone but
+  // hasn't completed checkout, save the cart (debounced) so the recovery cron
+  // can nudge them later. A successful order deletes the record (below), and
+  // every save slides the reminder window forward while they're still active.
+  const abandonKey = items.map(i => `${i.id}:${i.quantity}`).join('|')
+  useEffect(() => {
+    const phone = recipientPhone.replace(/\D/g, '')
+    if (navigatingAway || phone.length !== 10 || items.length === 0) return
+    const t = setTimeout(() => {
+      fetch('/api/cart/abandon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          name:  recipientName || undefined,
+          items: items.map(i => ({ name: i.name, price: i.salePrice ?? i.price, quantity: i.quantity, image: i.image })),
+        }),
+      }).catch(() => {})
+    }, 3000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipientPhone, recipientName, abandonKey, navigatingAway])
+
   const [options, setOptions]           = useState<CoverageOption[]>([])
   const [selectedOption, setSelected]   = useState<CoverageOption | null>(null)
   const [shippingLoading, setLoading]   = useState(false)
@@ -678,6 +701,17 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
       // Suppress the "your cart is empty" render between clearCart() and the
       // success route mounting — the cart state is about to flip to empty.
       setNavigatingAway(true)
+
+      // Order placed — drop any abandoned-cart record so the recovery cron
+      // doesn't nudge a customer who just checked out.
+      const abandonPhone = recipientPhone.replace(/\D/g, '')
+      if (abandonPhone.length === 10) {
+        fetch('/api/cart/abandon', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: abandonPhone }),
+        }).catch(() => {})
+      }
 
       if (isBuyNow) {
         clearBuyNow()

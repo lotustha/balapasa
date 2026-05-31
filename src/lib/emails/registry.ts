@@ -20,6 +20,7 @@ import type {
   ReturnApprovedData,
   ReturnRejectedData,
   RefundIssuedData,
+  AbandonedCartData,
 } from './types'
 
 import { orderConfirmedBranded } from './templates/order-confirmed/branded'
@@ -53,6 +54,7 @@ import { lowStockMinimal } from './templates/low-stock/minimal'
 import { lowStockCompact } from './templates/low-stock/compact'
 
 import { supplierReorderBranded } from './templates/supplier-reorder/branded'
+import { abandonedCartBranded } from './templates/abandoned-cart/branded'
 
 import { paymentReceiptBranded } from './templates/payment-receipt/branded'
 import { paymentReceiptMinimal } from './templates/payment-receipt/minimal'
@@ -121,6 +123,7 @@ export interface EventDataMap {
   'order-confirmed':     OrderConfirmationData
   'shipment-update':     ShipmentEmailData
   'magic-link':          MagicLinkData
+  'abandoned-cart':      AbandonedCartData
   'admin-new-order':     AdminNewOrderData
   'admin-status-change': AdminStatusChangeData
   'signup-welcome':      SignupWelcomeData
@@ -316,6 +319,18 @@ const SAMPLE_CUSTOMER_ORDER_CANCELLED: CustomerOrderCancelledData = {
   orderUrl:      'https://balapasa.com/track-order/BLP-AIRP-123-0001',
 }
 
+const SAMPLE_ABANDONED_CART: AbandonedCartData = {
+  ...SAMPLE_BRAND,
+  recipientName: 'Aarav Sharma',
+  cartUrl:       'https://balapasa.com/cart',
+  itemCount:     2,
+  subtotal:      4500,
+  items: [
+    { name: 'Wireless Earbuds Pro', quantity: 1, price: 3500, image: 'https://balapasa.com/placeholder.png' },
+    { name: 'USB-C Fast Charger 30W', quantity: 1, price: 1000, image: 'https://balapasa.com/placeholder.png' },
+  ],
+}
+
 const SAMPLE_RETURN_FILED: ReturnFiledData = {
   ...SAMPLE_ORDER_PREVIEW,
   recipientName: 'Aarav Sharma',
@@ -392,6 +407,14 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     description: 'Passwordless sign-in link sent when a customer requests one from /login.',
     sampleData:  SAMPLE_MAGIC_LINK,
     variants:    [magicLinkBranded, magicLinkMinimal, magicLinkCompact],
+    customerFacing: true,
+  }),
+  'abandoned-cart': defineEvent<AbandonedCartData>({
+    id:          'abandoned-cart',
+    label:       'Abandoned cart reminder',
+    description: 'Customer nudge sent by the recovery cron when a cart with contact details is left unpaid past the reminder window.',
+    sampleData:  SAMPLE_ABANDONED_CART,
+    variants:    [abandonedCartBranded],
     customerFacing: true,
   }),
   'admin-new-order': defineEvent<AdminNewOrderData>({
