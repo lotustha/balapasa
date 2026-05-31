@@ -13,8 +13,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(body.type      !== undefined && { type: body.type }),
         ...(body.value     !== undefined && { value: Number(body.value) }),
         ...(body.minOrder  !== undefined && { minOrder: body.minOrder ? Number(body.minOrder) : null }),
+        ...(body.maxDiscount !== undefined && { maxDiscount: body.maxDiscount ? Number(body.maxDiscount) : null }),
         ...(body.maxUses   !== undefined && { maxUses:  body.maxUses  ? Number(body.maxUses)  : null }),
         ...(body.expiresAt !== undefined && { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null }),
+        ...(body.scope       !== undefined && { scope: body.scope }),
+        ...(body.categoryIds !== undefined && { categoryIds: body.categoryIds ?? [] }),
+        ...(body.productIds  !== undefined && { productIds: body.productIds ?? [] }),
       },
     })
     return Response.json({ coupon })

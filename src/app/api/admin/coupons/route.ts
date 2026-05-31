@@ -13,7 +13,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { code, type, value, minOrder, maxUses, expiresAt, scope, categoryIds, productIds } = body
+    const { code, type, value, minOrder, maxDiscount, maxUses, expiresAt, scope, categoryIds, productIds } = body
     if (!code || !type || !value) return Response.json({ error: 'code, type, value required' }, { status: 400 })
     const coupon = await prisma.coupon.create({
       data: {
@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
         type,
         value:      Number(value),
         minOrder:   minOrder  ? Number(minOrder)  : null,
+        // Cap only applies to percentage coupons; ignored for FIXED.
+        maxDiscount: type === 'PERCENT' && maxDiscount ? Number(maxDiscount) : null,
         maxUses:    maxUses   ? Number(maxUses)   : null,
         expiresAt:  expiresAt ? new Date(expiresAt) : null,
         scope:      scope     ?? 'ALL',

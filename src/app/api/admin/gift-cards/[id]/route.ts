@@ -30,11 +30,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       isActive:      boolean
       expiresInDays: number | null
       note:          string
+      issuedToEmail: string
     }>
 
     const data: Record<string, unknown> = {}
     if (typeof body.isActive === 'boolean') data.isActive = body.isActive
     if (body.note !== undefined) data.note = body.note.trim() || null
+    if (body.issuedToEmail !== undefined) data.issuedToEmail = body.issuedToEmail.trim() || null
     if (body.expiresInDays !== undefined) {
       data.expiresAt = body.expiresInDays && body.expiresInDays > 0
         ? new Date(Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000)

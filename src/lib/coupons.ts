@@ -91,9 +91,13 @@ export async function validateCoupon(input: {
   }
 
   // ── Discount math (rounded to integer NPR for both types — receipts match) ──
-  const rawDiscount = coupon.type === 'PERCENT'
+  let rawDiscount = coupon.type === 'PERCENT'
     ? (qualifyingSubtotal * coupon.value) / 100
     : Math.min(coupon.value, qualifyingSubtotal)
+  // Optional cap on a percentage coupon's discount (e.g. "20% off, up to NPR 500").
+  if (coupon.maxDiscount !== null && coupon.maxDiscount > 0) {
+    rawDiscount = Math.min(rawDiscount, coupon.maxDiscount)
+  }
   const discount = Math.round(rawDiscount)
 
   return {

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Gift, Plus, Copy, Check, Loader2, AlertCircle, Power, Trash2, X as XIcon } from 'lucide-react'
+import { Gift, Plus, Copy, Check, Loader2, AlertCircle, Power, Trash2, X as XIcon, Pencil, Save } from 'lucide-react'
+import { useConfirm } from '@/components/ui/useConfirm'
 
 interface GiftCardRow {
   id:             string
@@ -29,8 +30,18 @@ function formatDate(iso: string | null) {
   } catch { return '—' }
 }
 
+function daysUntil(iso: string | null): string {
+  if (!iso) return ''
+  const ms = new Date(iso).getTime() - Date.now()
+  return ms > 0 ? String(Math.ceil(ms / 86_400_000)) : ''
+}
+
 export default function AdminGiftCardsPage() {
+  const { confirm, dialog } = useConfirm()
   const [cards,       setCards]       = useState<GiftCardRow[]>([])
+  const [editing,     setEditing]     = useState<GiftCardRow | null>(null)
+  const [editForm,    setEditForm]    = useState({ issuedToEmail: '', note: '', expiresInDays: '', isActive: true })
+  const [savingEdit,  setSavingEdit]  = useState(false)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState<string | null>(null)
   const [creating,    setCreating]    = useState(false)
@@ -110,12 +121,55 @@ export default function AdminGiftCardsPage() {
     }
   }
 
+  function openEdit(card: GiftCardRow) {
+    setEditForm({
+      issuedToEmail: card.issuedToEmail ?? '',
+      note:          card.note ?? '',
+      expiresInDays: daysUntil(card.expiresAt),
+      isActive:      card.isActive,
+    })
+    setEditing(card)
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/admin/gift-cards/${editing.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          issuedToEmail: editForm.issuedToEmail,
+          note:          editForm.note,
+          expiresInDays: editForm.expiresInDays ? Number(editForm.expiresInDays) : null,
+          isActive:      editForm.isActive,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error ?? 'Failed to save'); return }
+      // PATCH returns the card without _count — keep the existing count.
+      setCards(prev => prev.map(c => c.id === editing.id ? { ...c, ...data.card } : c))
+      setEditing(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   async function deleteCard(card: GiftCardRow) {
     if (card._count.redemptions > 0) {
       alert('Cannot delete a card that has been redeemed. Deactivate it instead.')
       return
     }
-    if (!confirm(`Delete gift card ${card.code}? This cannot be undone.`)) return
+    const ok = await confirm({
+      title: 'Delete gift card?',
+      message: <>Gift card <span className="font-bold text-slate-700">{card.code}</span> will be permanently removed. This can&rsquo;t be undone.</>,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    })
+    if (!ok) return
     try {
       const res = await fetch(`/api/admin/gift-cards/${card.id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -325,6 +379,11 @@ export default function AdminGiftCardsPage() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="inline-flex items-center gap-1">
+                            <button type="button" onClick={() => openEdit(card)}
+                              title="Edit"
+                              className="p-1.5 rounded-md text-slate-400 hover:text-primary hover:bg-primary-bg transition-colors cursor-pointer">
+                              <Pencil size={13} />
+                            </button>
                             <button type="button" onClick={() => toggleActive(card)}
                               title={card.isActive ? 'Deactivate' : 'Reactivate'}
                               className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
@@ -346,6 +405,64 @@ export default function AdminGiftCardsPage() {
             </div>
           )}
         </div>
+
+        {/* Edit modal */}
+        {editing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setEditing(null)}>
+            <form onSubmit={saveEdit} onClick={e => e.stopPropagation()} className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-fade-in-up">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <h2 className="font-heading font-bold text-slate-900">Edit gift card</h2>
+                <button type="button" onClick={() => setEditing(null)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-all">
+                  <XIcon size={16} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="font-mono font-bold text-slate-800">{editing.code}</span>
+                  <span className="text-sm font-bold text-slate-700">{formatNpr(editing.balance)} <span className="text-slate-400 font-normal">/ {formatNpr(editing.initialValue)}</span></span>
+                </div>
+                <p className="text-[11px] text-slate-400 -mt-2">Value &amp; balance can&rsquo;t be edited — issue a new card to change the amount.</p>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Issued to email</label>
+                  <input type="email" value={editForm.issuedToEmail}
+                    onChange={e => setEditForm(f => ({ ...f, issuedToEmail: e.target.value }))}
+                    placeholder="recipient@example.com" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Expires in (days from now)</label>
+                  <input type="number" min="1" value={editForm.expiresInDays}
+                    onChange={e => setEditForm(f => ({ ...f, expiresInDays: e.target.value }))}
+                    placeholder="Leave blank for no expiry" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Note</label>
+                  <input type="text" value={editForm.note}
+                    onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))}
+                    placeholder="Birthday gift, promo, refund, etc." className={inputCls} />
+                </div>
+                <button type="button" onClick={() => setEditForm(f => ({ ...f, isActive: !f.isActive }))}
+                  className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <span className="text-sm font-bold text-slate-800">{editForm.isActive ? 'Active' : 'Inactive'}</span>
+                  <span className={`w-9 h-5 rounded-full relative transition-colors ${editForm.isActive ? 'bg-green-500' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${editForm.isActive ? 'left-[18px]' : 'left-0.5'}`} />
+                  </span>
+                </button>
+
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setEditing(null)}
+                    className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
+                  <button type="submit" disabled={savingEdit}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold text-sm rounded-xl cursor-pointer transition-colors shadow-md shadow-primary/20 disabled:opacity-50">
+                    {savingEdit ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save changes</>}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {dialog}
       </div>
     </div>
   )

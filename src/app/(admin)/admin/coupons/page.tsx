@@ -3,17 +3,25 @@
 import { useEffect, useState } from 'react'
 import {
   Tag, Plus, Trash2, ToggleLeft, ToggleRight,
-  Loader2, X, CheckCircle2, Copy, Percent, Banknote,
+  Loader2, X, CheckCircle2, Copy, Percent, Banknote, Pencil,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/useConfirm'
 
 interface Coupon {
   id: string; code: string; type: 'PERCENT' | 'FIXED'; value: number
-  minOrder: number | null; maxUses: number | null; usedCount: number
+  minOrder: number | null; maxDiscount: number | null; maxUses: number | null; usedCount: number
   expiresAt: string | null; isActive: boolean; createdAt: string
   scope: 'ALL' | 'CATEGORY' | 'PRODUCT'
   categoryIds: string[]; productIds: string[]
+}
+
+const EMPTY_FORM = {
+  code: '', type: 'PERCENT' as 'PERCENT' | 'FIXED',
+  value: '', minOrder: '', maxDiscount: '', maxUses: '', expiresAt: '',
+  scope: 'ALL' as 'ALL' | 'CATEGORY' | 'PRODUCT',
+  categoryIds: [] as string[], productIds: [] as string[],
+  selectedProducts: [] as Prod[],
 }
 interface Cat { id: string; name: string; slug: string }
 interface Prod { id: string; name: string; slug: string; images: string[] }
@@ -45,13 +53,8 @@ export default function CouponsPage() {
   const [copied,   setCopied]   = useState<string | null>(null)
   const [prodSearch, setProdSearch] = useState('')
   const [prodResults, setProdResults] = useState<Prod[]>([])
-  const [form, setForm] = useState({
-    code: '', type: 'PERCENT' as 'PERCENT' | 'FIXED',
-    value: '', minOrder: '', maxUses: '', expiresAt: '',
-    scope: 'ALL' as 'ALL' | 'CATEGORY' | 'PRODUCT',
-    categoryIds: [] as string[], productIds: [] as string[],
-    selectedProducts: [] as Prod[],
-  })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState({ ...EMPTY_FORM })
 
   async function load() {
     setLoading(true)
@@ -74,19 +77,53 @@ export default function CouponsPage() {
     return () => clearTimeout(t)
   }, [prodSearch])
 
-  async function create(e: React.FormEvent) {
+  function openCreate() {
+    setEditingId(null)
+    setForm({ ...EMPTY_FORM })
+    setShowForm(true)
+  }
+
+  async function openEdit(c: Coupon) {
+    setEditingId(c.id)
+    // Pre-fill from the coupon. For PRODUCT scope, fetch the selected products
+    // so their chips render with real names.
+    let selectedProducts: Prod[] = []
+    if (c.scope === 'PRODUCT' && c.productIds.length) {
+      const res = await fetch(`/api/products?ids=${c.productIds.join(',')}&admin=true&limit=50`).catch(() => null)
+      if (res?.ok) selectedProducts = (await res.json()).products ?? []
+    }
+    setForm({
+      code: c.code,
+      type: c.type,
+      value: String(c.value),
+      minOrder: c.minOrder != null ? String(c.minOrder) : '',
+      maxDiscount: c.maxDiscount != null ? String(c.maxDiscount) : '',
+      maxUses: c.maxUses != null ? String(c.maxUses) : '',
+      // datetime-local wants "YYYY-MM-DDTHH:mm"
+      expiresAt: c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 16) : '',
+      scope: c.scope,
+      categoryIds: c.categoryIds ?? [],
+      productIds: c.productIds ?? [],
+      selectedProducts,
+    })
+    setShowForm(true)
+  }
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    const res = await fetch('/api/admin/coupons', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(editingId ? `/api/admin/coupons/${editingId}` : '/api/admin/coupons', {
+      method: editingId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
     const data = await res.json()
     if (res.ok) {
       setShowForm(false)
-      setForm({ code: '', type: 'PERCENT', value: '', minOrder: '', maxUses: '', expiresAt: '', scope: 'ALL', categoryIds: [], productIds: [], selectedProducts: [] })
+      setEditingId(null)
+      setForm({ ...EMPTY_FORM })
       load()
-    } else { alert(data.error ?? 'Failed to create') }
+    } else { alert(data.error ?? 'Failed to save') }
     setSaving(false)
   }
 
@@ -132,7 +169,7 @@ export default function CouponsPage() {
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">{coupons.length} coupon{coupons.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setShowForm(true)}
+        <button onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-md shadow-primary/20">
           <Plus size={15} /> New Coupon
         </button>
@@ -201,6 +238,10 @@ export default function CouponsPage() {
                         className="p-1.5 rounded-lg transition-colors cursor-pointer text-slate-400 hover:text-primary hover:bg-primary-bg">
                         {c.isActive ? <ToggleRight size={18} className="text-primary" /> : <ToggleLeft size={18} />}
                       </button>
+                      <button onClick={() => openEdit(c)} title="Edit"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary-bg transition-colors cursor-pointer">
+                        <Pencil size={14} />
+                      </button>
                       <button onClick={() => del(c)} title="Delete"
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
                         <Trash2 size={14} />
@@ -220,12 +261,12 @@ export default function CouponsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-fade-in-up">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="font-heading font-bold text-slate-900">New Coupon</h2>
+              <h2 className="font-heading font-bold text-slate-900">{editingId ? 'Edit Coupon' : 'New Coupon'}</h2>
               <button onClick={() => setShowForm(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-all">
                 <X size={16} />
               </button>
             </div>
-            <form onSubmit={create} className="p-6 space-y-4">
+            <form onSubmit={submit} className="p-6 space-y-4">
               {/* Code */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Coupon Code</label>
@@ -274,6 +315,17 @@ export default function CouponsPage() {
                     placeholder="∞ unlimited" className={inputCls} />
                 </div>
               </div>
+
+              {/* Max discount cap — only meaningful for percentage coupons */}
+              {form.type === 'PERCENT' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Max Discount (NPR)</label>
+                  <input type="number" min="1" value={form.maxDiscount}
+                    onChange={e => setForm(f => ({ ...f, maxDiscount: e.target.value }))}
+                    placeholder="e.g. 500 — cap the discount (optional)" className={inputCls} />
+                  <p className="text-[10px] text-slate-400 mt-1">Caps how much a % coupon can take off, e.g. “20% off, up to NPR 500”.</p>
+                </div>
+              )}
 
               {/* Expiry */}
               <div>
@@ -359,7 +411,7 @@ export default function CouponsPage() {
                   className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</button>
                 <button type="submit" disabled={saving}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold text-sm rounded-xl cursor-pointer transition-colors shadow-md shadow-primary/20">
-                  {saving ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : <><Tag size={14} /> Create Coupon</>}
+                  {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Tag size={14} /> {editingId ? 'Save changes' : 'Create Coupon'}</>}
                 </button>
               </div>
             </form>

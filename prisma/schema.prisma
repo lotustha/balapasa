@@ -588,6 +588,7 @@ model Coupon {
   type        CouponType
   value       Float
   minOrder    Float?     @map("min_order")
+  maxDiscount Float?     @map("max_discount")   // cap on a PERCENT coupon's discount (NPR); null = uncapped
   maxUses     Int?       @map("max_uses")
   usedCount   Int        @default(0) @map("used_count")
   expiresAt   DateTime?  @map("expires_at")

@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const page       = parseInt(searchParams.get('page') ?? '1', 10)
   const skip       = (page - 1) * limit
   const slugsParam = searchParams.get('slugs')
+  const idsParam   = searchParams.get('ids')        // comma-separated product ids (e.g. coupon edit)
 
   try {
     const where: Record<string, unknown> = {}
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
       where.isActive = true
     }
 
+    if (idsParam)            where.id          = { in: idsParam.split(',').map(s => s.trim()).filter(Boolean).slice(0, 50) }
     if (category)            where.category    = { slug: category }
     if (featured === 'true') where.isFeatured  = true
     if (supplierId)          where.supplierId  = supplierId
