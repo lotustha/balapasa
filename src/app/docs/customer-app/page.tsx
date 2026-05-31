@@ -364,7 +364,7 @@ export default function CustomerAppPage() {
               { name: 'shippingProvider', type: 'string', desc: 'e.g. PICKNDROP — triggers carrier dispatch.' },
               { name: 'couponCode', type: 'string', desc: 'Re-validated and discount recomputed server-side.' },
               { name: 'giftCardCode', type: 'string', desc: 'Re-validated; balance decremented atomically.' },
-              { name: 'storeCreditAmount', type: 'number', desc: 'Redeem store credit (signed-in only; COD/Khalti only — rejected on eSewa/PARTIAL_COD). Server clamps to min(balance, total), debits the wallet, and writes a REDEMPTION ledger row, all in the order tx.' },
+              { name: 'storeCreditAmount', type: 'number', desc: 'Redeem store credit (signed-in only). Works with COD, eSewa, and Khalti; rejected only on PARTIAL_COD. Server clamps to min(balance, total), debits the wallet, and writes a REDEMPTION ledger row, all in the order tx. If credit covers the whole order the gateway is skipped and the order is marked paid.' },
               { name: 'deliveryNote', type: 'string', desc: 'Optional note for the rider (max 500 chars).' },
             ]}
           />

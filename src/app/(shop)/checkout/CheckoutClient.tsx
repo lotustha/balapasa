@@ -426,7 +426,10 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const totalAfterGiftCard = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
   // Store credit applies after gift card, and ONLY on COD/Khalti — the eSewa
   // amount ignores discounts server-side, so the API rejects credit on eSewa.
-  const storeCreditEligible = payment === 'COD' || payment === 'KHALTI'
+  // COD, eSewa, and Khalti all charge the discounted total, so store credit
+  // works with every payment method offered here. (PARTIAL_COD isn't an option
+  // in this UI; the server rejects credit on it as a backstop.)
+  const storeCreditEligible = payment === 'COD' || payment === 'KHALTI' || payment === 'ESEWA'
   const storeCreditUsed = useStoreCredit && storeCreditEligible
     ? Math.min(storeCreditBalance, totalAfterGiftCard)
     : 0

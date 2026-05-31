@@ -147,22 +147,22 @@ export async function POST(req: NextRequest) {
     const totalAfterGiftCard = Math.max(0, totalBeforeGiftCard - giftCardDiscount)
 
     // ── Store-credit redemption ────────────────────────────────────────
-    // Logged-in customers only. Gated to COD + Khalti for now. eSewa now charges
-    // the discounted serverTotal (which already nets out store credit), so credit
-    // on eSewa would be correct — but enabling it also needs the CheckoutClient
-    // toggle + docs, so it stays deferred rather than silently flipped. PARTIAL_COD
-    // is rejected because its advance/COD split isn't reconciled here.
-    // Server clamps the redeemed amount to [0, min(balance, total)] — never trust
-    // the client figure. The race-safe decrement happens inside the tx below.
+    // Logged-in customers only. Works with COD, eSewa, and Khalti — all three
+    // charge / collect the discounted serverTotal (which already nets out the
+    // credit). Only PARTIAL_COD is rejected: its advance/COD split isn't
+    // reconciled against the credit here. When credit covers the whole order
+    // (serverTotal === 0) the gateway is skipped entirely (see short-circuit
+    // below the tx). Server clamps the redeemed amount to [0, min(balance,
+    // total)] — never trust the client figure. Race-safe decrement is in the tx.
     let storeCreditUsed = 0
     const requestedCredit = rawStoreCreditAmount ? Math.max(0, Number(rawStoreCreditAmount)) : 0
     if (requestedCredit > 0) {
       if (!userId) {
         return Response.json({ error: 'Please sign in to use store credit.' }, { status: 401 })
       }
-      if (paymentMethod === 'ESEWA' || paymentMethod === 'PARTIAL_COD') {
+      if (paymentMethod === 'PARTIAL_COD') {
         return Response.json(
-          { error: 'Store credit can be used with Cash on Delivery or Khalti. Please switch payment method or remove the credit.' },
+          { error: 'Store credit can’t be combined with partial COD. Please choose Cash on Delivery, eSewa, or Khalti.' },
           { status: 400 },
         )
       }
@@ -653,6 +653,15 @@ export async function POST(req: NextRequest) {
         console.warn('[orders] admin/low-stock emails failed (non-fatal):', e)
       }
     })()
+
+    // Fully covered by discounts / gift card / store credit → nothing to charge.
+    // eSewa and Khalti both reject a 0 amount, which would strand an unpaid order
+    // with the credit/card already spent. Skip the gateway and mark it paid.
+    // (COD has no gateway and falls through to the success return below.)
+    if (total <= 0 && (paymentMethod === 'ESEWA' || paymentMethod === 'KHALTI')) {
+      await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: 'PAID' } }).catch(() => {})
+      return Response.json({ orderId: order.id, orderCode, status: 'success', magicLinkToken }, { status: 201 })
+    }
 
     if (paymentMethod === 'ESEWA') {
       // Charge the discounted server total (coupon + gift card + autoDiscount
