@@ -625,8 +625,8 @@ export default function OrderDetailPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 cursor-pointer transition-colors">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <button onClick={() => router.back()} className="w-9 h-9 shrink-0 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 cursor-pointer transition-colors">
           <ArrowLeft size={16} className="text-slate-600" />
         </button>
         <div className="flex-1 min-w-0">
@@ -638,10 +638,12 @@ export default function OrderDetailPage() {
           <p className="text-slate-400 text-xs mt-0.5">{new Date(order.createdAt).toLocaleString('en-NP', {dateStyle:'medium',timeStyle:'short'})}</p>
         </div>
 
+        {/* Status + payment actions — wrap to their own full-width row on mobile */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
         {/* Status dropdown */}
-        <div className="relative">
+        <div className="relative flex-1 sm:flex-none">
           <button onClick={() => { setStatusOpen(o => !o); setPayOpen(false) }} disabled={savingStatus}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
+            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
             {savingStatus ? <Loader2 size={13} className="animate-spin" /> : null}
             Order Status <ChevronDown size={13} />
           </button>
@@ -658,9 +660,9 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Payment dropdown */}
-        <div className="relative">
+        <div className="relative flex-1 sm:flex-none">
           <button onClick={() => { setPayOpen(o => !o); setStatusOpen(false) }}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
+            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
             Payment <ChevronDown size={13} />
           </button>
           {payOpen && (
@@ -673,6 +675,7 @@ export default function OrderDetailPage() {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   ArrowLeft, Package, ShoppingBag, Clock, MapPin, CreditCard,
-  Truck, ChevronRight, RotateCcw, Pencil,
+  Truck, ChevronRight, RotateCcw, Pencil, Download,
 } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
@@ -118,6 +118,14 @@ export default async function OrderDetailPage({ params }: PageProps) {
             >
               <Truck size={13} /> Track order <ChevronRight size={12} />
             </Link>
+            <a
+              href={`/api/account/orders/${order.id}/invoice`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+            >
+              <Download size={13} /> Download invoice
+            </a>
             {canEdit && (
               <Link
                 href={`/account/orders/${order.id}/edit-address`}
