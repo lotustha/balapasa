@@ -6,6 +6,7 @@ import {
   Loader2, X, CheckCircle2, Copy, Percent, Banknote,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/useConfirm'
 
 interface Coupon {
   id: string; code: string; type: 'PERCENT' | 'FIXED'; value: number
@@ -35,6 +36,7 @@ const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-x
 const SCOPE_LABELS = { ALL: 'All products', CATEGORY: 'Specific categories', PRODUCT: 'Specific products' }
 
 export default function CouponsPage() {
+  const { confirm, dialog } = useConfirm()
   const [coupons,  setCoupons]  = useState<Coupon[]>([])
   const [cats,     setCats]     = useState<Cat[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -97,7 +99,13 @@ export default function CouponsPage() {
   }
 
   async function del(c: Coupon) {
-    if (!confirm(`Delete coupon "${c.code}"?`)) return
+    const ok = await confirm({
+      title: 'Delete coupon?',
+      message: <>Coupon <span className="font-bold text-slate-700">{c.code}</span> will be permanently removed. This can&rsquo;t be undone.</>,
+      confirmLabel: 'Delete coupon',
+      tone: 'danger',
+    })
+    if (!ok) return
     await fetch(`/api/admin/coupons/${c.id}`, { method: 'DELETE' })
     setCoupons(prev => prev.filter(x => x.id !== c.id))
   }
@@ -358,6 +366,8 @@ export default function CouponsPage() {
           </div>
         </div>
       )}
+
+      {dialog}
     </div>
   )
 }

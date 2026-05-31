@@ -7,6 +7,7 @@ import {
   MessageCircleQuestion, Loader2, Trash2, Eye, EyeOff, Send,
   CheckCircle2, ExternalLink, Search,
 } from 'lucide-react'
+import { useConfirm } from '@/components/ui/useConfirm'
 
 interface Answer {
   id: string
@@ -39,6 +40,7 @@ function fmtDate(s: string) {
 }
 
 export default function QaModerationPage() {
+  const { confirm, dialog } = useConfirm()
   const [questions, setQuestions] = useState<Question[]>([])
   const [counts, setCounts]       = useState<Counts>({ all: 0, unanswered: 0, hidden: 0 })
   const [filter, setFilter]       = useState<Filter>('unanswered')
@@ -104,13 +106,25 @@ export default function QaModerationPage() {
   }
 
   async function deleteAnswer(q: Question, a: Answer) {
-    if (!confirm('Delete this answer?')) return
+    const ok = await confirm({
+      title: 'Delete answer?',
+      message: 'This answer will be removed from the public Q&A. This can’t be undone.',
+      confirmLabel: 'Delete answer',
+      tone: 'danger',
+    })
+    if (!ok) return
     const res = await fetch(`/api/admin/answers/${a.id}`, { method: 'DELETE' })
     if (res.ok) setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, answers: x.answers.filter(y => y.id !== a.id) } : x))
   }
 
   async function deleteQuestion(q: Question) {
-    if (!confirm('Delete this question and all its answers?')) return
+    const ok = await confirm({
+      title: 'Delete question?',
+      message: 'The question and all its answers will be permanently removed. This can’t be undone.',
+      confirmLabel: 'Delete question',
+      tone: 'danger',
+    })
+    if (!ok) return
     setBusy(q.id)
     const res = await fetch(`/api/admin/questions/${q.id}`, { method: 'DELETE' })
     if (res.ok) {
@@ -238,6 +252,7 @@ export default function QaModerationPage() {
           ))}
         </div>
       )}
+      {dialog}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Star, Loader2, Trash2, Search, ExternalLink, MessageSquare } from 'lucide-react'
+import { useConfirm } from '@/components/ui/useConfirm'
 
 interface Review {
   id: string
@@ -38,6 +39,7 @@ function Stars({ n }: { n: number }) {
 }
 
 export default function ReviewModerationPage() {
+  const { confirm, dialog } = useConfirm()
   const [reviews, setReviews] = useState<Review[]>([])
   const [rating, setRating]   = useState('')
   const [search, setSearch]   = useState('')
@@ -60,7 +62,13 @@ export default function ReviewModerationPage() {
   }, [load, search])
 
   async function del(r: Review) {
-    if (!confirm(`Delete this ${r.rating}★ review by ${r.author}? The product rating will be recalculated.`)) return
+    const ok = await confirm({
+      title: 'Delete review?',
+      message: <>This {r.rating}★ review by <span className="font-bold text-slate-700">{r.author}</span> will be removed and the product&rsquo;s rating recalculated.</>,
+      confirmLabel: 'Delete review',
+      tone: 'danger',
+    })
+    if (!ok) return
     setBusy(r.id)
     const res = await fetch(`/api/admin/reviews/${r.id}`, { method: 'DELETE' })
     if (res.ok) setReviews(prev => prev.filter(x => x.id !== r.id))
@@ -135,6 +143,7 @@ export default function ReviewModerationPage() {
           ))}
         </div>
       )}
+      {dialog}
     </div>
   )
 }
