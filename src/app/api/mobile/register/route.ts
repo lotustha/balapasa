@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { signToken, AUTH_COOKIE, cookieOptions } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
+import { attributeReferral } from '@/lib/referral'
 
 export async function POST(req: NextRequest) {
-  const { email, password, name, phone } = await req.json()
+  const { email, password, name, phone, referralCode } = await req.json()
   if (!email || !password)
     return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
   if (password.length < 8)
@@ -18,6 +19,10 @@ export async function POST(req: NextRequest) {
   const profile = await prisma.profile.create({
     data: { email, password: hash, name, phone, role: 'CUSTOMER' },
   })
+
+  // Link to a referrer if a valid code was supplied (reward granted on the
+  // first delivered order; non-blocking).
+  await attributeReferral(profile.id, referralCode).catch(() => {})
 
   const token = await signToken({
     sub: profile.id, email: profile.email,

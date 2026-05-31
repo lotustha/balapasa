@@ -834,3 +834,35 @@ enum LoyaltyTxnType {
   REDEEM  // converted to store credit
   ADJUST  // manual correction (can be negative)
 }
+
+// Referral program — each customer gets a code; when a referred customer's
+// first order is delivered, both sides receive store credit. No FK on userIds
+// (same convention as StoreCredit / LoyaltyAccount).
+model ReferralCode {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  code      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("referral_codes")
+}
+
+model Referral {
+  id          String         @id @default(cuid())
+  referrerId  String         @map("referrer_id")
+  refereeId   String         @unique @map("referee_id")   // a customer can be referred only once
+  code        String                                       // the code used at signup
+  status      ReferralStatus @default(PENDING)
+  orderId     String?        @map("order_id")              // the qualifying first order
+  rewardAmount Float         @default(0) @map("reward_amount") // total credited (both sides) when rewarded
+  createdAt   DateTime       @default(now()) @map("created_at")
+  rewardedAt  DateTime?      @map("rewarded_at")
+
+  @@index([referrerId, createdAt])
+  @@map("referrals")
+}
+
+enum ReferralStatus {
+  PENDING   // referee signed up with the code, hasn't qualified yet
+  REWARDED  // referee's first order delivered; both sides credited
+}

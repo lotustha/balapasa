@@ -10,6 +10,7 @@ import { pushOrderEvent } from '@/lib/push'
 import { restoreStockForOrder } from '@/lib/restore-stock'
 import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
 import { awardLoyaltyForOrder } from '@/lib/loyalty'
+import { rewardReferralForOrder } from '@/lib/referral'
 import type { DeliveryExceptionKind } from '@/lib/emails/types'
 
 // ── PnD event shape ─────────────────────────────────────────────────────────
@@ -186,6 +187,9 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   if (dataUpdate.status === 'DELIVERED') {
     await awardLoyaltyForOrder(order.id).catch(e =>
       console.warn('[pickndrop-webhook] loyalty award failed (non-fatal):', e),
+    )
+    await rewardReferralForOrder(order.id).catch(e =>
+      console.warn('[pickndrop-webhook] referral reward failed (non-fatal):', e),
     )
   }
 

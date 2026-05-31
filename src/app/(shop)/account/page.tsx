@@ -2,7 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   User, ShoppingBag, MapPin, Heart, ChevronRight, Package, Star,
-  Settings, ArrowRight, Shield, Clock, Repeat, Wallet, Sparkles,
+  Settings, ArrowRight, Shield, Clock, Repeat, Wallet, Sparkles, Users,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/account/wishlist',  icon: Heart,       label: 'Wishlist',           desc: 'Products you saved'        },
   { href: '/account/store-credit', icon: Wallet,   label: 'Store Credit',       desc: 'Your wallet balance'       },
   { href: '/account/loyalty',   icon: Sparkles,    label: 'Loyalty Points',     desc: 'Earn & redeem rewards'     },
+  { href: '/account/referrals', icon: Users,       label: 'Refer & Earn',       desc: 'Invite friends for credit' },
   { href: '/account/profile',   icon: Settings,    label: 'Profile & Security', desc: 'Edit your info & password' },
 ]
 

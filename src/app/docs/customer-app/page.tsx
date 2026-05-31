@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Wallet,
   Sparkles,
+  Users,
 } from 'lucide-react'
 import EndpointCard from '../components/EndpointCard'
 import CodeBlock from '../components/CodeBlock'
@@ -848,6 +849,54 @@ const { orderId, orderCode } = await res.json()
             The credit then spends via <code className="font-[family-name:var(--font-jetbrains)]">storeCreditAmount</code> at checkout.
           </p>
         </EndpointCard>
+      </section>
+
+      {/* ── Referrals ──────────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeading id="referrals" icon={Users}>
+          Referrals
+        </SectionHeading>
+        <p className="max-w-2xl text-sm leading-relaxed text-slate-400">
+          Every customer has a referral code. Pass it at registration as{' '}
+          <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">referralCode</code>{' '}
+          (on <code className="font-[family-name:var(--font-jetbrains)]">/api/mobile/register</code>); when the
+          new customer&apos;s first order is delivered, both sides receive store
+          credit. Rates are store-configured.
+        </p>
+
+        <EndpointCard method="GET" path="/api/account/referrals" auth="Bearer or Cookie" title="My code, rewards & referred friends">
+          <p className="mb-2 mt-1 text-slate-400">Response <code className="font-[family-name:var(--font-jetbrains)]">200</code></p>
+          <CodeBlock
+            language="json"
+            code={`{
+  "config": { "enabled": true, "referrerReward": 100, "refereeReward": 100, "minOrder": 0 },
+  "code": "BP1A2B3C",
+  "totalEarned": 200,
+  "rewardedCount": 2,
+  "referrals": [
+    { "id": "clx...", "status": "REWARDED", "createdAt": "...", "rewardedAt": "..." },
+    { "id": "clw...", "status": "PENDING",  "createdAt": "...", "rewardedAt": null }
+  ]
+}`}
+          />
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            Build the share link as{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">{`{appUrl}/register?ref={code}`}</code>.
+            A <code className="font-[family-name:var(--font-jetbrains)]">PENDING</code> referral becomes{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">REWARDED</code> once that friend&apos;s first
+            order is delivered; rewards land in both wallets (see{' '}
+            <Link href="/docs/customer-app#store-credit" className="text-emerald-400 underline-offset-4 hover:underline">Store credit</Link>).
+          </p>
+        </EndpointCard>
+
+        <Callout tone="info" title="Attribution happens at signup">
+          <p>
+            Pass the friend&apos;s code as{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">referralCode</code> in the register
+            request body. It&apos;s linked then (a customer can be referred only once and can&apos;t refer
+            themselves); the reward is paid later, on the first delivered order — never blocking signup.
+          </p>
+        </Callout>
       </section>
 
       {/* ── Push notifications ─────────────────────────────────────────── */}

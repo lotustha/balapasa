@@ -6,9 +6,10 @@ import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { createVerifyEmailToken, verifyEmailUrl } from '@/lib/magic-link'
 import { getSiteSettings } from '@/lib/site-settings'
+import { attributeReferral } from '@/lib/referral'
 
 export async function POST(req: NextRequest) {
-  const { email, password, name, phone } = await req.json()
+  const { email, password, name, phone, referralCode } = await req.json()
   if (!email || !password) return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
   if (password.length < 8) return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
 
@@ -19,6 +20,10 @@ export async function POST(req: NextRequest) {
   const profile = await prisma.profile.create({
     data: { email, password: hash, name, phone, role: 'CUSTOMER' },
   })
+
+  // Link to a referrer if a valid code was supplied (non-blocking; the reward
+  // is granted later, when this customer's first order is delivered).
+  await attributeReferral(profile.id, referralCode).catch(() => {})
 
   const token = await signToken({ sub: profile.id, email: profile.email, role: profile.role, name: profile.name ?? undefined })
   const res = NextResponse.json({ success: true })
