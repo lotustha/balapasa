@@ -63,11 +63,12 @@ export default function ReferencePage() {
             ). Mobile clients send it as{' '}
             <code className="font-[family-name:var(--font-jetbrains)]">Authorization: Bearer &lt;jwt&gt;</code>.
             The web app stores the same token in an httpOnly{' '}
-            <code className="font-[family-name:var(--font-jetbrains)]">auth-token</code> cookie. Most
-            customer endpoints read the cookie only — the Bearer header is accepted on{' '}
-            <code className="font-[family-name:var(--font-jetbrains)]">/api/wishlist</code>,{' '}
-            <code className="font-[family-name:var(--font-jetbrains)]">/api/mobile/push</code>, and the
-            mobile auth routes. Roles rank CUSTOMER &lt; STAFF &lt; MANAGER &lt; ADMIN.
+            <code className="font-[family-name:var(--font-jetbrains)]">auth-token</code> cookie. Every
+            authenticated endpoint accepts <em>either</em> transport —{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">getCurrentUser()</code> /{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">requireRole()</code> read the
+            Bearer header first, then fall back to the cookie — so mobile clients just send the
+            Authorization header everywhere. Roles rank CUSTOMER &lt; STAFF &lt; MANAGER &lt; ADMIN.
           </p>
         </div>
 

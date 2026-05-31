@@ -176,31 +176,22 @@ export default function CustomerAppPage() {
           />
         </EndpointCard>
 
-        <Callout tone="warning" title="Cookie vs. bearer — know which endpoints read which">
+        <Callout tone="info" title="Bearer works everywhere — send the Authorization header">
           <p className="mb-2">
-            The JWT is identical either way, but not every customer endpoint
-            reads the bearer header yet. As of today:
+            Every authenticated customer endpoint accepts the JWT as a{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">Authorization: Bearer &lt;jwt&gt;</code>{' '}
+            header — orders, account profile/addresses, subscriptions, reviews,
+            wishlist, store credit, loyalty, referrals, and push all resolve it
+            through{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">getCurrentUser()</code>, which
+            reads the bearer header first and falls back to the{' '}
+            <code className="font-[family-name:var(--font-jetbrains)]">auth-token</code> cookie for web.
           </p>
-          <ul className="ml-4 list-disc space-y-1">
-            <li>
-              <span className="text-slate-100">Bearer header or cookie:</span>{' '}
-              <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">/api/wishlist</code>,{' '}
-              <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">/api/mobile/push</code>.
-            </li>
-            <li>
-              <span className="text-slate-100">Cookie only</span> (
-              <code className="font-[family-name:var(--font-jetbrains)]">auth-token</code>): orders,
-              account profile/addresses, subscriptions, and reviews read the JWT
-              from the cookie via{' '}
-              <code className="font-[family-name:var(--font-jetbrains)]">getCurrentUser()</code>.
-            </li>
-          </ul>
-          <p className="mt-2">
-            Mobile clients should therefore send the JWT as a{' '}
-            <code className="font-[family-name:var(--font-jetbrains)]">Cookie: auth-token=&lt;jwt&gt;</code>{' '}
-            header on those routes (the login response sets it for you), or send
-            both the bearer and the cookie. The samples below show the bearer
-            header as the canonical mobile contract.
+          <p>
+            So a mobile client only needs to store the token from login and send
+            it as the bearer header on every request — no cookie juggling
+            required. (Some walkthrough snippets below also set the cookie; that
+            is optional and harmless.)
           </p>
         </Callout>
       </section>
@@ -511,7 +502,7 @@ const { orderId, orderCode } = await res.json()
         <EndpointCard
           method="GET"
           path="/api/orders"
-          auth="Cookie (auth-token)"
+          auth="Bearer or Cookie"
           title="The signed-in customer's orders"
         >
           <p>
@@ -567,7 +558,7 @@ const { orderId, orderCode } = await res.json()
           Account &amp; addresses
         </SectionHeading>
 
-        <EndpointCard method="GET" path="/api/account/profile" auth="Cookie (auth-token)" title="Get profile">
+        <EndpointCard method="GET" path="/api/account/profile" auth="Bearer or Cookie" title="Get profile">
           <p>
             Returns the current user&apos;s{' '}
             <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">id, name, email, phone, avatar, role, createdAt</code>.
@@ -575,7 +566,7 @@ const { orderId, orderCode } = await res.json()
           </p>
         </EndpointCard>
 
-        <EndpointCard method="PATCH" path="/api/account/profile" auth="Cookie (auth-token)" title="Update profile">
+        <EndpointCard method="PATCH" path="/api/account/profile" auth="Bearer or Cookie" title="Update profile">
           <ParamTable
             rows={[
               { name: 'name', type: 'string', desc: 'Display name (empty string clears it).' },
@@ -585,11 +576,11 @@ const { orderId, orderCode } = await res.json()
           />
         </EndpointCard>
 
-        <EndpointCard method="GET" path="/api/account/addresses" auth="Cookie (auth-token)" title="List saved addresses">
+        <EndpointCard method="GET" path="/api/account/addresses" auth="Bearer or Cookie" title="List saved addresses">
           <p>Returns the user&apos;s addresses, default first.</p>
         </EndpointCard>
 
-        <EndpointCard method="POST" path="/api/account/addresses" auth="Cookie (auth-token)" title="Add an address">
+        <EndpointCard method="POST" path="/api/account/addresses" auth="Bearer or Cookie" title="Add an address">
           <p className="mb-3">
             The first address saved automatically becomes the default; passing{' '}
             <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">isDefault: true</code>{' '}
@@ -624,14 +615,14 @@ const { orderId, orderCode } = await res.json()
           Subscriptions are prepaid — COD does not apply.
         </p>
 
-        <EndpointCard method="GET" path="/api/subscriptions" auth="Cookie (auth-token)" title="List my subscriptions">
+        <EndpointCard method="GET" path="/api/subscriptions" auth="Bearer or Cookie" title="List my subscriptions">
           <p>
             Returns the signed-in user&apos;s subscriptions (newest first), each
             with its <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">plan</code>.
           </p>
         </EndpointCard>
 
-        <EndpointCard method="POST" path="/api/subscriptions" auth="Cookie (auth-token)" title="Subscribe to a plan">
+        <EndpointCard method="POST" path="/api/subscriptions" auth="Bearer or Cookie" title="Subscribe to a plan">
           <ParamTable
             rows={[
               { name: 'planId', type: 'string', required: true, desc: 'The plan to subscribe to (must be active).' },
@@ -653,7 +644,7 @@ const { orderId, orderCode } = await res.json()
           </p>
         </EndpointCard>
 
-        <EndpointCard method="POST" path="/api/subscriptions/{id}/pay" auth="Cookie (auth-token)" title="Pay the open invoice">
+        <EndpointCard method="POST" path="/api/subscriptions/{id}/pay" auth="Bearer or Cookie" title="Pay the open invoice">
           <p className="mb-3">
             Initiates online payment for the subscription&apos;s open invoice.
             eSewa and Khalti only.
@@ -679,7 +670,7 @@ const { orderId, orderCode } = await res.json()
           </p>
         </EndpointCard>
 
-        <EndpointCard method="PATCH" path="/api/subscriptions/{id}" auth="Cookie (auth-token)" title="Cancel or resume">
+        <EndpointCard method="PATCH" path="/api/subscriptions/{id}" auth="Bearer or Cookie" title="Cancel or resume">
           <p className="mb-3">
             Ownership is enforced — you can only modify your own subscriptions.
           </p>
@@ -702,7 +693,7 @@ const { orderId, orderCode } = await res.json()
           Reviews
         </SectionHeading>
 
-        <EndpointCard method="POST" path="/api/reviews" auth="Cookie (auth-token)" title="Rate & review a product">
+        <EndpointCard method="POST" path="/api/reviews" auth="Bearer or Cookie" title="Rate & review a product">
           <p className="mb-3">
             Upserts the user&apos;s review for a product (one per user per
             product) and recomputes the product&apos;s average rating and review

@@ -210,7 +210,10 @@ export default function StoreAppPage() {
           title="Get one order"
         >
           <p>
-            Returns a single order with its <code>items</code>, or{' '}
+            Returns a single order with its <code>items</code> and a{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-emerald-400">timeline</code>{' '}
+            array — the carrier/admin status log (raw + mapped status, comment, source,
+            timestamp) behind the order&apos;s delivery sub-states. Or{' '}
             <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
               404 &#123; error: &quot;Not found&quot; &#125;
             </code>{' '}
@@ -300,6 +303,25 @@ export default function StoreAppPage() {
   -d '{ "status": "SHIPPED" }'`}
             />
           </div>
+        </EndpointCard>
+
+        <EndpointCard
+          method="DELETE"
+          path="/api/admin/orders/[id]"
+          auth="requireRole('ADMIN')"
+          title="Delete an order"
+        >
+          <p>
+            Hard-removes an order for cleaning up test/erroneous records. ADMIN
+            only. Deletes the order&apos;s status logs and line items, then the
+            order, in one transaction. It deliberately does <strong>not</strong>{' '}
+            restore stock or refund — use a CANCELLED status update for that.
+            Returns{' '}
+            <code className="font-[family-name:var(--font-jetbrains)] text-slate-200">
+              &#123; success: true &#125;
+            </code>
+            ; non-ADMIN callers get 403.
+          </p>
         </EndpointCard>
       </section>
 
