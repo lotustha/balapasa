@@ -68,6 +68,7 @@ export default function AdminReturnDetailPage(props: { params: Promise<{ id: str
   const [loading, setLoading]   = useState(true)
   const [pending, setPending]   = useState<string | null>(null)
   const [adminNote, setNote]    = useState('')
+  const [refundToCredit, setRefundToCredit] = useState(true)
   const [error, setError]       = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -85,7 +86,7 @@ export default function AdminReturnDetailPage(props: { params: Promise<{ id: str
     }
   }, [id])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t) }, [load])
 
   async function transition(target: string) {
     if (!data) return
@@ -93,7 +94,12 @@ export default function AdminReturnDetailPage(props: { params: Promise<{ id: str
       alert('Please add a note explaining why you are rejecting this return — the customer sees it in their email.')
       return
     }
-    if (target === 'REFUNDED' && !confirm(`Mark this return as REFUNDED? This sets paymentStatus on the order to REFUNDED and notifies the customer.`)) return
+    if (target === 'REFUNDED') {
+      const msg = refundToCredit
+        ? `Issue ${formatPrice(data.refundAmount)} as store credit to the customer's wallet and mark this return REFUNDED?`
+        : `Mark this return as REFUNDED? This sets paymentStatus on the order to REFUNDED and notifies the customer. (You'll refund via the original method out-of-band.)`
+      if (!confirm(msg)) return
+    }
 
     setPending(target)
     setError(null)
@@ -101,7 +107,11 @@ export default function AdminReturnDetailPage(props: { params: Promise<{ id: str
       const res = await fetch(`/api/admin/returns/${id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ status: target, adminNote: adminNote.trim() || undefined }),
+        body:    JSON.stringify({
+          status: target,
+          adminNote: adminNote.trim() || undefined,
+          refundToCredit: target === 'REFUNDED' ? refundToCredit : undefined,
+        }),
       })
       const j = await res.json()
       if (!res.ok) {
@@ -265,9 +275,24 @@ export default function AdminReturnDetailPage(props: { params: Promise<{ id: str
             </p>
           )}
           {data.status === 'RECEIVED' && (
-            <p className="text-[11px] text-slate-500">
-              Process the refund out-of-band (eSewa, Khalti, bank, cash) then mark refunded. The order&rsquo;s payment status flips to REFUNDED and the customer gets a confirmation email.
-            </p>
+            <div className="space-y-2">
+              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={refundToCredit}
+                  onChange={e => setRefundToCredit(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-green-600 cursor-pointer shrink-0"
+                />
+                <span className="text-xs text-slate-600 leading-relaxed">
+                  <span className="font-bold text-slate-800">Refund as store credit</span> — instantly add{' '}
+                  <span className="font-bold text-green-700">{formatPrice(data.refundAmount)}</span> to the customer&rsquo;s wallet (they can spend it at checkout).
+                  Uncheck to record a manual refund instead (eSewa / Khalti / bank / cash, handled out-of-band).
+                </span>
+              </label>
+              <p className="text-[11px] text-slate-500">
+                Either way the order&rsquo;s payment status flips to REFUNDED and the customer gets a confirmation email.
+              </p>
+            </div>
           )}
         </div>
       ) : (
