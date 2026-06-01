@@ -8,13 +8,14 @@ import {
   Save, Loader2, CheckCircle2, Eye, EyeOff, Copy,
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
   MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library, Info,
-  AlertTriangle, X, Package, ShoppingCart, Receipt, Users, UserCog,
+  AlertTriangle, X, Package, ShoppingCart, Receipt, Users, UserCog, Megaphone,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
 import {
   HERO_DEFAULTS, FAQ_DEFAULTS, splitBrandName, cleanBrandName,
-  type HeroBadge, type FaqItem,
+  BANNER_DEFAULTS, POPUP_DEFAULTS, parseBanner, parsePopup,
+  type HeroBadge, type FaqItem, type StoreBanner, type StorePopup,
 } from '@/lib/site-settings-shared'
 import GalleryPickerModal from '@/components/admin/GalleryPickerModal'
 
@@ -60,7 +61,7 @@ interface ContentForm {
   CONTACT_MAP_EMBED:       string
 }
 
-type TabId = 'store' | 'homepage' | 'content' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
+type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'store',         icon: Store,           label: 'Store',         desc: 'Name, contact & delivery' },
   { id: 'homepage',      icon: LayoutTemplate,  label: 'Homepage',      desc: 'Hero, headline & CTAs'    },
   { id: 'content',       icon: Library,         label: 'Content',       desc: 'Legal pages, about & FAQ' },
+  { id: 'notices',       icon: Megaphone,       label: 'Notices',       desc: 'Banner & popup'           },
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
   { id: 'ai',            icon: Sparkles,   label: 'AI',            desc: 'Anthropic & Gemini'        },
@@ -1461,6 +1463,222 @@ function HomepageSettingsPanel({ saving, saved, onSave }: {
   )
 }
 
+// ── Notices (banner + popup) settings panel ───────────────────────────────
+
+// Small reusable on/off switch matching the toggle styling used elsewhere on
+// this page (delivery mode / mock toggles).
+function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`shrink-0 w-11 h-6 rounded-full transition-colors cursor-pointer relative ${checked ? 'bg-primary' : 'bg-slate-300'}`}
+    >
+      <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+    </button>
+  )
+}
+
+// Popup image picker — reuses the exact same upload endpoint + GalleryPickerModal
+// mechanism as the Store logo/favicon, yielding an internal /uploads/... path.
+function PopupImagePicker({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    setUploading(true)
+    try {
+      const res = await fetch('/api/upload/image', {
+        method: 'POST', headers: { 'content-type': file.type }, body: await file.arrayBuffer(),
+      })
+      const data = await res.json()
+      if (res.ok && data.url) onChange(data.url)
+    } catch {}
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  return (
+    <div>
+      <Label>Popup Image</Label>
+      <div className="flex items-center gap-4 mt-1">
+        <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden shrink-0">
+          {url
+            ? <img src={url} alt="Popup image preview" className="object-cover w-full h-full" />
+            : <Upload size={20} className="text-slate-300" />}
+        </div>
+        <div className="flex-1">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+              {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><Upload size={14} /> Upload image</>}
+            </button>
+            <button type="button" onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-sm font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+              <Library size={14} /> From library
+            </button>
+          </div>
+          {url && (
+            <input value={url} onChange={e => onChange(e.target.value)} placeholder="or paste URL…"
+              className="mt-2 w-full px-3 py-1.5 text-[11px] font-mono border border-slate-100 rounded-lg bg-white text-slate-500 outline-none focus:border-primary focus:ring-1 focus:ring-primary/10" />
+          )}
+        </div>
+      </div>
+      <Hint>Shown at the top of the promo popup. Recommended landscape image.</Hint>
+      <GalleryPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(urls) => { if (urls[0]) onChange(urls[0]) }}
+        mode="single"
+        kind="image"
+        initiallySelected={url ? [url] : []}
+        title="Pick a popup image"
+      />
+    </div>
+  )
+}
+
+function NoticesSection({ saving, saved, onSave }: {
+  saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void
+}) {
+  const [banner, setBanner] = useState<StoreBanner>(BANNER_DEFAULTS)
+  const [popup,  setPopup]  = useState<StorePopup>(POPUP_DEFAULTS)
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (!s) return
+      setBanner(parseBanner(s.STORE_BANNER_JSON))
+      setPopup(parsePopup(s.STORE_POPUP_JSON))
+    }).catch(() => {})
+  }, [])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onSave('notices', {
+      STORE_BANNER_JSON: JSON.stringify(banner),
+      STORE_POPUP_JSON:  JSON.stringify(popup),
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <InfoBanner icon={Megaphone} color="bg-amber-50 border border-amber-100 text-amber-700">
+        Configure the store-wide announcement banner and the promotional popup shown on the storefront. Changes take effect immediately for new visitors.
+      </InfoBanner>
+
+      {/* ── Announcement banner ─────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-4 rounded-full bg-primary" />
+            <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">Announcement Banner</h3>
+          </div>
+          <ToggleSwitch checked={banner.enabled} onChange={v => setBanner(b => ({ ...b, enabled: v }))} label="Enable announcement banner" />
+        </div>
+        <p className="text-xs text-slate-400 -mt-2">A thin strip shown below the navbar across the storefront.</p>
+
+        {/* Live preview */}
+        {banner.message.trim() && (
+          <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold text-center">
+            <span>{banner.message}</span>
+            {banner.linkLabel.trim() && (
+              <span className="underline underline-offset-2 font-bold">{banner.linkLabel}</span>
+            )}
+          </div>
+        )}
+
+        <div>
+          <Label>Message</Label>
+          <input value={banner.message} onChange={e => setBanner(b => ({ ...b, message: e.target.value }))}
+            placeholder="Free delivery on orders above NPR 5000 this week!" className={inputCls} maxLength={160} />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Link Label <span className="normal-case font-normal text-slate-400">(optional)</span></Label>
+            <input value={banner.linkLabel} onChange={e => setBanner(b => ({ ...b, linkLabel: e.target.value }))}
+              placeholder="Shop now" className={inputCls} maxLength={40} />
+            <Hint>Inline call-to-action text shown at the end of the message.</Hint>
+          </div>
+          <div>
+            <Label>Link URL <span className="normal-case font-normal text-slate-400">(optional)</span></Label>
+            <input value={banner.linkUrl} onChange={e => setBanner(b => ({ ...b, linkUrl: e.target.value }))}
+              placeholder="/products" className={inputCls + ' font-mono text-xs'} />
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/40">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Dismissible</p>
+            <p className="text-[11px] text-slate-400">Let visitors close the banner with an ✕.</p>
+          </div>
+          <ToggleSwitch checked={banner.dismissible} onChange={v => setBanner(b => ({ ...b, dismissible: v }))} label="Banner dismissible" />
+        </div>
+      </div>
+
+      {/* ── Promo popup ─────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-4 rounded-full bg-primary" />
+            <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">Promo Popup</h3>
+          </div>
+          <ToggleSwitch checked={popup.enabled} onChange={v => setPopup(p => ({ ...p, enabled: v }))} label="Enable promo popup" />
+        </div>
+        <p className="text-xs text-slate-400 -mt-2">A modal shown to storefront visitors.</p>
+
+        <PopupImagePicker url={popup.image} onChange={url => setPopup(p => ({ ...p, image: url }))} />
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Title</Label>
+            <input value={popup.title} onChange={e => setPopup(p => ({ ...p, title: e.target.value }))}
+              placeholder="Welcome offer!" className={inputCls} maxLength={80} />
+          </div>
+          <div>
+            <Label>Frequency</Label>
+            <select value={popup.frequency}
+              onChange={e => setPopup(p => ({ ...p, frequency: e.target.value as StorePopup['frequency'] }))}
+              className={inputCls + ' cursor-pointer'}>
+              <option value="always">Always (every visit)</option>
+              <option value="session">Once per session</option>
+              <option value="once">Once ever</option>
+            </select>
+            <Hint>How often to re-show the popup after a visitor dismisses it.</Hint>
+          </div>
+        </div>
+        <div>
+          <Label>Description</Label>
+          <textarea value={popup.description} onChange={e => setPopup(p => ({ ...p, description: e.target.value }))}
+            rows={3} maxLength={300} className={inputCls + ' resize-y'}
+            placeholder="Get 10% off your first order — use code WELCOME10 at checkout." />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Button Label <span className="normal-case font-normal text-slate-400">(optional)</span></Label>
+            <input value={popup.buttonLabel} onChange={e => setPopup(p => ({ ...p, buttonLabel: e.target.value }))}
+              placeholder="Shop now" className={inputCls} maxLength={40} />
+            <Hint>Leave empty to hide the popup's action button.</Hint>
+          </div>
+          <div>
+            <Label>Button URL <span className="normal-case font-normal text-slate-400">(optional)</span></Label>
+            <input value={popup.buttonUrl} onChange={e => setPopup(p => ({ ...p, buttonUrl: e.target.value }))}
+              placeholder="/products" className={inputCls + ' font-mono text-xs'} />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <SaveBtn section="notices" saving={saving} saved={saved} />
+      </div>
+    </form>
+  )
+}
+
 // ── Legal page default templates ──────────────────────────────────────────
 
 const LEGAL_DEFAULTS = {
@@ -2252,6 +2470,11 @@ export default function SettingsPage() {
                 </div>
               </div>
             </form>
+          )}
+
+          {/* ── Notices tab ───────────────────────────────────────── */}
+          {tab === 'notices' && (
+            <NoticesSection saving={saving} saved={saved} onSave={save} />
           )}
 
           {/* ── Payments tab ──────────────────────────────────────── */}

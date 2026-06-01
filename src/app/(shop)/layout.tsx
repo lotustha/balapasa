@@ -5,6 +5,8 @@ import ScrollReset from '@/components/layout/ScrollReset'
 import ThemeApplicator from '@/components/layout/ThemeApplicator'
 import FacebookPixel from '@/components/layout/FacebookPixel'
 import WhatsAppButton from '@/components/layout/WhatsAppButton'
+import StoreBanner from '@/components/layout/StoreBanner'
+import StorePopup from '@/components/layout/StorePopup'
 import { ProductContextProvider } from '@/context/ProductContext'
 import { getSiteSettings } from '@/lib/site-settings'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
@@ -25,8 +27,12 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           this element overflow-visible so sticky descendants (product gallery)
           can pin against the viewport. */}
       <main className="flex-1 min-w-0 pt-20 pb-20 md:pb-0">
+        {/* Store announcement banner — sits below the floating navbar, in flow. */}
+        <StoreBanner banner={settings.banner} />
         {children}
       </main>
+      {/* Promotional popup — fixed overlay; self-suppresses on /checkout. */}
+      <StorePopup popup={settings.popup} />
       {/* Footer hidden on mobile — bottom nav replaces it */}
       <div className="hidden md:block">
         <Footer

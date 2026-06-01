@@ -31,6 +31,8 @@ const PUBLIC_SITE_KEYS = new Set([
   'ABOUT_TITLE', 'ABOUT_BODY',
   'CONTACT_INSTAGRAM', 'CONTACT_X', 'CONTACT_YOUTUBE', 'CONTACT_HOURS', 'CONTACT_MAP_EMBED',
   'FAQ_JSON',
+  // Store notices — announcement banner + promo popup (JSON blobs)
+  'STORE_BANNER_JSON', 'STORE_POPUP_JSON',
 ])
 
 function mask(key: string, value: string) {

@@ -54,6 +54,27 @@ export interface ContentSettings {
   faq: FaqItem[]
 }
 
+// Store-wide announcement banner — a dismissible strip shown below the navbar.
+export interface StoreBanner {
+  enabled:     boolean
+  message:     string
+  linkLabel:   string   // optional inline CTA text
+  linkUrl:     string   // optional inline CTA href
+  dismissible: boolean
+}
+
+// Promotional popup modal shown on the storefront. Image is rendered with a
+// plain <img> (admin-pasted URLs aren't whitelisted for next/image).
+export interface StorePopup {
+  enabled:     boolean
+  image:       string
+  title:       string
+  description: string
+  buttonLabel: string
+  buttonUrl:   string
+  frequency:   'always' | 'session' | 'once'  // how often to re-show after a dismissal
+}
+
 export interface SiteSettings {
   siteName:   string  // Clean brand name (no | marker). Use everywhere except the
                       //  footer/logo wordmark where a gradient-accent half is wanted.
@@ -70,6 +91,8 @@ export interface SiteSettings {
   hero:       HeroSettings
   seo:        SeoSettings
   content:    ContentSettings
+  banner:     StoreBanner
+  popup:      StorePopup
 }
 
 export const HERO_DEFAULTS: HeroSettings = {
@@ -225,6 +248,48 @@ export const FAQ_DEFAULTS: FaqItem[] = [
     answer:   'After dispatch you receive an SMS/email with a tracking link. You can also track from the My Orders page or the Track Order page.' },
 ]
 
+export const BANNER_DEFAULTS: StoreBanner = {
+  enabled: false, message: '', linkLabel: '', linkUrl: '', dismissible: true,
+}
+
+export const POPUP_DEFAULTS: StorePopup = {
+  enabled: false, image: '', title: '', description: '', buttonLabel: '', buttonUrl: '', frequency: 'session',
+}
+
+// Tolerant JSON parsers (stored as STORE_BANNER_JSON / STORE_POPUP_JSON in
+// app_settings, same pattern as HERO_BADGES_JSON / FAQ_JSON). Bad/empty input
+// falls back to the disabled defaults so the storefront never breaks.
+export function parseBanner(json?: string | null): StoreBanner {
+  if (!json) return BANNER_DEFAULTS
+  try {
+    const o = JSON.parse(json) as Partial<StoreBanner>
+    return {
+      enabled:     !!o.enabled,
+      message:     typeof o.message   === 'string' ? o.message   : '',
+      linkLabel:   typeof o.linkLabel === 'string' ? o.linkLabel : '',
+      linkUrl:     typeof o.linkUrl   === 'string' ? o.linkUrl   : '',
+      dismissible: o.dismissible !== false,
+    }
+  } catch { return BANNER_DEFAULTS }
+}
+
+export function parsePopup(json?: string | null): StorePopup {
+  if (!json) return POPUP_DEFAULTS
+  try {
+    const o = JSON.parse(json) as Partial<StorePopup>
+    const freq = o.frequency === 'always' || o.frequency === 'once' ? o.frequency : 'session'
+    return {
+      enabled:     !!o.enabled,
+      image:       typeof o.image       === 'string' ? o.image       : '',
+      title:       typeof o.title       === 'string' ? o.title       : '',
+      description: typeof o.description === 'string' ? o.description : '',
+      buttonLabel: typeof o.buttonLabel === 'string' ? o.buttonLabel : '',
+      buttonUrl:   typeof o.buttonUrl   === 'string' ? o.buttonUrl   : '',
+      frequency:   freq,
+    }
+  } catch { return POPUP_DEFAULTS }
+}
+
 const DEFAULT_BRAND_RAW = process.env.NEXT_PUBLIC_STORE_NAME ?? 'Bala|pasa'
 
 export const SITE_DEFAULTS: SiteSettings = {
@@ -251,6 +316,8 @@ export const SITE_DEFAULTS: SiteSettings = {
     contact: CONTACT_DEFAULTS,
     faq:     FAQ_DEFAULTS,
   },
+  banner: BANNER_DEFAULTS,
+  popup:  POPUP_DEFAULTS,
 }
 
 function splitDefault(name: string): { primary: string; accent: string } {
@@ -285,6 +352,7 @@ export const SITE_SETTING_KEYS = [
   'ABOUT_TITLE', 'ABOUT_BODY',
   'CONTACT_INSTAGRAM', 'CONTACT_X', 'CONTACT_YOUTUBE', 'CONTACT_HOURS', 'CONTACT_MAP_EMBED',
   'FAQ_JSON',
+  'STORE_BANNER_JSON', 'STORE_POPUP_JSON',
 ] as const
 
 /**
