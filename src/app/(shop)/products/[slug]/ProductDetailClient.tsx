@@ -728,8 +728,11 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 )}
               </div>
 
-              {/* Main image (flex-1, square, glass framed) */}
-              <div className="flex-1 min-w-0 relative overflow-hidden"
+              {/* Main image (flex-1, square, glass framed). On desktop the
+                  square is capped to the viewport height (minus the sticky
+                  top offset + caption) and centred, so the whole image stays
+                  in view without scrolling. Mobile keeps the full-width square. */}
+              <div className="flex-1 min-w-0 relative overflow-hidden lg:max-w-[calc(100vh-9rem)] lg:mx-auto"
                 style={{ borderRadius:'2rem', background:'rgba(255,255,255,0.50)', backdropFilter:'blur(24px) saturate(200%)', border:'1px solid rgba(255,255,255,0.78)', boxShadow:'0 24px 64px rgba(0,0,0,0.10)' }}>
                 <div className="relative aspect-square">
                   {mediaMode === 'video' && activeVideo ? (

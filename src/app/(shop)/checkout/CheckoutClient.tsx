@@ -1527,7 +1527,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                         <p className="text-sm font-bold text-slate-800">Use store credit</p>
                         <p className="text-[10px] text-slate-500">
                           {formatPrice(storeCreditBalance)} available
-                          {!storeCreditEligible && <span> · pay with COD or Khalti to use it</span>}
+                          {!storeCreditEligible && <span> · available on COD, eSewa &amp; Khalti</span>}
                           {useStoreCredit && storeCreditEligible && storeCreditUsed > 0 && (
                             <span> · applying {formatPrice(storeCreditUsed)}</span>
                           )}

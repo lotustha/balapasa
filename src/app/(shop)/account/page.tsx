@@ -3,9 +3,11 @@ import Image from 'next/image'
 import {
   User, ShoppingBag, MapPin, Heart, ChevronRight, Package, Star,
   Settings, ArrowRight, Shield, Clock, Repeat, Wallet, Sparkles, Users,
+  Gift, Trophy,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getLoyaltyConfig } from '@/lib/loyalty'
 import { formatPrice } from '@/lib/utils'
 import SignOutButton from './SignOutButton'
 
@@ -50,8 +52,11 @@ function initials(name: string | null | undefined, email: string) {
 export default async function AccountPage() {
   const auth = await getCurrentUser()
 
-  // Load profile + counts + recent orders in parallel for signed-in users.
-  const [profile, orderCount, wishlistCount, reviewCount, recentOrders] = auth
+  // Load profile + counts + recent orders + reward balances in parallel for
+  // signed-in users. Loyalty points & store-credit balance power the rewards
+  // hero cards; every value is real (no mock) and falls back gracefully if the
+  // DB is unreachable.
+  const [profile, orderCount, wishlistCount, reviewCount, recentOrders, loyaltyAcct, creditRow, loyaltyCfg] = auth
     ? await Promise.all([
         prisma.profile.findUnique({ where: { id: auth.sub } }).catch(() => null),
         prisma.order.count({ where: { userId: auth.sub } }).catch(() => 0),
@@ -63,8 +68,17 @@ export default async function AccountPage() {
           take: 3,
           include: { items: { take: 4 } },
         }).catch(() => []),
+        prisma.loyaltyAccount.findUnique({
+          where: { userId: auth.sub },
+          select: { pointsBalance: true, lifetimePoints: true },
+        }).catch(() => null),
+        prisma.storeCredit.findUnique({
+          where: { userId: auth.sub },
+          select: { balance: true },
+        }).catch(() => null),
+        getLoyaltyConfig().catch(() => null),
       ])
-    : [null, 0, 0, 0, []]
+    : [null, 0, 0, 0, [], null, null, null]
 
   const signedIn    = !!auth
   const displayName = profile?.name?.trim() || auth?.name || (auth?.email ? auth.email.split('@')[0] : 'Guest User')
@@ -75,6 +89,18 @@ export default async function AccountPage() {
     { label: 'Wishlist Items', value: signedIn ? String(wishlistCount) : '0', icon: Heart,   color: '#EC4899' },
     { label: 'Reviews Left',   value: signedIn ? String(reviewCount)   : '0', icon: Star,    color: '#F59E0B' },
   ]
+
+  // ── Reward balances (real data) ───────────────────────────────────────────
+  const points         = loyaltyAcct?.pointsBalance  ?? 0
+  const lifetimePoints = loyaltyAcct?.lifetimePoints ?? 0
+  const creditBalance  = creditRow?.balance ?? 0
+  const loyaltyEnabled = loyaltyCfg?.enabled ?? true
+  const pointValue     = loyaltyCfg?.pointValue ?? 1
+  const minRedeem      = loyaltyCfg?.minRedeem ?? 100
+  const pointsAsCredit = Math.round(points * pointValue * 100) / 100
+  const canRedeem      = points >= minRedeem
+  const redeemPct      = minRedeem > 0 ? Math.min(100, Math.round((points / minRedeem) * 100)) : 100
+  const showLoyalty    = signedIn && loyaltyEnabled
 
   return (
     <div
@@ -173,6 +199,79 @@ export default async function AccountPage() {
 
           {/* ── RIGHT CONTENT ─────────────────────────────────── */}
           <div className="space-y-5">
+
+            {/* Rewards & wallet — real loyalty points + store-credit balance.
+                Both link to their full pages; hidden for guests. The loyalty
+                card is suppressed if the program is globally disabled. */}
+            {signedIn && (
+              <div className={`grid gap-4 animate-fade-in-up ${showLoyalty ? 'sm:grid-cols-2' : 'grid-cols-1'}`} style={{ animationDelay: '0.06s' }}>
+                {showLoyalty && (
+                  <Link
+                    href="/account/loyalty"
+                    aria-label={`Loyalty points: ${points} points, worth ${formatPrice(pointsAsCredit)}`}
+                    className="group relative overflow-hidden rounded-3xl p-5 text-white shadow-lg shadow-violet-500/25 cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg,#7C3AED 0%,#6366F1 55%,#4F46E5 100%)' }}
+                  >
+                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/85">
+                          <Sparkles size={13} /> Loyalty Points
+                        </span>
+                        <ChevronRight size={15} className="text-white/70 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                      <p className="mt-3 font-extrabold text-3xl leading-none">
+                        {points.toLocaleString()} <span className="text-base font-bold text-white/70">pts</span>
+                      </p>
+                      <p className="text-xs text-white/85 mt-1.5">≈ {formatPrice(pointsAsCredit)} store credit</p>
+                      {canRedeem ? (
+                        <span className="mt-3.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 text-[10px] font-bold">
+                          <Gift size={11} /> Ready to redeem
+                        </span>
+                      ) : (
+                        <div className="mt-3.5">
+                          <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
+                            <div className="h-full rounded-full bg-white transition-all" style={{ width: `${redeemPct}%` }} />
+                          </div>
+                          <p className="text-[10px] text-white/75 mt-1.5">
+                            {points > 0 ? `${(minRedeem - points).toLocaleString()} pts to your first redemption` : `Earn ${minRedeem.toLocaleString()} pts to redeem`}
+                          </p>
+                        </div>
+                      )}
+                      {lifetimePoints > 0 && (
+                        <p className="text-[10px] text-white/60 mt-2.5 flex items-center gap-1">
+                          <Trophy size={10} /> {lifetimePoints.toLocaleString()} earned all-time
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                )}
+
+                <Link
+                  href="/account/store-credit"
+                  aria-label={`Store credit balance: ${formatPrice(creditBalance)}`}
+                  className={`group relative overflow-hidden rounded-3xl p-5 text-white shadow-lg shadow-emerald-500/25 cursor-pointer ${showLoyalty ? '' : 'sm:col-span-1'}`}
+                  style={{ background: 'linear-gradient(135deg,#059669 0%,#10B981 60%,#14B8A6 100%)' }}
+                >
+                  <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/85">
+                        <Wallet size={13} /> Store Credit
+                      </span>
+                      <ChevronRight size={15} className="text-white/70 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <p className="mt-3 font-extrabold text-3xl leading-none">{formatPrice(creditBalance)}</p>
+                    <p className="text-xs text-white/85 mt-1.5">
+                      {creditBalance > 0 ? 'Apply at checkout to save on your order' : 'Earn credit from rewards & referrals'}
+                    </p>
+                    <span className="mt-3.5 inline-flex items-center gap-1 text-[10px] font-bold text-white/80">
+                      {creditBalance > 0 ? <>Use at checkout <ArrowRight size={11} /></> : <>How to earn <ArrowRight size={11} /></>}
+                    </span>
+                  </div>
+                </Link>
+              </div>
+            )}
 
             <div className="glass-card animate-fade-in-up" style={{ animationDelay: '0.08s' }}>
               <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
