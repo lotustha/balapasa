@@ -920,6 +920,53 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 isDealOfTheDay={p.isDealOfTheDay}
               />
 
+              {/* ── What's in this bundle ─────────────────────────────────────── */}
+              {p.kind === 'BUNDLE' && Array.isArray(p.bundleComponents) && p.bundleComponents.length > 0 && (() => {
+                const components = p.bundleComponents
+                const regularTotal = components.reduce((s, c) => s + (c.salePrice ?? c.price) * c.quantity, 0)
+                const bundlePrice = p.salePrice ?? p.price
+                const save = regularTotal - bundlePrice
+                return (
+                  <div className="rounded-2xl p-4 space-y-3" style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
+                    <div className="flex items-center gap-2">
+                      <Package size={15} className="text-primary" />
+                      <p className="text-xs font-bold text-primary uppercase tracking-wide">What&rsquo;s in this bundle</p>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {components.map(c => (
+                        <li key={c.id} className="flex items-center gap-3">
+                          <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-100">
+                            {c.image ? (
+                              <Image src={c.image} alt={c.name} fill className="object-cover" sizes="48px" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <Package size={18} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <Link href={`/products/${c.slug}`} className="text-sm font-semibold text-slate-700 hover:text-primary transition-colors line-clamp-2">
+                              {c.name}
+                            </Link>
+                            {c.inStock === false && (
+                              <span className="inline-block mt-0.5 text-[10px] font-semibold text-red-500">Out of stock</span>
+                            )}
+                          </div>
+                          <span className="shrink-0 px-2 py-0.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 tabular-nums">
+                            × {c.quantity}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {save > 0 && (
+                      <p className="text-xs font-semibold text-green-700 bg-green-50 rounded-xl px-3 py-2 leading-snug">
+                        Bundle price {formatPrice(bundlePrice)} · You save {formatPrice(save)} ({Math.round(save / regularTotal * 100)}%)
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
+
               <div className="px-3 py-2.5 rounded-xl bg-blue-50/80 border border-blue-100 space-y-1.5">
                 <div className="flex items-center gap-2.5">
                   <Truck size={16} className="text-blue-600 shrink-0" />

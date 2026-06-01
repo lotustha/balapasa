@@ -123,16 +123,19 @@ export async function POST(req: NextRequest) {
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, videoUrl, boughtTogetherIds,
+      kind, planId,
     } = body
 
     if (!name || !slug || !description || price == null || !categoryId) {
       return Response.json({ error: 'Missing required fields: name, slug, description, price, categoryId' }, { status: 400 })
     }
 
-    const { variantOptions, variants } = body as {
+    const { variantOptions, variants, bundleComponents } = body as {
       variantOptions?: { name: string; values: string[] }[]
       variants?: { title: string; sku?: string; price?: number; stock: number; image?: string; options: Record<string, string> }[]
+      bundleComponents?: { componentProductId: string; quantity: number }[]
     }
+    const isBundle = kind === 'BUNDLE'
 
     const product = await prisma.product.create({
       data: {
@@ -150,7 +153,10 @@ export async function POST(req: NextRequest) {
         isFeatured:        isFeatured ?? false,
         isNew:             isNew      ?? false,
         isTaxable:         isTaxable  ?? false,
-        trackInventory:    trackInventory ?? true,
+        // A bundle's stock is derived from components — never track its own.
+        trackInventory:    isBundle ? false : (trackInventory ?? true),
+        kind:              kind   || 'PHYSICAL',
+        planId:            planId || null,
         freeDelivery:      freeDelivery === true || freeDelivery === 'true',
         brand:             brand    || null,
         sku:               sku      || null,
@@ -200,6 +206,25 @@ export async function POST(req: NextRequest) {
         })),
         skipDuplicates: true,
       })
+    }
+
+    // Bundle components — same guards as the PATCH route: no self-reference, no
+    // nested bundles. Availability + order-time deduction derive from these.
+    if (isBundle && Array.isArray(bundleComponents) && bundleComponents.length) {
+      const wanted = bundleComponents.filter(c => c.componentProductId && c.componentProductId !== product.id)
+      const kinds = wanted.length
+        ? await prisma.product.findMany({ where: { id: { in: wanted.map(c => c.componentProductId) } }, select: { id: true, kind: true } })
+        : []
+      const allowed = new Set(kinds.filter(k => k.kind !== 'BUNDLE').map(k => k.id))
+      const rows = wanted
+        .filter(c => allowed.has(c.componentProductId))
+        .map((c, i) => ({
+          bundleProductId:    product.id,
+          componentProductId: c.componentProductId,
+          quantity:           Math.max(1, Math.floor(Number(c.quantity) || 1)),
+          sortOrder:          i,
+        }))
+      if (rows.length) await prisma.bundleItem.createMany({ data: rows, skipDuplicates: true })
     }
 
     return Response.json(product, { status: 201 })

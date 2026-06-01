@@ -49,6 +49,7 @@ export default function EditProductPage() {
           boughtTogetherIds: p.boughtTogetherIds ?? [],
           kind:              p.kind              ?? 'PHYSICAL',
           planId:            p.planId            ?? '',
+          bundleComponents:  p.bundleComponents  ?? [],
         })
       })
       .catch(() => setError('Failed to load product'))

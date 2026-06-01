@@ -22,7 +22,41 @@ export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[i
     // product delivered. Lets the mobile app gate the rating UI from one call.
     const me = await getCurrentUser().catch(() => null)
     const canReview = me ? await hasDeliveredPurchase(me.sub, product.id) : false
-    return Response.json({ ...product, canReview })
+
+    // Bundle components — BundleItem has no Prisma relation to Product (scalar
+    // FK only), so resolve names/images/prices with a manual join. Lets the
+    // admin edit form prefill the "Bundle contents" picker in one call.
+    let bundleComponents: {
+      componentProductId: string; quantity: number
+      name: string; image: string | null; price: number
+    }[] = []
+    if (product.kind === 'BUNDLE') {
+      const items = await prisma.bundleItem.findMany({
+        where: { bundleProductId: product.id },
+        orderBy: { sortOrder: 'asc' },
+      })
+      if (items.length) {
+        const comps = await prisma.product.findMany({
+          where: { id: { in: items.map(i => i.componentProductId) } },
+          select: { id: true, name: true, images: true, price: true, salePrice: true },
+        })
+        const byId = new Map(comps.map(c => [c.id, c]))
+        bundleComponents = items
+          .filter(i => byId.has(i.componentProductId))
+          .map(i => {
+            const c = byId.get(i.componentProductId)!
+            return {
+              componentProductId: i.componentProductId,
+              quantity: i.quantity,
+              name:  c.name,
+              image: c.images?.[0] ?? null,
+              price: c.salePrice ?? c.price,
+            }
+          })
+      }
+    }
+
+    return Response.json({ ...product, canReview, bundleComponents })
   } catch {
     return Response.json({ error: 'Failed to fetch product' }, { status: 500 })
   }
@@ -40,10 +74,11 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, boughtTogetherIds,
       kind, planId,
-      variantOptions, variants,
+      variantOptions, variants, bundleComponents,
     } = body as Record<string, unknown> & {
       variantOptions?: { name: string; values: string[] }[]
       variants?: { title: string; sku?: string | null; price?: number | null; stock?: number; image?: string | null; options: Record<string, string> }[]
+      bundleComponents?: { componentProductId: string; quantity: number }[]
     }
 
     const data: Record<string, unknown> = {}
@@ -91,8 +126,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       // "% claimed" bar has a baseline. Clear the snapshot when sale ends.
       const existing = await tx.product.findUnique({
         where: { id },
-        select: { salePrice: true, saleInitialStock: true, stock: true },
+        select: { salePrice: true, saleInitialStock: true, stock: true, kind: true },
       })
+      // A bundle's availability is derived from its components, so its own stock
+      // is never tracked — force it off whenever the product is (or becomes) a bundle.
+      const effectiveKind = (data.kind as string | undefined) ?? existing?.kind
+      if (effectiveKind === 'BUNDLE') data.trackInventory = false
       if (existing) {
         const becomingActive = data.salePrice !== undefined && data.salePrice !== null && existing.salePrice == null
         const becomingInactive = data.salePrice !== undefined && data.salePrice === null && existing.salePrice != null
@@ -143,6 +182,27 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
         }
       }
 
+      // Bundle components — wholesale replace (admin form sends the full list).
+      // Guards: drop self-references and nested bundles so a bundle can never
+      // deduct itself or another kit recursively.
+      if (effectiveKind === 'BUNDLE' && bundleComponents !== undefined) {
+        await tx.bundleItem.deleteMany({ where: { bundleProductId: id } })
+        const wanted = (bundleComponents ?? []).filter(c => c.componentProductId && c.componentProductId !== id)
+        const kinds = wanted.length
+          ? await tx.product.findMany({ where: { id: { in: wanted.map(c => c.componentProductId) } }, select: { id: true, kind: true } })
+          : []
+        const allowed = new Set(kinds.filter(k => k.kind !== 'BUNDLE').map(k => k.id))
+        const rows = wanted
+          .filter(c => allowed.has(c.componentProductId))
+          .map((c, i) => ({
+            bundleProductId:    id,
+            componentProductId: c.componentProductId,
+            quantity:           Math.max(1, Math.floor(Number(c.quantity) || 1)),
+            sortOrder:          i,
+          }))
+        if (rows.length) await tx.bundleItem.createMany({ data: rows, skipDuplicates: true })
+      }
+
       return updated
     })
 
@@ -164,6 +224,8 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<'/api/products
       prisma.inventoryLog.deleteMany({   where: { productId: id } }),
       prisma.productVariant.deleteMany({ where: { productId: id } }),
       prisma.productOption.deleteMany({  where: { productId: id } }),
+      // Remove this product both AS a bundle and as a component of other bundles.
+      prisma.bundleItem.deleteMany({     where: { OR: [{ bundleProductId: id }, { componentProductId: id }] } }),
       prisma.product.delete({            where: { id } }),
     ])
     // Image files on disk are kept so historical order receipts continue to render.

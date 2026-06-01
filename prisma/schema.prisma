@@ -692,6 +692,25 @@ enum ProductKind {
   PHYSICAL
   DIGITAL
   SUBSCRIPTION
+  BUNDLE
+}
+
+// Components of a bundle product (Product.kind == BUNDLE). bundleProductId is
+// the BUNDLE product; componentProductId is a regular product included in it.
+// No FK — same convention as WishlistItem / BackInStockSubscription. A bundle's
+// availability and its order-time stock deduction are DERIVED from these
+// components (the bundle's own stock is unused; it carries trackInventory=false).
+model BundleItem {
+  id                 String   @id @default(cuid())
+  bundleProductId    String   @map("bundle_product_id")
+  componentProductId String   @map("component_product_id")
+  quantity           Int      @default(1)
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([bundleProductId, componentProductId])
+  @@index([bundleProductId])
+  @@map("bundle_items")
 }
 
 model Plan {

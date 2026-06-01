@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getBundleComponents, bundleAvailability } from '@/lib/bundle'
 
 // Lightweight lookup used by checkout to know which cart items qualify for
 // free delivery without dragging full product detail into the cart context.
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     const rows = await prisma.product.findMany({
       where:  { id: { in: ids } },
-      select: { id: true, freeDelivery: true, isTaxable: true, isActive: true, stock: true, trackInventory: true, name: true },
+      select: { id: true, freeDelivery: true, isTaxable: true, isActive: true, stock: true, trackInventory: true, name: true, kind: true },
     })
     const flags: Record<string, boolean> = {}
     const taxable: Record<string, boolean> = {}
@@ -20,6 +21,14 @@ export async function POST(req: NextRequest) {
       flags[r.id]    = !!r.freeDelivery
       taxable[r.id]  = !!r.isTaxable
       validity[r.id] = { active: r.isActive, stock: r.stock, trackInventory: r.trackInventory, name: r.name }
+    }
+    // Bundles: the row's own stock is unused — derive how many whole bundles are
+    // fulfillable from current component stock and force trackInventory:true so
+    // the checkout stock guard treats an exhausted bundle as out of stock with
+    // zero client changes (same `validity` shape).
+    for (const r of rows.filter(r => r.kind === 'BUNDLE')) {
+      const avail = bundleAvailability(await getBundleComponents(r.id))
+      validity[r.id] = { active: r.isActive, stock: avail, trackInventory: true, name: r.name }
     }
     // ids the lookup couldn't find at all = deleted between add-to-cart and now
     for (const id of ids) {

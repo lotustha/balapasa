@@ -53,6 +53,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const product  = await getProduct(slug)
   const { STORE_URL: appUrl, STORE_NAME } = await import('@/lib/config')
 
+  // Bundle products derive their availability + contents from their components.
+  const { getBundleComponents, bundleAvailability } = await import('@/lib/bundle')
+  const bundleComps = product?.kind === 'BUNDLE' ? await getBundleComponents(product.id) : []
+  const bundleStock = product?.kind === 'BUNDLE' ? bundleAvailability(bundleComps) : 0
+
   const [similar, shopsChoice, boughtTogether, rawReviews] = await Promise.all([
     product ? prisma.product.findMany({
       where: { categoryId: product.categoryId, id: { not: product.id }, isActive: true },
@@ -84,7 +89,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const clientProduct: ClientProduct | null = product ? {
     id: product.id, name: product.name, slug: product.slug,
     description: product.description, price: product.price,
-    salePrice: product.salePrice, stock: product.stock,
+    // For a bundle, `stock` is the derived availability so the existing
+    // out-of-stock / add-to-cart gating works unchanged.
+    salePrice: product.salePrice, stock: product.kind === 'BUNDLE' ? bundleStock : product.stock,
     images: product.images, brand: product.brand, sku: product.sku,
     rating: product.rating, reviewCount: product.reviewCount,
     isNew: product.isNew, isTaxable: product.isTaxable,
@@ -110,6 +117,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
     category: { id: product.category.id, name: product.category.name, slug: product.category.slug, color: product.category.color, icon: product.category.icon, image: product.category.image },
     options: product.options.map(o => ({ id: o.id, name: o.name, values: o.values, position: o.position })),
     variants: product.variants.map(v => ({ id: v.id, title: v.title, price: v.price, stock: v.stock, image: v.image, options: v.options as Record<string, string>, sku: v.sku })),
+    bundleComponents: product.kind === 'BUNDLE'
+      ? bundleComps.map(c => ({
+          id: c.componentProductId, name: c.name, slug: c.slug,
+          price: c.price, salePrice: c.salePrice, image: c.image, quantity: c.quantity,
+          inStock: !c.missing && c.isActive && (!c.trackInventory || c.stock >= c.quantity),
+        }))
+      : null,
   } : null
 
   const reviews: ClientReview[] = rawReviews.map(r => ({

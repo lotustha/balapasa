@@ -12,6 +12,7 @@ import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 import { createPndOrder, resolveBranchForAddress, cityToDistrict } from '@/lib/pickndrop'
 import { resolveOrderCodePrefix, assignOrderCode } from '@/lib/order-code'
+import { getBundleItemRows } from '@/lib/bundle'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
 // can surface a 409 to the client instead of a 500.
@@ -179,6 +180,18 @@ export async function POST(req: NextRequest) {
       image: string; quantity: number;
     }[]
 
+    // Resolve which cart lines are BUNDLE products and their component rows, so
+    // the stock decrement below deducts each component (componentQty × line qty)
+    // instead of the bundle's own (unused) stock. Component definitions are
+    // static config — safe to read before the tx. A bundle with no components is
+    // misconfigured and gets blocked in the loop rather than silently oversold.
+    const kindRows = await prisma.product.findMany({
+      where:  { id: { in: itemList.map(i => i.id) } },
+      select: { id: true, kind: true },
+    })
+    const bundleIdSet       = new Set(kindRows.filter(k => k.kind === 'BUNDLE').map(k => k.id))
+    const bundleComponentMap = await getBundleItemRows([...bundleIdSet])
+
     // ── Atomic transaction: coupon + gift-card + STOCK + order create ───────
     // Every race-prone write happens under one $transaction. The raw UPDATEs
     // use `WHERE ... AND condition >= qty` so concurrent checkouts can't
@@ -242,33 +255,58 @@ export async function POST(req: NextRequest) {
       // non-tracked products the CASE leaves stock unchanged but the row
       // still matches so we get a single result row back. Errors here abort
       // the whole tx, so order/coupon/gift-card all roll back too.
-      const stockUpdates: Array<{ id: string; stock: number; trackInventory: boolean; name: string }> = []
-      for (const item of itemList) {
+      // `deducted` is the units actually removed for this row (componentQty ×
+      // line qty for a bundle component) — used to write the matching SALE log.
+      const stockUpdates: Array<{ id: string; stock: number; trackInventory: boolean; name: string; deducted: number }> = []
+
+      // Deduct `qty` of one product, race-safe (0 rows → typed error → 409).
+      // `label` is the customer-facing name; for a bundle component we name the
+      // BUNDLE, not the internal part, so the message stays meaningful.
+      const deductStock = async (productId: string, qty: number, label: string, fromBundle: boolean) => {
         const rows = await tx.$queryRaw<Array<{ id: string; stock: number; track_inventory: boolean; name: string }>>`
           UPDATE products
-          SET stock = CASE WHEN track_inventory THEN stock - ${item.quantity} ELSE stock END,
+          SET stock = CASE WHEN track_inventory THEN stock - ${qty} ELSE stock END,
               updated_at = NOW()
-          WHERE id = ${item.id}
+          WHERE id = ${productId}
             AND is_active = true
-            AND (track_inventory = false OR stock >= ${item.quantity})
+            AND (track_inventory = false OR stock >= ${qty})
           RETURNING id, stock, track_inventory, name
         `
         if (rows.length === 0) {
+          if (fromBundle) {
+            throw new StockRaceError(`Sorry — "${label}" is currently unavailable (a bundled item just went out of stock). Please remove it from your cart.`)
+          }
           // Disambiguate so the client sees a useful message — missing product
           // vs. inactive vs. out of stock all get tailored copy.
           const present = await tx.product.findUnique({
-            where: { id: item.id },
+            where: { id: productId },
             select: { name: true, stock: true, trackInventory: true, isActive: true },
           })
           if (!present) {
-            throw new StockRaceError(`Sorry — "${item.name}" is no longer available. Please remove it from your cart.`)
+            throw new StockRaceError(`Sorry — "${label}" is no longer available. Please remove it from your cart.`)
           }
           if (!present.isActive) {
             throw new StockRaceError(`Sorry — "${present.name}" was just taken off sale. Please remove it from your cart.`)
           }
           throw new StockRaceError(`Sorry — only ${present.stock} of "${present.name}" left in stock. Please update the quantity and try again.`)
         }
-        stockUpdates.push({ id: rows[0].id, stock: rows[0].stock, trackInventory: rows[0].track_inventory, name: rows[0].name })
+        stockUpdates.push({ id: rows[0].id, stock: rows[0].stock, trackInventory: rows[0].track_inventory, name: rows[0].name, deducted: qty })
+      }
+
+      for (const item of itemList) {
+        if (bundleIdSet.has(item.id)) {
+          // BUNDLE line → deduct each component. An empty bundle is misconfigured
+          // and must never sell with zero stock movement.
+          const components = bundleComponentMap.get(item.id) ?? []
+          if (components.length === 0) {
+            throw new StockRaceError(`Sorry — "${item.name}" is not available right now. Please remove it from your cart.`)
+          }
+          for (const comp of components) {
+            await deductStock(comp.componentProductId, comp.quantity * item.quantity, item.name, true)
+          }
+        } else {
+          await deductStock(item.id, item.quantity, item.name, false)
+        }
       }
 
       const created = await tx.order.create({
@@ -314,13 +352,11 @@ export async function POST(req: NextRequest) {
       // get every row + the order, or none of it.
       for (const u of stockUpdates) {
         if (!u.trackInventory) continue
-        const item = itemList.find(i => i.id === u.id)
-        if (!item) continue
         await tx.inventoryLog.create({
           data: {
             productId:   u.id,
             type:        'SALE',
-            quantity:    -item.quantity,
+            quantity:    -u.deducted,
             stockAfter:  u.stock,
             referenceId: created.id,
             note:        `Order ${created.id.slice(0, 8).toUpperCase()}`,

@@ -37,6 +37,7 @@ export interface ProductData {
   boughtTogetherIds: string[]
   kind: string
   planId: string
+  bundleComponents: { componentProductId: string; quantity: number; name?: string; image?: string | null; price?: number }[]
 }
 
 const EMPTY: ProductData = {
@@ -53,6 +54,7 @@ const EMPTY: ProductData = {
   isActive: true, isFeatured: false, isNew: true, freeDelivery: false,
   boughtTogetherIds: [],
   kind: 'PHYSICAL', planId: '',
+  bundleComponents: [],
 }
 
 function discountPct(price: string, salePrice: string) {
@@ -464,6 +466,121 @@ function BoughtTogetherPicker({
         <p className="text-xs text-slate-400 text-center py-2">
           No products added — customers will see top-rated products instead
         </p>
+      )}
+    </div>
+  )
+}
+
+// ── Bundle Contents Picker ────────────────────────────────────────────────
+// A bundle (kind==='BUNDLE') ships several component products together. The
+// admin searches for products and adds them as components with a quantity.
+// `value` is the single source of truth (form.bundleComponents) so quantity
+// edits and prefill stay in sync — no internal mirror state.
+
+type BundleComponent = { componentProductId: string; quantity: number; name?: string; image?: string | null; price?: number }
+
+function BundleContentsPicker({
+  currentId, value, onChange,
+}: { currentId?: string; value: BundleComponent[]; onChange: (next: BundleComponent[]) => void }) {
+  const [query,   setQuery]   = useState('')
+  const [results, setResults] = useState<SlimProduct[]>([])
+  const [loading, setLoading] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!query.trim()) { setResults([]); return }
+    debounceRef.current = setTimeout(() => {
+      setLoading(true)
+      fetch(`/api/products?search=${encodeURIComponent(query)}&limit=8`)
+        .then(r => r.json())
+        .then(d => setResults((d.products ?? []).filter((p: SlimProduct) => p.id !== currentId && !value.some(c => c.componentProductId === p.id))))
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    }, 300)
+  // value is the stable form.bundleComponents ref (like boughtTogetherIds) — safe in deps
+  }, [query, currentId, value])
+
+  function add(p: SlimProduct) {
+    if (value.some(c => c.componentProductId === p.id)) return
+    onChange([...value, {
+      componentProductId: p.id, quantity: 1,
+      name: p.name, image: p.images[0] ?? null, price: p.salePrice ?? p.price,
+    }])
+    setQuery(''); setResults([])
+  }
+
+  function setQty(id: string, qty: number) {
+    onChange(value.map(c => c.componentProductId === id ? { ...c, quantity: Math.max(1, Math.floor(qty) || 1) } : c))
+  }
+
+  function remove(id: string) {
+    onChange(value.filter(c => c.componentProductId !== id))
+  }
+
+  return (
+    <div className="space-y-3 pt-1">
+      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+        Bundle Contents <span className="text-red-400">*</span>
+      </label>
+
+      {/* Chosen components */}
+      {value.length > 0 && (
+        <div className="space-y-2">
+          {value.map(c => (
+            <div key={c.componentProductId} className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+              {c.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.image} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 bg-slate-100" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">{c.name ?? c.componentProductId}</p>
+                {c.price != null && <p className="text-xs text-slate-500">NPR {c.price.toLocaleString()}</p>}
+              </div>
+              <input
+                type="number" min={1} value={c.quantity}
+                onChange={e => setQty(c.componentProductId, Number(e.target.value))}
+                className="w-14 px-2 py-1.5 rounded-lg text-sm text-center border border-slate-200 bg-white outline-none focus:border-primary transition-all shrink-0"
+              />
+              <button type="button" onClick={() => remove(c.componentProductId)}
+                className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 text-red-500 flex items-center justify-center cursor-pointer transition-colors shrink-0">
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative">
+        <input
+          value={query} onChange={e => setQuery(e.target.value)}
+          placeholder="Search products to add…"
+          className="w-full px-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all pr-8"
+        />
+        {loading && <Loader2 size={13} className="absolute right-3 top-3 text-slate-400 animate-spin" />}
+        {results.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto">
+            {results.map(p => (
+              <button key={p.id} type="button" onClick={() => add(p)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer text-left border-b border-slate-50 last:border-0">
+                {p.images[0] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 bg-slate-100" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{p.name}</p>
+                  <p className="text-xs text-slate-500">NPR {(p.salePrice ?? p.price).toLocaleString()}</p>
+                </div>
+                <Plus size={14} className="text-primary shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {value.length === 0 && (
+        <p className="text-[11px] text-amber-600">Add at least one product — a bundle&rsquo;s stock is derived from its components.</p>
       )}
     </div>
   )
@@ -1028,6 +1145,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       height: form.height ? Number(form.height) : null,
       categoryId: form.categoryId, supplierId: form.supplierId || null,
       kind: form.kind, planId: form.planId || null,
+      bundleComponents: form.kind === 'BUNDLE' ? form.bundleComponents.map(c => ({ componentProductId: c.componentProductId, quantity: c.quantity })) : undefined,
       brand: form.brand || null, tags: form.tags,
       videoUrl: form.videoUrl || null,
       sku: form.sku || null, isActive: form.isActive,
@@ -1390,10 +1508,10 @@ export default function ProductForm({ initial, mode, productId }: Props) {
             <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
               <h2 className="font-heading font-bold text-slate-800 text-sm">Product Type</h2>
               <div className="flex gap-2 flex-wrap">
-                {(['PHYSICAL','DIGITAL','SUBSCRIPTION'] as const).map(k => (
+                {(['PHYSICAL','DIGITAL','SUBSCRIPTION','BUNDLE'] as const).map(k => (
                   <button key={k} type="button" onClick={() => { set('kind', k); if (k !== 'SUBSCRIPTION') set('planId', '') }}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${form.kind === k ? 'border-primary bg-primary-bg text-primary' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                    {k === 'PHYSICAL' ? '📦 Physical' : k === 'DIGITAL' ? '💾 Digital' : '🔄 Subscription'}
+                    {k === 'PHYSICAL' ? '📦 Physical' : k === 'DIGITAL' ? '💾 Digital' : k === 'SUBSCRIPTION' ? '🔄 Subscription' : '🎁 Bundle'}
                   </button>
                 ))}
               </div>
@@ -1417,6 +1535,13 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                     )}
                   </div>
                 </div>
+              )}
+              {form.kind === 'BUNDLE' && (
+                <BundleContentsPicker
+                  currentId={productId}
+                  value={form.bundleComponents}
+                  onChange={comps => set('bundleComponents', comps)}
+                />
               )}
             </div>
 
