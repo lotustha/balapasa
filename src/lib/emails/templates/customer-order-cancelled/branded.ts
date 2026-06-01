@@ -36,7 +36,7 @@ function render(data: CustomerOrderCancelledData): { subject: string; html: stri
 
   return {
     subject,
-    html: emailLayout({ preheader: subject, title: subject, body, siteUrl: data.siteUrl, siteName: data.siteName, tagline: data.tagline }),
+    html: emailLayout({ preheader: subject, title: subject, body, siteUrl: data.siteUrl, siteName: data.siteName, tagline: data.tagline, logoUrl: data.logoUrl }),
   }
 }
 

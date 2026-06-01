@@ -13,6 +13,7 @@ export interface ShipmentEmailData {
   siteUrl:       string
   siteName:      string
   tagline?:      string
+  logoUrl?:      string
 }
 
 const COPY: Record<Status, { title: string; subject: (s: string) => string; lead: string; emoji: string; color: string; bg: string }> = {
@@ -84,6 +85,7 @@ export function renderShipmentUpdate(data: ShipmentEmailData): { subject: string
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
       tagline:   data.tagline,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

@@ -56,6 +56,7 @@ function render(data: AdminStatusChangeData): { subject: string; html: string } 
       body,
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

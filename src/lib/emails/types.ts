@@ -4,6 +4,9 @@ export interface BrandFields {
   siteUrl:  string
   siteName: string
   tagline?: string
+  /** Store logo. Absolute URL, or a path relative to siteUrl. Injected centrally
+   *  by render(); the email layout resolves it to an absolute src. */
+  logoUrl?: string
 }
 
 export interface MagicLinkData extends BrandFields {

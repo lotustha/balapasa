@@ -10,15 +10,29 @@ interface LayoutArgs {
   siteName:   string
   /** Short marketing tagline shown in the email footer. */
   tagline?:   string
+  /** Store logo — absolute URL, or a path relative to siteUrl. When omitted we
+   *  fall back to `${siteUrl}/logo.png`. Resolved to an absolute src so it
+   *  renders in mail clients (relative URLs never load in email). */
+  logoUrl?:   string
+}
+
+// Mail clients require absolute image URLs. Accept an absolute logo as-is, treat
+// anything else as a path relative to the canonical store URL.
+function resolveLogoSrc(siteUrl: string, logoUrl?: string): string {
+  const base = siteUrl.replace(/\/+$/, '')
+  if (!logoUrl) return `${base}/logo.png`
+  if (/^https?:\/\//i.test(logoUrl)) return logoUrl
+  return `${base}/${logoUrl.replace(/^\/+/, '')}`
 }
 
 // Mail-client-compatible layout (table-based). Inline styles only — many mail
 // clients strip <style> tags or do not respect CSS variables.
 export function emailLayout({
-  preheader, title, body, siteUrl, siteName, tagline,
+  preheader, title, body, siteUrl, siteName, tagline, logoUrl,
 }: LayoutArgs): string {
-  const pre  = preheader ?? ''
-  const tag  = tagline   ?? 'Premium electronics, gadgets & beauty · Fast delivery'
+  const pre     = preheader ?? ''
+  const tag     = tagline   ?? 'Premium electronics, gadgets & beauty · Fast delivery'
+  const logoSrc = resolveLogoSrc(siteUrl, logoUrl)
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,7 +48,10 @@ export function emailLayout({
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 8px 28px rgba(15,23,42,0.06);">
         <tr>
           <td style="padding:32px 32px 16px;text-align:left;">
-            <a href="${escapeAttr(siteUrl)}" style="text-decoration:none;color:#16A34A;font-weight:800;font-size:20px;letter-spacing:-0.01em;">${escapeHtml(siteName)}</a>
+            <a href="${escapeAttr(siteUrl)}" style="text-decoration:none;display:inline-block;">
+              <img src="${escapeAttr(logoSrc)}" alt="${escapeAttr(siteName)}" height="40" style="height:40px;width:auto;max-width:200px;display:inline-block;vertical-align:middle;border:0;outline:none;" />
+              <span style="vertical-align:middle;margin-left:10px;color:#16A34A;font-weight:800;font-size:20px;letter-spacing:-0.01em;">${escapeHtml(siteName)}</span>
+            </a>
           </td>
         </tr>
         <tr>

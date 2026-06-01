@@ -230,7 +230,12 @@ const DEFAULT_BRAND_RAW = process.env.NEXT_PUBLIC_STORE_NAME ?? 'Bala|pasa'
 export const SITE_DEFAULTS: SiteSettings = {
   siteName:   DEFAULT_BRAND_RAW.replace(/\|/g, ''),
   brandSplit: splitDefault(DEFAULT_BRAND_RAW),
-  storeUrl:   process.env.NEXT_PUBLIC_APP_URL    ?? 'https://balapasa.com',
+  // Canonical PUBLIC store URL — used in emails, JSON-LD, openGraph. Must never
+  // be the app's runtime origin (NEXT_PUBLIC_APP_URL is legitimately localhost in
+  // dev / an internal port behind the VPS proxy), or email links break. Read the
+  // dedicated STORE_URL env, else the real domain. Payment redirects keep their
+  // own NEXT_PUBLIC_APP_URL — they must return to the originating origin.
+  storeUrl:   process.env.STORE_URL || 'https://balapasa.com.np',
   storeEmail:     '',
   storePhone:     '',
   storeAddress:   '',

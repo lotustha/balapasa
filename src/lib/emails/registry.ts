@@ -1,5 +1,6 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
+import { getSiteSettings } from '@/lib/site-settings'
 import type { OrderConfirmationData } from './order-confirmation'
 import type { ShipmentEmailData }      from './shipment-update'
 import type {
@@ -153,6 +154,7 @@ const SAMPLE_BRAND = {
   siteUrl:  'https://balapasa.com',
   siteName: 'Balapasa',
   tagline:  'Premium electronics, gadgets & beauty · Fast delivery',
+  logoUrl:  '/logo.png',
 }
 
 const SAMPLE_ORDER_CONFIRMED: OrderConfirmationData = {
@@ -644,7 +646,12 @@ export async function render<E extends EventId>(
   const event    = REGISTRY[eventId]
   const activeId = await getActiveVariantId(eventId)
   const variant  = event.variants.find(v => v.id === activeId) ?? event.variants[0]
-  return variant.render(data as unknown)
+  // Inject the configured store logo so every template header renders it,
+  // unless the caller already supplied one. The layout resolves it absolute.
+  const withLogo = (data as { logoUrl?: string }).logoUrl
+    ? data
+    : { ...data, logoUrl: (await getSiteSettings()).logoUrl }
+  return variant.render(withLogo as unknown)
 }
 
 /**

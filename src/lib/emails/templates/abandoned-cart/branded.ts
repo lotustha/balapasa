@@ -57,7 +57,7 @@ function render(data: AbandonedCartData): { subject: string; html: string } {
 
   return {
     subject,
-    html: emailLayout({ preheader: subject, title: subject, body, siteUrl: data.siteUrl, siteName: data.siteName, tagline: data.tagline }),
+    html: emailLayout({ preheader: subject, title: subject, body, siteUrl: data.siteUrl, siteName: data.siteName, tagline: data.tagline, logoUrl: data.logoUrl }),
   }
 }
 

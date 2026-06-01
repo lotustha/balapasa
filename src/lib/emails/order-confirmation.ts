@@ -28,6 +28,7 @@ export interface OrderConfirmationData {
   siteUrl:        string
   siteName:       string
   tagline?:       string
+  logoUrl?:       string
 }
 
 export function renderOrderConfirmation(data: OrderConfirmationData): { subject: string; html: string } {
@@ -148,6 +149,7 @@ export function renderOrderConfirmation(data: OrderConfirmationData): { subject:
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
       tagline:   data.tagline,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

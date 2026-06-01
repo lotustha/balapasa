@@ -24,7 +24,7 @@ function render(data: ReturnRequestedAdminData): { subject: string; html: string
       </a>
     </div>
   `
-  return { subject, html: emailLayout({ preheader: subject, title: subject, body, siteUrl: data.siteUrl, siteName: data.siteName, tagline: data.tagline }) }
+  return { subject, html: emailLayout({ preheader: subject, title: subject, body, siteUrl: data.siteUrl, siteName: data.siteName, tagline: data.tagline, logoUrl: data.logoUrl }) }
 }
 
 export const returnRequestedAdminBranded: EmailVariant<ReturnRequestedAdminData> = {

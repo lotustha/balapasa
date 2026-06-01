@@ -49,6 +49,7 @@ function render(data: DeliveryDispatchedData): { subject: string; html: string }
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
       tagline:   data.tagline,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

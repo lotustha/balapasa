@@ -47,6 +47,7 @@ function render(data: ShipmentEmailData): { subject: string; html: string } {
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
       tagline:   data.tagline,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

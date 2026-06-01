@@ -81,6 +81,7 @@ function render(data: OrderConfirmationData): { subject: string; html: string } 
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
       tagline:   data.tagline,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

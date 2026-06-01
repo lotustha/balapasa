@@ -47,6 +47,7 @@ function render(data: LowStockData): { subject: string; html: string } {
       body,
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
+      logoUrl:   data.logoUrl,
     }),
   }
 }

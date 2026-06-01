@@ -24,10 +24,19 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     for (const r of rows) map[r.key] = r.value
 
     const rawName = map.STORE_NAME || `${SITE_DEFAULTS.brandSplit.primary}|${SITE_DEFAULTS.brandSplit.accent}`
+
+    // Guard against a localhost store URL leaking into emails / JSON-LD. The DB
+    // row may be unset (→ SITE_DEFAULTS) or accidentally saved as an internal
+    // origin; either way, a localhost canonical URL is never correct in prod.
+    const rawStoreUrl = map.STORE_URL || SITE_DEFAULTS.storeUrl
+    const storeUrl = /localhost|127\.0\.0\.1|\[::1\]/i.test(rawStoreUrl)
+      ? (process.env.STORE_URL || 'https://balapasa.com.np')
+      : rawStoreUrl
+
     return {
       siteName:   cleanBrandName(rawName),
       brandSplit: splitBrandName(rawName),
-      storeUrl:       map.STORE_URL         || SITE_DEFAULTS.storeUrl,
+      storeUrl,
       storeEmail:     map.STORE_EMAIL       ?? SITE_DEFAULTS.storeEmail,
       storePhone:     map.STORE_PHONE       ?? SITE_DEFAULTS.storePhone,
       storeAddress:   map.STORE_ADDRESS     ?? SITE_DEFAULTS.storeAddress,

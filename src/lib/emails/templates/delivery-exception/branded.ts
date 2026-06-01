@@ -57,6 +57,7 @@ function render(data: DeliveryExceptionData): { subject: string; html: string } 
       siteUrl:   data.siteUrl,
       siteName:  data.siteName,
       tagline:   data.tagline,
+      logoUrl:   data.logoUrl,
     }),
   }
 }
