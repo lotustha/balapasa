@@ -69,7 +69,15 @@ export default function EditProductPage() {
   return (
     <>
       <ProductForm mode="edit" productId={id} initial={data ?? undefined} />
-      <SupplierReorderCard productId={id} />
+      {/* Reorder card lives under the form's main column — same max-width,
+          padding, grid and card chrome so it reads as another form section. */}
+      <div className="max-w-5xl px-8 pb-8 -mt-1">
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SupplierReorderCard productId={id} />
+          </div>
+        </div>
+      </div>
     </>
   )
 }
