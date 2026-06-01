@@ -38,6 +38,7 @@ export interface ProductData {
   kind: string
   planId: string
   bundleComponents: { componentProductId: string; quantity: number; name?: string; image?: string | null; price?: number }[]
+  faqs: { q: string; a: string }[]
 }
 
 const EMPTY: ProductData = {
@@ -47,14 +48,15 @@ const EMPTY: ProductData = {
   maxPerCustomerOnSale: '',
   isDealOfTheDay: false,
   costPrice: '', isTaxable: false,
-  trackInventory: true, stock: '10', lowStockThreshold: '10',
-  barcode: '', weight: '',
+  trackInventory: true, stock: '100', lowStockThreshold: '10',
+  barcode: '', weight: '0.2',
   length: '', width: '', height: '',
   categoryId: '', supplierId: '', brand: '', tags: [],
   isActive: true, isFeatured: false, isNew: true, freeDelivery: false,
   boughtTogetherIds: [],
   kind: 'PHYSICAL', planId: '',
   bundleComponents: [],
+  faqs: [],
 }
 
 function discountPct(price: string, salePrice: string) {
@@ -685,10 +687,13 @@ type ProviderKey = keyof typeof AI_PROVIDERS
 // and emits FAQPage JSON-LD on the public page. Only works when the product
 // has been saved (needs an id).
 
-function FaqAIButton({ productId }: { productId?: string }) {
+function FaqAIButton({ productId, faqs, onChange }: {
+  productId?: string
+  faqs: { q: string; a: string }[]
+  onChange: (faqs: { q: string; a: string }[]) => void
+}) {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
-  const [faqs,     setFaqs]     = useState<Array<{ q: string; a: string }> | null>(null)
   const disabled = !productId
 
   async function generate() {
@@ -702,13 +707,20 @@ function FaqAIButton({ productId }: { productId?: string }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
-      setFaqs(data.faqs ?? [])
+      onChange(Array.isArray(data.faqs) ? data.faqs : [])
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
   }
+
+  const update = (i: number, field: 'q' | 'a', val: string) =>
+    onChange(faqs.map((f, idx) => (idx === i ? { ...f, [field]: val } : f)))
+  const remove = (i: number) => onChange(faqs.filter((_, idx) => idx !== i))
+  const add    = () => onChange([...faqs, { q: '', a: '' }])
+
+  const fieldCls = 'w-full text-xs px-2 py-1.5 border border-slate-200 rounded-lg outline-none focus:border-primary bg-white'
 
   return (
     <div className="rounded-2xl bg-violet-50/40 ring-1 ring-violet-200 p-3.5 space-y-2.5">
@@ -720,29 +732,37 @@ function FaqAIButton({ productId }: { productId?: string }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-800">SEO FAQ block</p>
           <p className="text-[11px] text-slate-500 leading-snug">
-            4 unique Q&amp;As · saved as FAQPage JSON-LD for Google rich snippets.
+            Editable Q&amp;As · saved as FAQPage JSON-LD. Save the product to keep your edits.
           </p>
         </div>
         <button type="button" onClick={generate} disabled={disabled || loading}
           title={disabled ? 'Save the product first, then generate the FAQ' : 'Generate with Gemini'}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition">
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition shrink-0">
           {loading ? <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : null}
-          {disabled ? 'Save first' : loading ? 'Generating…' : 'Generate FAQ'}
+          {disabled ? 'Save first' : loading ? 'Generating…' : faqs.length ? 'Regenerate' : 'Generate FAQ'}
         </button>
       </div>
       {error && (
         <p className="text-xs font-semibold text-rose-700 bg-rose-50 ring-1 ring-rose-200 rounded-lg px-2.5 py-1.5">{error}</p>
       )}
-      {faqs && faqs.length > 0 && (
-        <ul className="space-y-2 pt-1">
+      {faqs.length > 0 && (
+        <div className="space-y-2 pt-1">
           {faqs.map((f, i) => (
-            <li key={i} className="rounded-lg bg-white ring-1 ring-slate-200 p-2.5">
-              <p className="text-xs font-bold text-slate-800">Q: {f.q}</p>
-              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{f.a}</p>
-            </li>
+            <div key={i} className="rounded-lg bg-white ring-1 ring-slate-200 p-2.5 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-wide">Q{i + 1}</span>
+                <button type="button" onClick={() => remove(i)} aria-label={`Remove question ${i + 1}`}
+                  className="ml-auto text-slate-300 hover:text-red-500 text-base leading-none cursor-pointer">×</button>
+              </div>
+              <input value={f.q} onChange={e => update(i, 'q', e.target.value)} placeholder="Question" className={`${fieldCls} font-semibold`} />
+              <textarea value={f.a} onChange={e => update(i, 'a', e.target.value)} placeholder="Answer" rows={2} className={`${fieldCls} resize-y`} />
+            </div>
           ))}
-          <li className="text-[10px] text-slate-400 pt-0.5">Saved — appears on this product&rsquo;s page after the next revalidation (up to 1 hour).</li>
-        </ul>
+          <button type="button" onClick={add} className="text-xs font-bold text-violet-600 hover:underline cursor-pointer">+ Add Q&amp;A</button>
+        </div>
+      )}
+      {!disabled && faqs.length === 0 && !loading && (
+        <button type="button" onClick={add} className="text-xs font-bold text-violet-600 hover:underline cursor-pointer">+ Add a Q&amp;A manually</button>
       )}
     </div>
   )
@@ -1146,6 +1166,8 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       categoryId: form.categoryId, supplierId: form.supplierId || null,
       kind: form.kind, planId: form.planId || null,
       bundleComponents: form.kind === 'BUNDLE' ? form.bundleComponents.map(c => ({ componentProductId: c.componentProductId, quantity: c.quantity })) : undefined,
+      // Persist edited/generated FAQ (→ product.aiFaqJson). Drop blank rows.
+      faqs: form.faqs.filter(f => f.q.trim() || f.a.trim()).map(f => ({ q: f.q.trim(), a: f.a.trim() })),
       brand: form.brand || null, tags: form.tags,
       videoUrl: form.videoUrl || null,
       sku: form.sku || null, isActive: form.isActive,
@@ -1258,7 +1280,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                 description={form.description} onDescriptionChange={v => set('description', v)}
                 tags={form.tags} onTagsChange={v => set('tags', v)}
               />
-              <FaqAIButton productId={productId} />
+              <FaqAIButton productId={productId} faqs={form.faqs} onChange={v => set('faqs', v)} />
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                   Product Images

@@ -37,6 +37,9 @@ export default function EditProductPage() {
           lowStockThreshold: String(p.lowStockThreshold ?? 10),
           barcode:           p.barcode ?? '',
           weight:            p.weight  ? String(p.weight)  : '',
+          length:            p.length  ? String(p.length)  : '',
+          width:             p.width   ? String(p.width)   : '',
+          height:            p.height  ? String(p.height)  : '',
           categoryId:        p.categoryId  ?? '',
           supplierId:        p.supplierId  ?? '',
           brand:             p.brand       ?? '',
@@ -50,6 +53,7 @@ export default function EditProductPage() {
           kind:              p.kind              ?? 'PHYSICAL',
           planId:            p.planId            ?? '',
           bundleComponents:  p.bundleComponents  ?? [],
+          faqs:              Array.isArray(p.aiFaqJson) ? p.aiFaqJson : [],
         })
       })
       .catch(() => setError('Failed to load product'))

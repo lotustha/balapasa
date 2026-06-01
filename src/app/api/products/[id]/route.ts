@@ -74,11 +74,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, boughtTogetherIds,
       kind, planId,
-      variantOptions, variants, bundleComponents,
+      variantOptions, variants, bundleComponents, faqs,
     } = body as Record<string, unknown> & {
       variantOptions?: { name: string; values: string[] }[]
       variants?: { title: string; sku?: string | null; price?: number | null; stock?: number; image?: string | null; options: Record<string, string> }[]
       bundleComponents?: { componentProductId: string; quantity: number }[]
+      faqs?: { q: string; a: string }[]
     }
 
     const data: Record<string, unknown> = {}
@@ -114,6 +115,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
     if (boughtTogetherIds !== undefined) data.boughtTogetherIds = Array.isArray(boughtTogetherIds) ? boughtTogetherIds : []
     if (kind   !== undefined) data.kind   = kind
     if (planId !== undefined) data.planId = planId || null
+    // Editable SEO FAQ → aiFaqJson (admin form can now edit, not just AI-generate).
+    if (faqs   !== undefined) data.aiFaqJson = Array.isArray(faqs) ? faqs : null
 
     // If the body includes variant fields, treat them as the full desired state
     // and replace existing rows. The admin form always sends the complete list,

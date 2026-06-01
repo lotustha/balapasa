@@ -130,10 +130,11 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Missing required fields: name, slug, description, price, categoryId' }, { status: 400 })
     }
 
-    const { variantOptions, variants, bundleComponents } = body as {
+    const { variantOptions, variants, bundleComponents, faqs } = body as {
       variantOptions?: { name: string; values: string[] }[]
       variants?: { title: string; sku?: string; price?: number; stock: number; image?: string; options: Record<string, string> }[]
       bundleComponents?: { componentProductId: string; quantity: number }[]
+      faqs?: { q: string; a: string }[]
     }
     const isBundle = kind === 'BUNDLE'
 
@@ -173,6 +174,7 @@ export async function POST(req: NextRequest) {
         // Snapshot stock when creating a product that already has a sale price.
         saleInitialStock:     salePrice ? Number(stock ?? 10) : null,
         boughtTogetherIds:    Array.isArray(boughtTogetherIds) ? boughtTogetherIds : [],
+        aiFaqJson:            Array.isArray(faqs) && faqs.length ? faqs : undefined,
       },
     })
 
