@@ -62,6 +62,15 @@ interface SendArgs {
 }
 
 export async function sendEmail({ to, subject, html, text, from }: SendArgs): Promise<{ id: string | null; error: string | null }> {
+  // Never send to an empty/missing address (e.g. a guest order with no email).
+  // Normalise to a list, drop blanks, and silently skip if nothing's left — a
+  // no-op, not an error, so callers don't treat "no recipient" as a failure.
+  const recipients = (Array.isArray(to) ? to : [to]).map(t => (t ?? '').trim()).filter(Boolean)
+  if (recipients.length === 0) {
+    console.log('[email] skipped — no recipient address')
+    return { id: null, error: null }
+  }
+
   const cfg    = await getEmailConfig()
   const client = await getClient()
   if (!client) {
@@ -71,7 +80,7 @@ export async function sendEmail({ to, subject, html, text, from }: SendArgs): Pr
   try {
     const res = await client.emails.send({
       from:    from ?? cfg.from,
-      to,
+      to:      recipients,
       subject,
       html,
       text:    text ?? stripHtml(html),
@@ -113,9 +122,12 @@ export async function sendEmailLogged(
       : ''
     const toStr = Array.isArray(args.to) ? args.to.join(',') : args.to
     console.warn(`[email:${eventId}] failed to=${toStr} err=${JSON.stringify(res.error)}${ctxBits}`)
-  } else {
+  } else if (res.id) {
     const toStr = Array.isArray(args.to) ? args.to.join(',') : args.to
-    console.log(`[email:${eventId}] ok to=${toStr} id=${res.id ?? 'n/a'}`)
+    console.log(`[email:${eventId}] ok to=${toStr} id=${res.id}`)
+  } else {
+    // No id and no error → sendEmail skipped (no recipient address).
+    console.log(`[email:${eventId}] skipped — no recipient`)
   }
   return res
 }
