@@ -107,10 +107,16 @@ interface AdminNavProps {
 export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProps) {
   const pathname  = usePathname()
   const [role, setRole] = useState<Role>('ADMIN')
+  const [profileName, setProfileName] = useState('')
+  const [profileEmail, setProfileEmail] = useState('')
   const [pendingReturns, setPendingReturns] = useState(0)
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.role) setRole(d.role) }).catch(() => {})
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d.role) setRole(d.role)
+      if (typeof d.name  === 'string') setProfileName(d.name)
+      if (typeof d.email === 'string') setProfileEmail(d.email)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -134,6 +140,15 @@ export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProp
   const visibleGroups = NAV_GROUPS
     .map(g => ({ ...g, items: g.items.filter(item => canAccess(role, item.minRole)) }))
     .filter(g => g.items.length > 0)
+
+  // Signed-in admin identity for the footer. Falls back to the email handle, then
+  // a generic label, so the panel never shows a stale hardcoded name.
+  const displayName = profileName.trim() || (profileEmail ? profileEmail.split('@')[0] : 'Admin')
+  const initials = (
+    profileName.trim()
+      ? profileName.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('')
+      : (profileEmail || 'A').charAt(0)
+  ).toUpperCase()
 
   return (
     <aside className="w-64 shrink-0 hidden md:flex flex-col min-h-screen"
@@ -188,10 +203,10 @@ export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProp
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-extrabold text-white shrink-0"
             style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
-            KS
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white truncate">Kamal Shrestha</p>
+            <p className="text-xs font-bold text-white truncate">{displayName}</p>
             <p className="text-[10px] text-slate-500 truncate capitalize">{role.toLowerCase()}</p>
           </div>
         </div>
