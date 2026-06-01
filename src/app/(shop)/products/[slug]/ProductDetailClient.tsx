@@ -16,7 +16,7 @@ import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
 import { getClaimedPercent } from '@/lib/sale-status'
-import { estimateDelivery, DELIVERY_CITIES } from '@/lib/delivery-zone'
+import { estimateDelivery, estimateDeliveryByCoords, isInValleyCoords, DELIVERY_CITIES, type DeliveryEstimate } from '@/lib/delivery-zone'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
 
 // ── Countdown hook ──────────────────────────────────────────────────────────
@@ -341,6 +341,45 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     () => (mounted ? estimateDelivery(deliveryCity) : null),
     [mounted, deliveryCity],
   )
+
+  // GPS-based delivery estimate. When the visitor shares their location we
+  // derive valley-vs-outside from the raw coordinates (no reverse-geocode) and
+  // show the matching estimate; this overrides the manual city selector. If the
+  // permission is denied or unavailable we fall back silently to the city-based
+  // estimate (default Kathmandu = valley, same-day before the 2 PM cut-off).
+  const [geoStatus,   setGeoStatus]   = useState<'idle' | 'locating' | 'on' | 'denied' | 'unsupported'>('idle')
+  const [geoEstimate, setGeoEstimate] = useState<DeliveryEstimate | null>(null)
+  const [geoInValley, setGeoInValley] = useState(false)
+  const [showCityPicker, setShowCityPicker] = useState(false)
+
+  const requestLocation = useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { setGeoStatus('unsupported'); return }
+    setGeoStatus('locating')
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords
+        setGeoEstimate(estimateDeliveryByCoords(latitude, longitude))
+        setGeoInValley(isInValleyCoords(latitude, longitude))
+        setShowCityPicker(false)
+        setGeoStatus('on')
+      },
+      () => setGeoStatus('denied'),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 },
+    )
+  }, [])
+
+  // Auto-detect on mount ONLY when geolocation was already granted — no
+  // intrusive prompt on page load; otherwise we surface a "Use my location"
+  // button that triggers the prompt from a user gesture.
+  useEffect(() => {
+    if (!mounted || typeof navigator === 'undefined') return
+    const perms = (navigator as Navigator & { permissions?: { query: (d: { name: PermissionName }) => Promise<{ state: string }> } }).permissions
+    perms?.query({ name: 'geolocation' as PermissionName })
+      .then(p => { if (p.state === 'granted') requestLocation() })
+      .catch(() => {})
+  }, [mounted, requestLocation])
+
+  const effectiveEstimate = geoEstimate ?? deliveryEstimate
 
   // Hydrate wishlist state on mount so the heart shows the right colour
   // immediately when the user revisits a product they already saved.
@@ -886,27 +925,54 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   <Truck size={16} className="text-blue-600 shrink-0" />
                   <p className="text-xs text-slate-700 flex-1 min-w-0">
                     <span className="font-bold">Estimated delivery:</span>{' '}
-                    {mounted && deliveryEstimate
-                      ? <span className={`font-semibold ${deliveryEstimate.sameDay ? 'text-green-700' : 'text-blue-700'}`}>{deliveryEstimate.primary}</span>
+                    {mounted && effectiveEstimate
+                      ? <span className={`font-semibold ${effectiveEstimate.sameDay ? 'text-green-700' : 'text-blue-700'}`}>{effectiveEstimate.primary}</span>
                       : <span className="text-slate-400">Calculating…</span>}
                   </p>
                 </div>
-                {mounted && deliveryEstimate && (
-                  <p className="text-[11px] text-slate-500 leading-snug pl-[26px]">{deliveryEstimate.note}</p>
+                {mounted && effectiveEstimate && (
+                  <p className="text-[11px] text-slate-500 leading-snug pl-[26px]">{effectiveEstimate.note}</p>
                 )}
                 {mounted && (
-                  <div className="flex items-center gap-1.5 pl-[26px]">
+                  <div className="flex items-center gap-1.5 pl-[26px] flex-wrap">
                     <MapPin size={12} className="text-slate-400 shrink-0" aria-hidden="true" />
-                    <label htmlFor="deliver-to" className="text-[11px] text-slate-500">Deliver to</label>
-                    <select
-                      id="deliver-to"
-                      value={deliveryCity}
-                      onChange={e => changeDeliveryCity(e.target.value)}
-                      className="text-[11px] font-semibold text-slate-700 bg-transparent border-0 border-b border-slate-300 hover:border-slate-400 focus:border-primary outline-none cursor-pointer py-0.5 -ml-0.5"
-                    >
-                      {DELIVERY_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    {geoStatus === 'on' && !showCityPicker ? (
+                      <>
+                        <span className="text-[11px] text-slate-600">
+                          Detected:{' '}
+                          <span className="font-semibold text-slate-700">{geoInValley ? 'Kathmandu Valley' : 'Outside the valley'}</span>
+                        </span>
+                        <button type="button" onClick={() => setShowCityPicker(true)}
+                          className="text-[11px] font-semibold text-primary hover:underline cursor-pointer">change</button>
+                      </>
+                    ) : (
+                      <>
+                        <label htmlFor="deliver-to" className="text-[11px] text-slate-500">Deliver to</label>
+                        <select
+                          id="deliver-to"
+                          value={deliveryCity}
+                          onChange={e => { changeDeliveryCity(e.target.value); setGeoEstimate(null); setShowCityPicker(false); if (geoStatus === 'on') setGeoStatus('idle') }}
+                          className="text-[11px] font-semibold text-slate-700 bg-transparent border-0 border-b border-slate-300 hover:border-slate-400 focus:border-primary outline-none cursor-pointer py-0.5 -ml-0.5"
+                        >
+                          {DELIVERY_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        {geoStatus !== 'on' && (
+                          <button type="button" onClick={requestLocation} disabled={geoStatus === 'locating'}
+                            className="text-[11px] font-semibold text-primary hover:underline cursor-pointer inline-flex items-center gap-1 disabled:opacity-60">
+                            {geoStatus === 'locating'
+                              ? <><Loader2 size={11} className="animate-spin" /> Locating…</>
+                              : <><MapPin size={11} /> Use my location</>}
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
+                )}
+                {mounted && geoStatus === 'denied' && (
+                  <p className="text-[10px] text-amber-600 pl-[26px]">Couldn&rsquo;t access location — showing estimate for your selected area.</p>
+                )}
+                {mounted && geoStatus === 'unsupported' && (
+                  <p className="text-[10px] text-amber-600 pl-[26px]">Location isn&rsquo;t supported on this device — pick your area above.</p>
                 )}
               </div>
 
@@ -1092,7 +1158,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             {/* Guarantees + share */}
             <div className="glass-panel p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                {[{icon:Truck,label:'Fast Delivery',sub:(mounted && deliveryEstimate ? deliveryEstimate.short : 'Nationwide')},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
+                {[{icon:Truck,label:'Fast Delivery',sub:(mounted && effectiveEstimate ? effectiveEstimate.short : 'Nationwide')},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
                   <div key={label} className="flex flex-col items-center text-center p-3 rounded-2xl"
                     style={{ background:'rgba(255,255,255,0.50)', border:'1px solid rgba(255,255,255,0.72)' }}>
                     <div className="w-8 h-8 rounded-xl mb-1.5 flex items-center justify-center bg-primary-bg">

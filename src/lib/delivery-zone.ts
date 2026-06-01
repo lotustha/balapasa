@@ -31,6 +31,19 @@ const TERAI_HINT = [
   'siddharthanagar', 'butwal',
 ]
 
+// Approximate Kathmandu Valley bounding box (covers Kathmandu, Lalitpur,
+// Bhaktapur + immediate fringes). Used for GPS-based zone detection without a
+// reverse-geocoding API call — same "no per-view network cost" stance as the
+// rest of this module. A point inside → same-day-eligible valley; outside →
+// out-of-valley estimate.
+export function isInValleyCoords(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= 27.55 && lat <= 27.88 &&
+    lng >= 85.18 && lng <= 85.58
+  )
+}
+
 export function isKtmValley(city?: string | null): boolean {
   if (!city) return false
   const c = norm(city)
@@ -125,5 +138,20 @@ export function estimateDelivery(city: string, now: Date = new Date()): Delivery
     primary: `${fmtDate(addDays(now, min))} – ${fmtDate(addDays(now, max))}`,
     short: `${min}–${max} days`,
     note: 'Estimated via our delivery partner — confirmed at checkout',
+  }
+}
+
+// GPS-based estimate. We can only reliably tell valley-vs-outside from raw
+// coordinates (no reverse-geocode), which is exactly the granularity the
+// storefront promise needs: inside the valley → the real same-day/tomorrow
+// logic (2 PM cut-off); outside → a 1–2 day window. The precise rate + ETA is
+// still confirmed at checkout against the full address.
+export function estimateDeliveryByCoords(lat: number, lng: number, now: Date = new Date()): DeliveryEstimate {
+  if (isInValleyCoords(lat, lng)) return estimateDelivery('Kathmandu', now)
+  return {
+    zone: 'MID', sameDay: false,
+    primary: `${fmtDate(addDays(now, 1))} – ${fmtDate(addDays(now, 2))}`,
+    short: '1–2 days',
+    note: 'Outside Kathmandu Valley — typically 1–2 days via our delivery partner',
   }
 }
