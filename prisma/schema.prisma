@@ -569,6 +569,25 @@ model WishlistItem {
   @@map("wishlist_items")
 }
 
+// "Notify me when back in stock" requests. Product-level: the alert fires when
+// the product OR any of its variants has stock again. No FK to Product — same
+// convention as WishlistItem. notifiedAt: null = pending, set once the alert is
+// sent so the back-in-stock cron never double-notifies. Re-subscribing after a
+// previous alert upserts notifiedAt back to null to re-arm.
+model BackInStockSubscription {
+  id         String    @id @default(cuid())
+  productId  String    @map("product_id")
+  email      String
+  userId     String?   @map("user_id")   // set when the subscriber is signed in
+  createdAt  DateTime  @default(now()) @map("created_at")
+  notifiedAt DateTime? @map("notified_at")
+
+  @@unique([productId, email])
+  @@index([productId])
+  @@index([notifiedAt])
+  @@map("back_in_stock_subscriptions")
+}
+
 // FCM push notification tokens for the Flutter mobile app
 model DeviceToken {
   id        String   @id @default(cuid())

@@ -22,6 +22,7 @@ import type {
   ReturnRejectedData,
   RefundIssuedData,
   AbandonedCartData,
+  BackInStockData,
 } from './types'
 
 import { orderConfirmedBranded } from './templates/order-confirmed/branded'
@@ -79,6 +80,7 @@ import { returnRequestedAdminBranded }     from './templates/return-requested-ad
 import { returnApprovedBranded }           from './templates/return-approved/branded'
 import { returnRejectedBranded }           from './templates/return-rejected/branded'
 import { refundIssuedBranded }             from './templates/refund-issued/branded'
+import { backInStockBranded }              from './templates/back-in-stock/branded'
 
 export type RenderResult = { subject: string; html: string }
 
@@ -141,6 +143,7 @@ export interface EventDataMap {
   'return-approved':          ReturnApprovedData
   'return-rejected':          ReturnRejectedData
   'refund-issued':            RefundIssuedData
+  'back-in-stock':            BackInStockData
 }
 
 export type EventId = keyof EventDataMap
@@ -386,6 +389,16 @@ function defineEvent<T>(def: EmailEventDef<T>): AnyEmailEvent {
   return def as unknown as AnyEmailEvent
 }
 
+const SAMPLE_BACK_IN_STOCK: BackInStockData = {
+  recipientName: 'Aarav Sharma',
+  productName:   'Wireless Earbuds Pro',
+  productUrl:    'https://balapasa.com/products/wireless-earbuds-pro',
+  price:         3500,
+  imageUrl:      null,
+  productId:     'previewid12345678',
+  ...SAMPLE_BRAND,
+}
+
 const REGISTRY: Record<EventId, AnyEmailEvent> = {
   'order-confirmed': defineEvent<OrderConfirmationData>({
     id:          'order-confirmed',
@@ -545,6 +558,14 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     description: 'Customer email confirming the refund has been paid out via the method admin recorded.',
     sampleData:  SAMPLE_REFUND_ISSUED,
     variants:    [refundIssuedBranded],
+    customerFacing: true,
+  }),
+  'back-in-stock': defineEvent<BackInStockData>({
+    id:          'back-in-stock',
+    label:       'Back in stock',
+    description: 'Customer alert when a product they subscribed to (via "Notify me when available") is restocked. Sent by the back-in-stock cron.',
+    sampleData:  SAMPLE_BACK_IN_STOCK,
+    variants:    [backInStockBranded],
     customerFacing: true,
   }),
 }

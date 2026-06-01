@@ -199,3 +199,14 @@ export interface RefundIssuedData extends BrandFields {
   method:        string                 // free-text from adminNote ("via eSewa P2P", "in cash on pickup", etc.)
   orderUrl:      string
 }
+
+// Customer alert when a product they subscribed to (via "Notify me when
+// available" on an out-of-stock PDP) is restocked. Sent by the back-in-stock cron.
+export interface BackInStockData extends BrandFields {
+  recipientName?: string                // optional — guests subscribe with email only
+  productName:    string
+  productUrl:     string
+  price:          number                // current effective price (sale price if on sale)
+  imageUrl:       string | null
+  productId:      string
+}

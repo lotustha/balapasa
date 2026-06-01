@@ -10,7 +10,7 @@ import {
   CheckCircle, ChevronRight, Package, BadgeCheck, ThumbsUp, ShoppingBag,
   Award, Link2, MessageCircle, Copy, X, Play, PlayCircle, Loader2,
   GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List, Repeat,
-  MapPin, Pencil, Trash2,
+  MapPin, Pencil, Trash2, Bell,
 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
@@ -320,6 +320,10 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   const [wishLoading, setWishLoading] = useState(false)
   const [wishMsg, setWishMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  // Back-in-stock alert (shown only when out of stock)
+  const [notifyEmail,  setNotifyEmail]  = useState('')
+  const [notifyStatus, setNotifyStatus] = useState<'idle' | 'sending' | 'done' | 'err'>('idle')
+  const [notifyMsg,    setNotifyMsg]    = useState('')
 
   // Location-aware delivery estimate. `mounted` is an effect-free hydration gate
   // (server snapshot = false, client = true) so the time-of-day-sensitive 2 PM
@@ -409,6 +413,27 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     if (!p) return
     addItem({ id: p.id, name: p.name, price: originalPrice, salePrice: effectivePrice, image: images[0], slug: p.slug, codAvailable: true }, qty)
     setAdded(true); setTimeout(() => setAdded(false), 2000)
+  }
+
+  async function handleNotifyRestock(e: React.FormEvent) {
+    e.preventDefault()
+    if (!p) return
+    const email = notifyEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setNotifyStatus('err'); setNotifyMsg('Enter a valid email address.'); return
+    }
+    setNotifyStatus('sending'); setNotifyMsg('')
+    try {
+      const res = await fetch(`/api/products/${p.id}/notify-restock`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setNotifyStatus('err'); setNotifyMsg(data.error ?? 'Could not save. Try again.'); return }
+      setNotifyStatus('done')
+    } catch {
+      setNotifyStatus('err'); setNotifyMsg('Could not save. Try again.')
+    }
   }
 
   async function handleSubscribe() {
@@ -1022,6 +1047,38 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       <Zap size={17} className="text-gold-bright" /> Buy Now
                     </button>
                   </div>
+                  {variantStock === 0 && (
+                    <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
+                      {notifyStatus === 'done' ? (
+                        <div className="flex items-start gap-2 text-sm font-semibold text-emerald-600">
+                          <CheckCircle size={17} className="shrink-0 mt-0.5" />
+                          <span>You&rsquo;re on the list — we&rsquo;ll email you the moment it&rsquo;s back in stock.</span>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+                            <Bell size={15} className="text-primary" /> Notify me when available
+                          </p>
+                          <p className="text-xs text-slate-500 mb-3">Out of stock right now. Drop your email and we&rsquo;ll alert you the moment it returns.</p>
+                          <form onSubmit={handleNotifyRestock} className="flex gap-2">
+                            <input
+                              type="email" required value={notifyEmail}
+                              onChange={e => { setNotifyEmail(e.target.value); if (notifyStatus === 'err') setNotifyStatus('idle') }}
+                              placeholder="you@example.com" aria-label="Email for back-in-stock alert"
+                              className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary"
+                            />
+                            <button
+                              type="submit" disabled={notifyStatus === 'sending'}
+                              className="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white text-sm font-bold cursor-pointer disabled:opacity-60 whitespace-nowrap flex items-center gap-1.5"
+                            >
+                              {notifyStatus === 'sending' ? <><Loader2 size={15} className="animate-spin" /> Saving</> : 'Notify me'}
+                            </button>
+                          </form>
+                          {notifyStatus === 'err' && <p className="text-xs text-red-500 mt-2">{notifyMsg}</p>}
+                        </>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-100">
                     <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0">
                       <svg viewBox="0 0 10 8" className="w-3 h-3"><path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" fill="none"/></svg>
