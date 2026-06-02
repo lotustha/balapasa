@@ -370,7 +370,24 @@ function MessagingSettingsPanel({
   const [fb, setFb] = useState({
     FACEBOOK_PAGE_ID: '', FACEBOOK_PAGE_ACCESS_TOKEN: '', FACEBOOK_PIXEL_ID: '',
   })
+  const [fbTest, setFbTest] = useState<{ loading: boolean; ok: boolean | null; msg: string }>({ loading: false, ok: null, msg: '' })
   const fieldCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+
+  async function testFacebook() {
+    setFbTest({ loading: true, ok: null, msg: '' })
+    try {
+      const res  = await fetch('/api/admin/facebook/test', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        setFbTest({ loading: false, ok: true, msg: `Posted to ${data.pageName ?? 'your page'} ✓ Check your Facebook page (the test post is safe to delete).` })
+      } else {
+        const where = data.step === 'verify-page' ? 'Could not read the page' : data.step === 'post' ? 'Could not publish' : data.step === 'config' ? 'Not configured' : 'Failed'
+        setFbTest({ loading: false, ok: false, msg: `${where}: ${data.error ?? 'Unknown error'}` })
+      }
+    } catch (e) {
+      setFbTest({ loading: false, ok: false, msg: e instanceof Error ? e.message : 'Network error' })
+    }
+  }
 
   useEffect(() => {
     fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
@@ -472,11 +489,24 @@ function MessagingSettingsPanel({
           <div><Label>Facebook Pixel ID</Label>
             <input value={fb.FACEBOOK_PIXEL_ID} onChange={e => setFb(v => ({ ...v, FACEBOOK_PIXEL_ID: e.target.value }))} placeholder="123456789012345" className={fieldCls} /></div>
           <div className="sm:col-span-2">
-            <SecretInput label="Page Access Token" value={fb.FACEBOOK_PAGE_ACCESS_TOKEN} onChange={v => setFb(s => ({ ...s, FACEBOOK_PAGE_ACCESS_TOKEN: v }))} placeholder="EAABm..." hint="Grants Messenger send permission. Generate in Meta Business Suite → Your App → Messenger → Page Access Tokens." />
+            <SecretInput label="Page Access Token" value={fb.FACEBOOK_PAGE_ACCESS_TOKEN} onChange={v => setFb(s => ({ ...s, FACEBOOK_PAGE_ACCESS_TOKEN: v }))} placeholder="EAABm..." hint="Used for Messenger AND auto-posting new products to your page. Must be a PAGE access token with the pages_manage_posts permission (not a User token). Generate in Graph API Explorer → select your Page → add pages_manage_posts, pages_read_engagement → then exchange for a long-lived token." />
           </div>
         </div>
 
-        <div className="flex justify-end pt-2 border-t border-slate-50">
+        {/* Test posting — surfaces the exact Graph API error so a misconfigured
+            token/page is obvious instead of failing silently on product create. */}
+        {fbTest.ok !== null && (
+          <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs font-medium ${fbTest.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+            {fbTest.ok ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
+            <span className="break-words">{fbTest.msg}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-50">
+          <button type="button" onClick={testFacebook} disabled={fbTest.loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 transition-colors cursor-pointer">
+            {fbTest.loading ? <Loader2 size={13} className="animate-spin" /> : <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-blue-600"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
+            {fbTest.loading ? 'Testing…' : 'Test posting'}
+          </button>
           <SaveBtn section="facebook" saving={saving} saved={saved} />
         </div>
       </form>
