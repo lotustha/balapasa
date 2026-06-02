@@ -389,6 +389,20 @@ function MessagingSettingsPanel({
     }
   }
 
+  const [msgr, setMsgr] = useState<{ loading: boolean; ok: boolean | null; msg: string }>({ loading: false, ok: null, msg: '' })
+  async function connectMessenger() {
+    setMsgr({ loading: true, ok: null, msg: '' })
+    try {
+      const res  = await fetch('/api/admin/facebook/messenger', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) setMsgr({ loading: false, ok: true, msg: 'Page subscribed ✓ Incoming Messenger messages will now reach your inbox (make sure the app-level webhook below is also configured).' })
+      else setMsgr({ loading: false, ok: false, msg: data.error ?? 'Subscription failed' })
+    } catch (e) {
+      setMsgr({ loading: false, ok: false, msg: e instanceof Error ? e.message : 'Network error' })
+    }
+  }
+  const messengerWebhookUrl = (typeof window !== 'undefined' ? window.location.origin : 'https://balapasa.com.np') + '/api/webhooks/messenger'
+
   useEffect(() => {
     fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
       if (!s) return
@@ -508,6 +522,31 @@ function MessagingSettingsPanel({
             {fbTest.loading ? 'Testing…' : 'Test posting'}
           </button>
           <SaveBtn section="facebook" saving={saving} saved={saved} />
+        </div>
+
+        {/* Messenger inbox setup — incoming FB messages → Admin → Messaging. */}
+        <div className="pt-4 border-t border-slate-50 space-y-3">
+          <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Messenger inbox</p>
+          <p className="text-xs text-slate-500">Receive Facebook Messenger messages in <span className="font-semibold">Admin → Messaging</span>. Two steps:</p>
+          <ol className="text-xs text-slate-600 space-y-1.5 list-decimal pl-4">
+            <li>In <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener" className="text-primary font-semibold">Meta App Dashboard</a> → Messenger → Webhooks: add the callback URL below, set the Verify Token to your <span className="font-semibold">Webhook Verify Token</span> (WhatsApp section above), and subscribe the <span className="font-mono">messages</span> field.</li>
+            <li>Then click <span className="font-semibold">Connect Messenger</span> to subscribe this page to the app.</li>
+          </ol>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-mono text-primary break-all">{messengerWebhookUrl}</code>
+            <button type="button" onClick={() => navigator.clipboard?.writeText(messengerWebhookUrl)} className="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 cursor-pointer shrink-0" title="Copy"><Copy size={13} /></button>
+          </div>
+          {msgr.ok !== null && (
+            <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs font-medium ${msgr.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+              {msgr.ok ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
+              <span className="break-words">{msgr.msg}</span>
+            </div>
+          )}
+          <button type="button" onClick={connectMessenger} disabled={msgr.loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors cursor-pointer">
+            {msgr.loading ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
+            {msgr.loading ? 'Connecting…' : 'Connect Messenger'}
+          </button>
         </div>
       </form>
 

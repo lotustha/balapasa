@@ -139,3 +139,46 @@ export async function testFacebookConnection(storeName: string): Promise<{
     return { ok: false, step: 'network', error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+// Subscribes the Page to the app's webhooks (the step most setups miss). After
+// this, Meta delivers incoming Messenger messages to /api/webhooks/messenger —
+// PROVIDED the app-level webhook (callback URL + verify token + `messages`
+// field) is also configured in the Meta App Dashboard.
+export async function subscribeMessengerWebhook(): Promise<{ ok: boolean; error?: string }> {
+  const cfg = await getFacebookPostConfig()
+  if (!cfg) return { ok: false, error: 'Facebook Page ID and/or Page Access Token are not set in Settings → Messaging.' }
+  const token = await resolvePageToken(cfg.pageId, cfg.token)
+  try {
+    const res  = await fetch(`${GRAPH_BASE}/${cfg.pageId}/subscribed_apps`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscribed_fields: 'messages,messaging_postbacks,messaging_optins,message_deliveries,message_reads',
+        access_token: token,
+      }),
+    })
+    const data = await res.json()
+    if (res.ok && data?.success !== false && !data?.error) return { ok: true }
+    return { ok: false, error: graphError(data) }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// Lists which fields the page is subscribed to (so the admin can confirm
+// `messages` is active).
+export async function getMessengerSubscription(): Promise<{ ok: boolean; subscribedFields?: string[]; error?: string }> {
+  const cfg = await getFacebookPostConfig()
+  if (!cfg) return { ok: false, error: 'Not configured' }
+  const token = await resolvePageToken(cfg.pageId, cfg.token)
+  try {
+    const res  = await fetch(`${GRAPH_BASE}/${cfg.pageId}/subscribed_apps?access_token=${encodeURIComponent(token)}`)
+    const data = await res.json()
+    if (!res.ok || data?.error) return { ok: false, error: graphError(data) }
+    const fields = Array.isArray(data?.data)
+      ? (data.data.flatMap((a: { subscribed_fields?: string[] }) => a.subscribed_fields ?? []) as string[])
+      : []
+    return { ok: true, subscribedFields: [...new Set(fields)] }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
