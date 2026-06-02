@@ -50,7 +50,9 @@ const EMPTY: ProductData = {
   costPrice: '', isTaxable: false,
   trackInventory: true, stock: '100', lowStockThreshold: '10',
   barcode: '', weight: '0.2',
-  length: '', width: '', height: '',
+  // Sensible carrier defaults for a new product so dimensions are never blank
+  // (admins can override). Edit mode overrides these with the saved values.
+  length: '10', width: '10', height: '5',
   categoryId: '', supplierId: '', brand: '', tags: [],
   isActive: true, isFeatured: false, isNew: true, freeDelivery: false,
   boughtTogetherIds: [],
