@@ -7,6 +7,7 @@ import {
   ShoppingBag, Package, Users, TrendingUp, TrendingDown,
   ArrowUpRight, ArrowDownRight, Clock, AlertTriangle,
   CheckCircle2, Loader2, Zap, BarChart2,
+  Eye, MousePointerClick, Globe, Activity,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
@@ -32,12 +33,52 @@ interface DashboardData {
   lowStockProducts: { id: string; name: string; stock: number; threshold: number; image: string | null; category: string }[]
 }
 
+interface Analytics {
+  available: boolean
+  pageViews: { today: number; week: number; month: number }
+  visitors:  { today: number; week: number; month: number }
+  series:    { day: string; views: number; visitors: number }[]
+  topPages:  { path: string; views: number }[]
+  topProducts: { id: string; name: string; slug: string; image: string | null; views: number }[]
+  sources:   { host: string; views: number }[]
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
   if (mins < 60)   return `${mins}m ago`
   if (mins < 1440) return `${Math.floor(mins / 60)}h ago`
   return `${Math.floor(mins / 1440)}d ago`
+}
+
+// 14-day traffic chart — page-view bars with a hover tooltip showing both
+// page views and unique visitors. Same hand-rolled approach as Sparkline.
+function TrafficChart({ data }: { data: { day: string; views: number; visitors: number }[] }) {
+  if (!data.length) return (
+    <div className="flex flex-col items-center justify-center py-10 text-slate-300">
+      <Activity size={28} className="mb-2" />
+      <p className="text-xs font-medium text-slate-400">No traffic yet</p>
+      <p className="text-[10px] text-slate-300 mt-0.5">Page views appear here as visitors browse your store</p>
+    </div>
+  )
+  const max = Math.max(...data.map(d => d.views), 1)
+  return (
+    <div className="flex items-end gap-1 h-28">
+      {data.map((d, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 group relative h-full">
+          <div
+            className="w-full bg-primary/20 group-hover:bg-primary/50 rounded-t transition-colors"
+            style={{ height: `${Math.max((d.views / max) * 100, 3)}%` }}
+          />
+          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
+            <div className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-lg whitespace-nowrap text-center">
+              {d.day}<br />{d.views} views · {d.visitors} visitors
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // Simple inline bar sparkline (no external lib)
@@ -65,14 +106,20 @@ function Sparkline({ data }: { data: { day: string; revenue: number }[] }) {
 }
 
 export default function AdminDashboard() {
-  const [data,    setData]    = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState('')
+  const [data,      setData]      = useState<DashboardData | null>(null)
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/dashboard')
-      .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else setData(d) })
+    Promise.all([
+      fetch('/api/admin/dashboard').then(r => r.json()),
+      fetch('/api/admin/analytics').then(r => r.json()).catch(() => null),
+    ])
+      .then(([d, a]) => {
+        if (d.error) setError(d.error); else setData(d)
+        if (a) setAnalytics(a as Analytics)
+      })
       .catch(() => setError('Failed to load dashboard'))
       .finally(() => setLoading(false))
   }, [])
@@ -355,6 +402,183 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* ── Traffic & Analytics ── */}
+      {analytics && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-heading font-extrabold text-xl text-gray-900 flex items-center gap-2">
+                <Activity size={18} className="text-primary" /> Traffic &amp; Analytics
+              </h2>
+              <p className="text-gray-500 text-xs mt-0.5">
+                {analytics.available && analytics.pageViews.month > 0
+                  ? 'First-party visitor data — last 7 days unless noted'
+                  : 'No visits recorded yet — data appears here as customers browse your store'}
+              </p>
+            </div>
+          </div>
+
+          {/* Analytics KPI cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-primary-bg text-primary flex items-center justify-center mb-4">
+                <Users size={18} />
+              </div>
+              <p className="font-extrabold text-2xl text-gray-900">{analytics.visitors.week.toLocaleString()}</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Visitors (7d)</p>
+              <p className="text-[11px] text-gray-400 mt-1">{analytics.visitors.today.toLocaleString()} today</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+                <Eye size={18} />
+              </div>
+              <p className="font-extrabold text-2xl text-gray-900">{analytics.pageViews.week.toLocaleString()}</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Page Views (7d)</p>
+              <p className="text-[11px] text-gray-400 mt-1">{analytics.pageViews.month.toLocaleString()} in 30 days</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4">
+                <MousePointerClick size={18} />
+              </div>
+              <p className="font-extrabold text-2xl text-gray-900">
+                {analytics.visitors.week > 0 ? (analytics.pageViews.week / analytics.visitors.week).toFixed(1) : '—'}
+              </p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Pages / Visitor</p>
+              <p className="text-[11px] text-gray-400 mt-1">Engagement depth (7d)</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+                <Globe size={18} />
+              </div>
+              <p className="font-extrabold text-2xl text-gray-900 truncate" title={analytics.sources[0]?.host ?? '—'}>
+                {analytics.sources[0]?.host ?? '—'}
+              </p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Top Source</p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {analytics.sources[0] ? `${analytics.sources[0].views.toLocaleString()} views (30d)` : 'No referrers yet'}
+              </p>
+            </div>
+          </div>
+
+          {/* Traffic chart + Top sources */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 lg:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Traffic — Last 14 Days</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Page views per day · hover for visitors</p>
+                </div>
+                <BarChart2 size={16} className="text-slate-300" />
+              </div>
+              <TrafficChart data={analytics.series} />
+              {analytics.series.length > 0 && (
+                <div className="flex justify-between mt-2">
+                  <span className="text-[10px] text-slate-400">{analytics.series[0]?.day}</span>
+                  <span className="text-[10px] text-slate-400">{analytics.series[analytics.series.length - 1]?.day}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <h3 className="font-bold text-slate-800 text-sm mb-4">Top Sources</h3>
+              {analytics.sources.length === 0 ? (
+                <div className="flex flex-col items-center py-8 text-slate-300">
+                  <Globe size={26} className="mb-2" />
+                  <p className="text-xs font-medium text-slate-400">No referrers yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {analytics.sources.map(s => {
+                    const max = analytics.sources[0].views || 1
+                    return (
+                      <div key={s.host}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold text-slate-600 truncate max-w-[150px]" title={s.host}>{s.host}</span>
+                          <span className="text-xs font-bold text-slate-500">{s.views.toLocaleString()}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary/60 rounded-full" style={{ width: `${(s.views / max) * 100}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Top pages + Most-viewed products */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-50">
+                <h2 className="font-heading font-bold text-slate-800 text-sm">Top Pages <span className="text-[11px] font-normal text-slate-400">(30d)</span></h2>
+              </div>
+              {analytics.topPages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+                  <Eye size={30} className="mb-2" />
+                  <p className="text-sm font-medium text-slate-400">No page views yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {analytics.topPages.map((p, i) => {
+                    const max = analytics.topPages[0].views || 1
+                    return (
+                      <div key={p.path} className="flex items-center gap-3 px-5 py-3">
+                        <span className="text-xs font-extrabold text-slate-300 w-4 shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-mono text-slate-700 truncate" title={p.path}>{p.path}</p>
+                          <div className="h-1 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+                            <div className="h-full bg-primary/40 rounded-full" style={{ width: `${(p.views / max) * 100}%` }} />
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 shrink-0">{p.views.toLocaleString()}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+                <h2 className="font-heading font-bold text-slate-800 text-sm">Most-Viewed Products</h2>
+                <Link href="/admin/products" className="text-xs font-bold text-primary hover:text-primary-dark cursor-pointer">All →</Link>
+              </div>
+              {analytics.topProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+                  <Package size={30} className="mb-2" />
+                  <p className="text-sm font-medium text-slate-400">No product views yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {analytics.topProducts.map((p, i) => (
+                    <Link
+                      key={p.id}
+                      href={`/products/${p.slug}`}
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/40 transition-colors"
+                    >
+                      <span className="text-xs font-extrabold text-slate-300 w-4 shrink-0">{i + 1}</span>
+                      <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+                        {p.image
+                          ? <Image src={p.image} alt={p.name} fill sizes="36px" className="object-cover" />
+                          : <Package size={14} className="absolute inset-0 m-auto text-slate-300" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-xs truncate">{p.name}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><Eye size={10} /> {p.views.toLocaleString()} views</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Version footer */}
       <p className="mt-8 text-center text-[11px] text-slate-300 font-mono select-none">

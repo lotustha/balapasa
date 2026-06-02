@@ -9,6 +9,7 @@ import {
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
   MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library, Info,
   AlertTriangle, X, Package, ShoppingCart, Receipt, Users, UserCog, Megaphone,
+  Activity,
 } from 'lucide-react'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
@@ -61,7 +62,7 @@ interface ContentForm {
   CONTACT_MAP_EMBED:       string
 }
 
-type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
+type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'tracking' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -141,6 +142,7 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'homepage',      icon: LayoutTemplate,  label: 'Homepage',      desc: 'Hero, headline & CTAs'    },
   { id: 'content',       icon: Library,         label: 'Content',       desc: 'Legal pages, about & FAQ' },
   { id: 'notices',       icon: Megaphone,       label: 'Notices',       desc: 'Banner & popup'           },
+  { id: 'tracking',      icon: Activity,        label: 'Analytics',     desc: 'Google Analytics & tracking' },
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
   { id: 'ai',            icon: Sparkles,   label: 'AI',            desc: 'Anthropic & Gemini'        },
@@ -1679,6 +1681,94 @@ function NoticesSection({ saving, saved, onSave }: {
   )
 }
 
+// ── Tracking & Analytics ───────────────────────────────────────────────────
+
+function TrackingSection({ saving, saved, onSave }: {
+  saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void
+}) {
+  const [gaId, setGaId] = useState('')
+  const [headCode, setHeadCode] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (!s) return
+      setGaId(s.GA_MEASUREMENT_ID ?? '')
+      setHeadCode(s.CUSTOM_HEAD_CODE ?? '')
+    }).catch(() => {})
+  }, [])
+
+  const gaTrimmed = gaId.trim()
+  const gaValid = gaTrimmed === '' || /^G-[A-Z0-9]+$/i.test(gaTrimmed)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!gaValid) return
+    onSave('tracking', {
+      GA_MEASUREMENT_ID: gaTrimmed,
+      CUSTOM_HEAD_CODE:  headCode,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <InfoBanner icon={Activity} color="bg-indigo-50 border border-indigo-100 text-indigo-700">
+        Connect Google Analytics and add tracking snippets to your storefront. These load on the public
+        site only — never on the admin panel. Your dashboard&apos;s built-in visitor analytics work
+        independently and need no setup here.
+      </InfoBanner>
+
+      {/* ── Google Analytics ────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-0.5 h-4 rounded-full bg-primary" />
+          <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">Google Analytics 4</h3>
+        </div>
+        <div>
+          <Label>Measurement ID</Label>
+          <input
+            value={gaId}
+            onChange={e => setGaId(e.target.value)}
+            placeholder="G-XXXXXXXXXX"
+            className={inputCls + ' font-mono' + (gaValid ? '' : ' border-red-300 focus:border-red-400 focus:ring-red-100')}
+          />
+          {gaValid
+            ? <Hint>Found in GA4 → Admin → Data Streams → your web stream. We load <code className="font-mono">gtag.js</code> site-wide and GA4 tracks page views automatically. Leave blank to disable.</Hint>
+            : <p className="text-[11px] text-red-500 mt-1.5 font-medium">Measurement IDs look like <span className="font-mono">G-XXXXXXXXXX</span>.</p>}
+        </div>
+      </div>
+
+      {/* ── Custom head code ────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-0.5 h-4 rounded-full bg-primary" />
+          <h3 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wide">Custom Head Code</h3>
+        </div>
+        <p className="text-xs text-slate-400 -mt-1">
+          Pasted into the storefront <code className="font-mono">&lt;head&gt;</code>. Use for site-verification
+          meta tags, the Meta Pixel, or other analytics snippets. Both inline and external
+          <code className="font-mono"> &lt;script&gt;</code> tags execute.
+        </p>
+        <div>
+          <Label>HTML snippet <span className="normal-case font-normal text-slate-400">(advanced)</span></Label>
+          <textarea
+            value={headCode}
+            onChange={e => setHeadCode(e.target.value)}
+            rows={8}
+            spellCheck={false}
+            placeholder={'<meta name="google-site-verification" content="..." />'}
+            className={inputCls + ' resize-y font-mono text-xs leading-relaxed'}
+          />
+          <Hint>Leave empty if unused. Only paste code from sources you trust — it runs on every storefront page.</Hint>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <SaveBtn section="tracking" saving={saving} saved={saved} />
+      </div>
+    </form>
+  )
+}
+
 // ── Legal page default templates ──────────────────────────────────────────
 
 const LEGAL_DEFAULTS = {
@@ -2475,6 +2565,10 @@ export default function SettingsPage() {
           {/* ── Notices tab ───────────────────────────────────────── */}
           {tab === 'notices' && (
             <NoticesSection saving={saving} saved={saved} onSave={save} />
+          )}
+
+          {tab === 'tracking' && (
+            <TrackingSection saving={saving} saved={saved} onSave={save} />
           )}
 
           {/* ── Payments tab ──────────────────────────────────────── */}

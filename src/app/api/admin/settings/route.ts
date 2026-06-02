@@ -33,6 +33,8 @@ const PUBLIC_SITE_KEYS = new Set([
   'FAQ_JSON',
   // Store notices — announcement banner + promo popup (JSON blobs)
   'STORE_BANNER_JSON', 'STORE_POPUP_JSON',
+  // Tracking & Analytics — GA4 ID + custom head snippet (public; G-id is client-exposed)
+  'GA_MEASUREMENT_ID', 'CUSTOM_HEAD_CODE',
 ])
 
 function mask(key: string, value: string) {

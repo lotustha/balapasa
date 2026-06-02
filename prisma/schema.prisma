@@ -133,6 +133,23 @@ model Product {
   @@map("products")
 }
 
+// First-party page-view log — powers the admin dashboard's traffic analytics
+// (visitors, top pages, traffic over time). Written by /api/pageview on every
+// storefront navigation; aggregated by /api/admin/analytics.
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  referrer  String?
+  visitorId String   @map("visitor_id")   // anonymous bp_vid cookie
+  userId    String?  @map("user_id")       // set when the visitor is signed in
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([visitorId])
+  @@map("page_views")
+}
+
 model ProductOption {
   id        String   @id @default(cuid())
   productId String   @map("product_id")

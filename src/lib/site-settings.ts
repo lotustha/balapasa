@@ -44,6 +44,8 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
       facebookPageId: map.FACEBOOK_PAGE_ID  ?? SITE_DEFAULTS.facebookPageId,
       logoUrl:    map.STORE_LOGO_URL    || SITE_DEFAULTS.logoUrl,
       faviconUrl: map.STORE_FAVICON_URL || SITE_DEFAULTS.faviconUrl,
+      gaMeasurementId: map.GA_MEASUREMENT_ID ?? '',
+      customHeadCode:  map.CUSTOM_HEAD_CODE  ?? '',
       hero: {
         badgeText:         map.HERO_BADGE_TEXT          || HERO_DEFAULTS.badgeText,
         headline1:         map.HERO_HEADLINE_1          || HERO_DEFAULTS.headline1,

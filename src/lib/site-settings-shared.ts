@@ -88,6 +88,8 @@ export interface SiteSettings {
   facebookPageId:  string  // Just the ID/handle, link built as https://facebook.com/{id}
   logoUrl:    string
   faviconUrl: string
+  gaMeasurementId: string  // GA4 Measurement ID (G-XXXXXXX); empty = GA disabled
+  customHeadCode:  string  // Arbitrary <head> markup (meta tags, pixels) injected on the storefront
   hero:       HeroSettings
   seo:        SeoSettings
   content:    ContentSettings
@@ -308,6 +310,8 @@ export const SITE_DEFAULTS: SiteSettings = {
   facebookPageId: '',
   logoUrl:    '/logo.png',
   faviconUrl: '/favicon.ico',
+  gaMeasurementId: '',
+  customHeadCode:  '',
   hero:       HERO_DEFAULTS,
   seo:        SEO_DEFAULTS,
   content: {
@@ -347,6 +351,7 @@ export const HERO_SETTING_KEYS = [
 export const SITE_SETTING_KEYS = [
   'STORE_NAME', 'STORE_URL', 'STORE_LOGO_URL', 'STORE_FAVICON_URL',
   'STORE_EMAIL', 'STORE_PHONE', 'STORE_ADDRESS', 'WHATSAPP_NUMBER', 'FACEBOOK_PAGE_ID',
+  'GA_MEASUREMENT_ID', 'CUSTOM_HEAD_CODE',
   'SEO_TITLE', 'SEO_DESCRIPTION', 'SEO_KEYWORDS',
   'LEGAL_PRIVACY_BODY', 'LEGAL_TERMS_BODY', 'LEGAL_REFUND_BODY', 'LEGAL_SHIPPING_BODY', 'LEGAL_CANCELLATION_BODY',
   'ABOUT_TITLE', 'ABOUT_BODY',

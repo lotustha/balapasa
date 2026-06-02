@@ -4,6 +4,9 @@ import BottomNav from '@/components/layout/BottomNav'
 import ScrollReset from '@/components/layout/ScrollReset'
 import ThemeApplicator from '@/components/layout/ThemeApplicator'
 import FacebookPixel from '@/components/layout/FacebookPixel'
+import GoogleAnalytics from '@/components/layout/GoogleAnalytics'
+import CustomHeadCode from '@/components/layout/CustomHeadCode'
+import PageViewTracker from '@/components/layout/PageViewTracker'
 import WhatsAppButton from '@/components/layout/WhatsAppButton'
 import StoreBanner from '@/components/layout/StoreBanner'
 import StorePopup from '@/components/layout/StorePopup'
@@ -20,6 +23,9 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
     <ProductContextProvider>
       <ThemeApplicator />
       <FacebookPixel />
+      <GoogleAnalytics gaId={settings.gaMeasurementId} />
+      <CustomHeadCode code={settings.customHeadCode} />
+      <PageViewTracker />
       <ScrollReset />
       <Navbar siteName={settings.siteName} logoUrl={settings.logoUrl} brandSplit={settings.brandSplit} />
       {/* pt-20 clears floating navbar; pb-20 clears bottom nav on mobile.
