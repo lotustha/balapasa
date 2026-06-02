@@ -401,6 +401,7 @@ export interface CreatePndOrderParams {
   customerLongitude?:   number | string
   vendorTrackingNumber: string          // our internal order id (used as PnD reference)
   orderType?:           'Regular'
+  expressDelivery?:     boolean          // paid same-day (inside valley) → express_delivery:"1"
 }
 
 export interface PndOrderResult {
@@ -423,6 +424,8 @@ export async function createPndOrder(p: CreatePndOrderParams): Promise<PndOrderR
     vendorTrackingNumber: p.vendorTrackingNumber,
     ref:               'balapasa-ecommerce',
   }
+  // Paid same-day inside the valley — PnD expects the string "1".
+  if (p.expressDelivery) body.express_delivery = '1'
   if (p.secondaryMobileNo)   body.secondaryMobileNo   = p.secondaryMobileNo
   if (p.destinationCityArea) body.destinationCityArea = p.destinationCityArea
   if (p.landmark)            body.landmark            = p.landmark

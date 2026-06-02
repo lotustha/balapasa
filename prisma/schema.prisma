@@ -235,6 +235,7 @@ model Order {
   trackingUrl    String?       @map("tracking_url")
   shippingOption   String?  @map("shipping_option")
   shippingProvider String?  @map("shipping_provider")
+  expressDelivery  Boolean  @default(false) @map("express_delivery")  // paid same-day (PnD express_delivery:1, inside valley)
   source         String        @default("ONLINE") // ONLINE | POS
   couponCode     String?       @map("coupon_code")
   couponDiscount Float?        @map("coupon_discount")

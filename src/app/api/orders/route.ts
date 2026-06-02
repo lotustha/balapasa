@@ -12,6 +12,7 @@ import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
 import { resolveOrderCodePrefix, assignOrderCode } from '@/lib/order-code'
 import { getBundleItemRows } from '@/lib/bundle'
+import { isKtmValley, expressEligibility, EXPRESS_FEE } from '@/lib/delivery-zone'
 
 // Tag used to distinguish coupon-race aborts from generic Prisma errors so we
 // can surface a 409 to the client instead of a 500.
@@ -65,6 +66,25 @@ export async function POST(req: NextRequest) {
       SELECT value FROM app_settings WHERE key = 'DELIVERY_MODE' LIMIT 1
     `.catch(() => [] as { value: string }[])
     const deliveryMode = (deliveryModeRow[0]?.value === 'FREE' ? 'FREE' : 'PAID') as 'FREE' | 'PAID'
+
+    // ── Express same-day: re-validate server-side (authoritative) ──────────
+    // The client may post `express:true`, but we re-derive eligibility from the
+    // real destination + current Nepal time so a stale (post-cutoff) or
+    // out-of-valley request can't buy a "today" that can't happen. Express is a
+    // flat fee that overrides the client-supplied delivery charge.
+    const wantsExpress = body.express === true && deliveryMode !== 'FREE'
+    const expressInValley = isKtmValley(district) || isKtmValley(municipality) || isKtmValley(city)
+    const expressOk = wantsExpress
+      && shippingProvider === 'PICKNDROP'
+      && expressInValley
+      && expressEligibility(expressInValley).expressAvailable
+    if (wantsExpress && !expressOk) {
+      return Response.json(
+        { error: 'Express same-day delivery is no longer available for this address or time. Please reselect a delivery option.' },
+        { status: 409 },
+      )
+    }
+    const effectiveDeliveryCharge = expressOk ? EXPRESS_FEE : Number(deliveryCharge)
 
     // Reject payment methods that the admin has turned off. Resolved fresh
     // from app_settings so a flip in Admin → Settings → Payments takes effect
@@ -126,7 +146,7 @@ export async function POST(req: NextRequest) {
     const safeAutoDiscount = autoDiscount ? Math.max(0, Number(autoDiscount)) : 0
     const totalBeforeGiftCard = Math.max(
       0,
-      Number(subtotal) + Number(deliveryCharge) - (serverCouponDiscount ?? 0) - safeAutoDiscount,
+      Number(subtotal) + effectiveDeliveryCharge - (serverCouponDiscount ?? 0) - safeAutoDiscount,
     )
 
     // ── Server-side gift card validation ───────────────────────────────
@@ -312,11 +332,12 @@ export async function POST(req: NextRequest) {
         data: {
           userId,
           subtotal:        Number(subtotal),
-          deliveryCharge:  Number(deliveryCharge),
+          deliveryCharge:  effectiveDeliveryCharge,
           total:           serverTotal,
           paymentMethod,
           shippingOption,
           shippingProvider: shippingProvider ?? null,
+          expressDelivery:  expressOk,
           name,
           phone,
           email: email || userEmail || null,
@@ -565,7 +586,10 @@ export async function POST(req: NextRequest) {
             siteName:       settings.siteName,
             tagline:        settings.seo.description,
           })
-          await sendEmailLogged('admin-new-order', { to: adminTo, subject: rendered.subject, html: rendered.html, context: { orderId: order.id } })
+          // Express orders need to be dispatched to Pick & Drop immediately to
+          // hit same-day — make the alert impossible to miss.
+          const subject = expressOk ? `⚡ EXPRESS SAME-DAY — dispatch now · ${rendered.subject}` : rendered.subject
+          await sendEmailLogged('admin-new-order', { to: adminTo, subject, html: rendered.html, context: { orderId: order.id, express: expressOk } })
         }
 
         if (lowTo) {

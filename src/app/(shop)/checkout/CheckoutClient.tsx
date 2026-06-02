@@ -412,13 +412,18 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   const proratedFactor = subtotal > 0 ? nonFreeSubtotal / subtotal : 1
 
   const carrierCharge = selectedOption?.charge ?? 0
+  const isExpress = (selectedOption?.meta as Record<string, unknown> | undefined)?.express === true
   const freeByGlobalMode      = deliveryMode === 'FREE'
   const freeByThreshold       = subtotal >= FREE_DELIVERY_THRESHOLD
   const freeByAllItemsFlagged = allItemsFree
-  const freeDelivery          = freeByGlobalMode || freeByThreshold || freeByAllItemsFlagged
-  const rawDelivery           = freeDelivery
-    ? 0
-    : Math.round(carrierCharge * proratedFactor)
+  // Express same-day is a paid upgrade: it ignores free-delivery promos and
+  // per-item proration — the flat fee always applies.
+  const freeDelivery          = !isExpress && (freeByGlobalMode || freeByThreshold || freeByAllItemsFlagged)
+  const rawDelivery           = isExpress
+    ? carrierCharge
+    : freeDelivery
+      ? 0
+      : Math.round(carrierCharge * proratedFactor)
   const deliveryCharge        = Math.max(0, rawDelivery - deliverySubsidy)
   const totalBeforeGiftCard = Math.max(0, subtotal + deliveryCharge - couponDiscount - autoDiscount)
   // Gift card is applied last — uses whatever's left, up to its balance
@@ -640,6 +645,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
           shippingOption:   deliveryMode === 'FREE' ? 'FREE_DELIVERY' : selectedOption!.name,
           shippingProvider: deliveryMode === 'FREE' ? null : selectedOption!.provider,
           shippingMeta:     deliveryMode === 'FREE' ? null : selectedOption!.meta,
+          express:          deliveryMode !== 'FREE' && isExpress,   // paid same-day upgrade (server re-validates)
           selectedBranchName: deliveryMode === 'FREE' ? undefined : (selectedBranchName || undefined),
           deliveryNote:     deliveryNote.trim() || undefined,
           name: recipientName, phone: recipientPhone, email: recipientEmail || undefined,
@@ -1268,6 +1274,13 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                                     {b.label}
                                   </span>
                                 ))}
+                                {(() => {
+                                  const m = opt.meta as Record<string, unknown> | undefined
+                                  if (m?.express === true)        return <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-violet-100 text-violet-700">⚡ Today (Express)</span>
+                                  if (m?.etaLabel === 'today')    return <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">Delivered today</span>
+                                  if (m?.etaLabel === 'tomorrow') return <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">Delivered tomorrow</span>
+                                  return null
+                                })()}
                               </div>
                               {opt.dropoff_eta > 0 && (() => {
                                 const { secs, packMins, weatherMins, trafficMins, lateNote } = etaAfterConfirm(opt.dropoff_eta, weatherData?.destination ?? null)

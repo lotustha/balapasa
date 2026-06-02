@@ -166,6 +166,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         customerLatitude:    order.lat ?? undefined,
         customerLongitude:   order.lng ?? undefined,
         vendorTrackingNumber: vendorRef,
+        expressDelivery:     order.expressDelivery,   // paid same-day → express_delivery:"1"
       })
 
       const updated = await prisma.order.update({

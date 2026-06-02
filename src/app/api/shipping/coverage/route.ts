@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { estimateDelivery } from '@/lib/pathao'
 import { calculatePndRates } from '@/lib/pickndrop'
+import { isKtmValley, isInValleyCoords, expressEligibility } from '@/lib/delivery-zone'
 
 export interface CoverageOption {
   id: string
@@ -121,16 +122,40 @@ export async function POST(req: NextRequest) {
       heightCm: typeof heightCm === 'number' && heightCm > 0 ? heightCm : undefined,
     })
 
-    for (const rate of pndRates) {
+    // Same-day / express eligibility (inside Kathmandu Valley only). Drives the
+    // ETA label on the regular option and whether a paid Express option appears.
+    const inValley =
+      isKtmValley(district) || isKtmValley(municipality) ||
+      (typeof receiverLat === 'number' && typeof receiverLng === 'number' && isInValleyCoords(receiverLat, receiverLng))
+    const elig = expressEligibility(inValley)
+
+    const pndOpts: CoverageOption[] = pndRates.map(rate => ({
+      id:           rate.id,
+      provider:     'PICKNDROP',
+      providerLabel:'Pick & Drop',
+      name:          rate.name,
+      charge:        rate.charge_after_discount,
+      dropoff_eta:   rate.dropoff_eta,
+      available:     true,
+      meta: {
+        zone: rate.zone, type: rate.type,
+        // Inside valley: regular delivery is "today" only before the 8:45 window.
+        ...(inValley ? { etaLabel: elig.regularToday ? 'today' : 'tomorrow' } : {}),
+      },
+    }))
+    options.push(...pndOpts)
+
+    // Paid Express same-day upgrade — inside valley, 8:45 AM–1:30 PM only.
+    if (elig.expressAvailable && pndOpts.length) {
       options.push({
-        id:           rate.id,
+        id:           'pnd-express',
         provider:     'PICKNDROP',
         providerLabel:'Pick & Drop',
-        name:          rate.name,
-        charge:        rate.charge_after_discount,
-        dropoff_eta:   rate.dropoff_eta,
+        name:         'Pick & Drop — Express (Same-day)',
+        charge:        elig.expressFee,            // flat Rs 150 total
+        dropoff_eta:   6 * 3600,
         available:     true,
-        meta: { zone: rate.zone, type: rate.type },
+        meta: { ...(pndOpts[0].meta ?? {}), express: true, etaLabel: 'today' },
       })
     }
   } catch (e: unknown) {

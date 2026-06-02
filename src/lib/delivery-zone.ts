@@ -13,8 +13,54 @@
 
 export type DeliveryZone = 'SAME' | 'MID' | 'TERAI' | 'FAR'
 
-// 2 PM Asia/Kathmandu — Pick & Drop same-day cut-off for the valley.
+// 2 PM Asia/Kathmandu — legacy same-day cut-off (kept for back-compat).
 export const PND_SAMEDAY_CUTOFF_HOUR = 14
+
+// ── Inside-valley same-day / express windows (Asia/Kathmandu) ─────────────────
+// Store-safe cut-offs (minutes-of-day):
+//   • before 8:45 AM → FREE same-day: regular delivery already arrives today.
+//   • 8:45 AM – 1:30 PM → CHOOSE: regular (tomorrow) OR Express flat Rs 150 (today).
+//   • after 1:30 PM → CLOSED: regular delivery, arrives next day.
+export const EXPRESS_TODAY_FREE_CUTOFF_MIN = 8 * 60 + 45   // 08:45
+export const EXPRESS_PAID_CUTOFF_MIN       = 13 * 60 + 30  // 13:30
+export const EXPRESS_FEE = 150                              // flat, total (not a surcharge)
+
+export type ExpressPhase = 'today_free' | 'choose' | 'closed'
+
+export interface ExpressEligibility {
+  inValley:         boolean
+  phase:            ExpressPhase
+  regularToday:     boolean   // standard delivery arrives today (before 8:45)
+  expressAvailable: boolean   // the paid same-day upgrade is offered (8:45–1:30)
+  expressFee:       number    // flat total for express
+}
+
+// Minutes-of-day in Asia/Kathmandu (UTC+5:45) — pinned, not device-local, so the
+// cut-offs are correct regardless of the visitor's timezone. Minute precision is
+// required for the 8:45 / 1:30 boundaries (ktmHour alone isn't enough).
+function ktmMinutes(now: Date): number {
+  try {
+    const s = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kathmandu', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(now)
+    const m = s.match(/(\d{2}):(\d{2})/)
+    if (!m) return now.getHours() * 60 + now.getMinutes()
+    return (parseInt(m[1], 10) % 24) * 60 + parseInt(m[2], 10)
+  } catch {
+    return now.getHours() * 60 + now.getMinutes()
+  }
+}
+
+// SINGLE source of truth for the express/same-day decision. Consumed by the
+// coverage API, checkout pricing/display, the PDP estimate, and order-submit
+// re-validation — so the rule can never drift between them. Pure + `now`-driven.
+export function expressEligibility(inValley: boolean, now: Date = new Date()): ExpressEligibility {
+  if (!inValley) return { inValley: false, phase: 'closed', regularToday: false, expressAvailable: false, expressFee: EXPRESS_FEE }
+  const m = ktmMinutes(now)
+  if (m < EXPRESS_TODAY_FREE_CUTOFF_MIN) return { inValley: true, phase: 'today_free', regularToday: true,  expressAvailable: false, expressFee: EXPRESS_FEE }
+  if (m < EXPRESS_PAID_CUTOFF_MIN)       return { inValley: true, phase: 'choose',     regularToday: false, expressAvailable: true,  expressFee: EXPRESS_FEE }
+  return { inValley: true, phase: 'closed', regularToday: false, expressAvailable: false, expressFee: EXPRESS_FEE }
+}
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
 
@@ -85,20 +131,6 @@ export interface DeliveryEstimate {
   note: string       // qualifying line under the headline
 }
 
-// Current hour in Asia/Kathmandu (UTC+5:45) — pinned, not client-local, so the
-// same-day cut-off is correct regardless of the visitor's device timezone.
-function ktmHour(now: Date): number {
-  try {
-    const h = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Kathmandu', hour: '2-digit', hour12: false,
-    }).format(now)
-    const n = parseInt(h, 10)
-    return Number.isFinite(n) ? n % 24 : now.getHours()
-  } catch {
-    return now.getHours()
-  }
-}
-
 const fmtDate = (d: Date) =>
   d.toLocaleDateString('en-NP', { weekday: 'short', month: 'short', day: 'numeric' })
 
@@ -115,20 +147,28 @@ export function estimateDelivery(city: string, now: Date = new Date()): Delivery
   const zone = deliveryZone(city)
 
   if (zone === 'SAME') {
-    const beforeCutoff = ktmHour(now) < PND_SAMEDAY_CUTOFF_HOUR
-    if (beforeCutoff) {
+    const e = expressEligibility(true, now)
+    if (e.phase === 'today_free') {
       return {
         zone, sameDay: true,
         primary: `As fast as today, ${fmtDate(now)}`,
         short: 'Today',
-        note: 'Order before 2:00 PM for same-day delivery in Kathmandu Valley (Pick & Drop)',
+        note: 'Order before 8:45 AM for same-day delivery in Kathmandu Valley (Pick & Drop)',
+      }
+    }
+    if (e.phase === 'choose') {
+      return {
+        zone, sameDay: true,
+        primary: `Today with Express, ${fmtDate(now)}`,
+        short: 'Today (Express)',
+        note: `Get it today with Express (Rs ${EXPRESS_FEE}) — order before 1:30 PM. Free standard delivery arrives tomorrow.`,
       }
     }
     return {
       zone, sameDay: false,
       primary: `Tomorrow, ${fmtDate(addDays(now, 1))}`,
       short: 'Tomorrow',
-      note: 'Same-day cut-off (2:00 PM) has passed — arrives tomorrow',
+      note: 'Same-day cut-off (1:30 PM) has passed — arrives tomorrow',
     }
   }
 

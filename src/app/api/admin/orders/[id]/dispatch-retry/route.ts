@@ -69,6 +69,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       customerLongitude:   order.lng ?? undefined,
       vendorTrackingNumber: order.id,
       orderType:           'Regular',
+      expressDelivery:     order.expressDelivery,   // paid same-day → express_delivery:"1"
     })
 
     // Clear the failure sentinel from notes — keep any other admin notes intact.

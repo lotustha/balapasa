@@ -23,6 +23,7 @@ interface Order {
   total: number; subtotal: number; deliveryCharge: number
   advancePaid: number | null; codAmount: number | null; advanceMethod: string | null
   notes: string | null; shippingOption: string | null; shippingProvider: string | null
+  expressDelivery?: boolean
   pathaoOrderId: string | null; pndOrderId: string | null; trackingUrl: string | null
   deliveryNote: string | null; deliveryMode: string | null
   orderCode: string | null
@@ -981,7 +982,15 @@ export default function OrderDetailPage() {
           {/* ── Delivery Management ── */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2"><Truck size={14} className="text-primary" /> Delivery Assignment</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2"><Truck size={14} className="text-primary" /> Delivery Assignment</h2>
+                {order.expressDelivery && (
+                  <span className={`text-[10px] font-extrabold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-md ${hasDelivery ? '' : 'animate-pulse'}`}
+                    title="Paid same-day — dispatch to Pick & Drop now">
+                    ⚡ EXPRESS{hasDelivery ? '' : ' — dispatch today'}
+                  </span>
+                )}
+              </div>
               {hasDelivery && (
                 <button onClick={() => setDeliveryTab('view')} className="text-[11px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-lg flex items-center gap-1">
                   <CheckCircle2 size={11} /> Assigned
