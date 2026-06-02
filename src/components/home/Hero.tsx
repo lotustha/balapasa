@@ -333,10 +333,21 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                 </Link>
               ))}
 
-              {/* Flash Deal — only when products are actively on sale; shows the
-                  real max discount. Grows to fill the remaining height so the
-                  trending card aligns to its bottom. */}
-              {flashDeal && flashDeal.maxOff > 0 && (
+              {/* Flash Deal — skeleton while loading, real card when products are
+                  actively on sale (shows the real max discount), hidden when none.
+                  Grows to fill the remaining height so the trending card aligns
+                  to its bottom. */}
+              {flashDeal === null ? (
+                <div className="flex-1 glass-card p-4 flex flex-col justify-center animate-pulse">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-xl bg-slate-200/80 shrink-0" />
+                    <div className="h-2.5 bg-slate-200/80 rounded-full w-24" />
+                  </div>
+                  <div className="h-6 bg-slate-200/80 rounded-lg w-28 mb-2" />
+                  <div className="h-2.5 bg-slate-200/80 rounded-full w-32" />
+                  <div className="h-2.5 bg-slate-200/80 rounded-full w-16 mt-3" />
+                </div>
+              ) : flashDeal.maxOff > 0 ? (
                 <Link href="/deals"
                   className="flex-1 glass-card p-4 flex flex-col justify-center animate-fade-in-up delay-300 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
                   style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
@@ -352,7 +363,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                     View Deals <ArrowRight size={12} />
                   </span>
                 </Link>
-              )}
+              ) : null}
             </div>
           </div>
 
