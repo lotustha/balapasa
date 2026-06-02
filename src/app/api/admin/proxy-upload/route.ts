@@ -1,7 +1,7 @@
 import { saveFile } from '@/lib/upload'
 
 export async function POST(req: Request) {
-  const { url } = await req.json() as { url: string }
+  const { url, name } = await req.json() as { url: string; name?: string }
   if (!url) return Response.json({ error: 'url required' }, { status: 400 })
 
   try {
@@ -23,9 +23,9 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Not an image', originalUrl: url }, { status: 400 })
     }
 
-    const buf        = await imgRes.arrayBuffer()
-    const savedUrl   = await saveFile(buf, contentType)
-    return Response.json({ url: savedUrl })
+    const buf   = await imgRes.arrayBuffer()
+    const saved = await saveFile(buf, contentType, undefined, name)
+    return Response.json({ url: saved.url })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return Response.json({ error: msg, originalUrl: url }, { status: 500 })

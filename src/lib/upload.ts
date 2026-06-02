@@ -24,11 +24,25 @@ function pickExt(contentType: string, fallbackName?: string): string {
   return 'bin'
 }
 
-export async function saveFile(buf: ArrayBuffer, contentType: string, originalName?: string): Promise<SavedFile> {
+// Slugify a product name into an SEO/file-safe stem (e.g. "Wireless Earbuds Pro"
+// → "wireless-earbuds-pro"). Capped so filenames stay reasonable.
+function slugifyName(s: string): string {
+  return s.toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+// `baseName` (e.g. the product name) makes the stored filename SEO-friendly and
+// searchable — "wireless-earbuds-pro-l8x4a2.jpg" instead of a bare timestamp. A
+// short unique suffix is always appended so multiple images never collide.
+export async function saveFile(buf: ArrayBuffer, contentType: string, originalName?: string, baseName?: string): Promise<SavedFile> {
   const kind     = contentType.startsWith('video/') ? 'video' : 'image'
   const ext      = pickExt(contentType, originalName)
   const folder   = kind === 'video' ? 'videos' : 'images'
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const slug     = baseName ? slugifyName(baseName) : ''
+  const uniq     = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  const filename = slug ? `${slug}-${uniq}.${ext}` : `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
   const uploadDir = join(process.cwd(), 'uploads', folder)
 
   await mkdir(uploadDir, { recursive: true })

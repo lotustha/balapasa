@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { saveFile, recordMediaAsset } from '@/lib/upload'
 
-async function reuploadImage(sourceUrl: string): Promise<string> {
+async function reuploadImage(sourceUrl: string, baseName?: string): Promise<string> {
   const res = await fetch(sourceUrl, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
     signal: AbortSignal.timeout(15000),
@@ -10,13 +10,14 @@ async function reuploadImage(sourceUrl: string): Promise<string> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const contentType = res.headers.get('content-type') ?? 'image/jpeg'
   const buf   = await res.arrayBuffer()
-  const saved = await saveFile(buf, contentType)
+  // Name the stored file after the product (SEO + searchable).
+  const saved = await saveFile(buf, contentType, undefined, baseName)
   await recordMediaAsset(saved)
   return saved.url
 }
 
-async function reuploadImages(urls: string[]): Promise<string[]> {
-  const results = await Promise.allSettled(urls.map(u => reuploadImage(u)))
+async function reuploadImages(urls: string[], baseName?: string): Promise<string[]> {
+  const results = await Promise.allSettled(urls.map(u => reuploadImage(u, baseName)))
   return results
     .map((r, i) => r.status === 'fulfilled' ? r.value : urls[i])
     .filter(Boolean)
@@ -246,12 +247,13 @@ export async function POST(req: NextRequest) {
   const isDaraz = host.includes('daraz') || host.includes('lazada')
   const partial = isDaraz ? extractDaraz(html) : extractGeneric(html)
 
-  // Re-upload images to local storage
+  // Re-upload images to local storage, named after the product for SEO.
+  const productName = partial.name ?? 'Imported Product'
   let images = partial.images ?? []
   let uploadedCount = 0
 
   if (images.length) {
-    const reuploaded = await reuploadImages(images)
+    const reuploaded = await reuploadImages(images, productName)
     uploadedCount    = reuploaded.filter(u => u.startsWith('/uploads')).length
     images           = reuploaded
   }

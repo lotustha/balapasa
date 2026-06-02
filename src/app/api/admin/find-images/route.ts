@@ -65,7 +65,7 @@ async function tryFetch(url: string, headers?: Record<string, string>) {
   return { buf, ct }
 }
 
-async function uploadImageLocally(imgUrl: string): Promise<string> {
+async function uploadImageLocally(imgUrl: string, baseName?: string): Promise<string> {
   // 1. Direct download (works if CDN isn't blocking the VPS IP)
   // 2. Via wsrv.nl public image proxy (bypasses datacenter IP blocks)
   const attempts: Array<() => Promise<{ buf: ArrayBuffer; ct: string }>> = [
@@ -75,7 +75,8 @@ async function uploadImageLocally(imgUrl: string): Promise<string> {
   for (const attempt of attempts) {
     try {
       const { buf, ct } = await attempt()
-      const saved = await saveFile(buf, ct)
+      // Name the stored file after the product (SEO + searchable).
+      const saved = await saveFile(buf, ct, undefined, baseName)
       await recordMediaAsset(saved)
       return saved.url
     } catch { /* try next */ }
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
 
   // Fast path: caller already has CDN URLs from the Excel export — download them directly
   if (imageUrls && imageUrls.length > 0) {
-    const settled = await Promise.allSettled(imageUrls.map(u => uploadImageLocally(u)))
+    const settled = await Promise.allSettled(imageUrls.map(u => uploadImageLocally(u, productName)))
     const images  = settled.map((r, i) => r.status === 'fulfilled' ? r.value : imageUrls[i])
     const uploaded = images.filter(u => u.startsWith('/uploads')).length
     return Response.json({ images, uploaded, total: images.length })
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
   if (!allImages.length && item.image) allImages = [item.image]
   if (!allImages.length) return Response.json({ error: 'No images found', images: [] })
 
-  const uploadedUrls = await Promise.allSettled(allImages.map(u => uploadImageLocally(u)))
+  const uploadedUrls = await Promise.allSettled(allImages.map(u => uploadImageLocally(u, productName)))
   const images = uploadedUrls.map((r, i) =>
     r.status === 'fulfilled' ? r.value : allImages[i]
   )
