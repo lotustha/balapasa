@@ -866,7 +866,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             {/* Name + rating */}
             <div className="glass-panel p-5">
               {p.brand && <p className="text-xs font-extrabold uppercase tracking-widest mb-2 text-primary">{p.brand}</p>}
-              <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900 leading-tight">{p.name}</h1>
+              <h1 className="font-heading font-extrabold text-xl sm:text-2xl lg:text-3xl text-slate-900 leading-snug">{p.name}</h1>
               {p.sku && <p className="text-[10px] text-slate-400 mt-1">SKU: {p.sku}</p>}
               <div className="flex items-center gap-3 mt-3 flex-wrap">
                 <div className="flex items-center gap-0.5" aria-label={`Rating: ${p.rating} out of 5`}>
