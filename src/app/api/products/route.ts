@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       stock, lowStockThreshold, images, categoryId, supplierId,
       tags, isActive, isFeatured, isNew, isTaxable, trackInventory, freeDelivery,
       brand, sku, barcode, weight, length, width, height, videoUrl, boughtTogetherIds,
-      kind, planId,
+      kind, planId, postToFacebook,
     } = body
 
     if (!name || !slug || !description || price == null || !categoryId) {
@@ -227,6 +227,25 @@ export async function POST(req: NextRequest) {
           sortOrder:          i,
         }))
       if (rows.length) await prisma.bundleItem.createMany({ data: rows, skipDuplicates: true })
+    }
+
+    // ── Auto-post to the linked Facebook Page ───────────────────────────────
+    // Fire-and-forget so the admin's "create" response is never blocked or
+    // failed by Facebook. Only runs when the form's toggle was on AND the page
+    // is configured (the toggle is hidden otherwise). Active products only.
+    if (postToFacebook === true && product.isActive) {
+      ;(async () => {
+        try {
+          const { postProductToFacebook } = await import('@/lib/facebook')
+          const result = await postProductToFacebook({
+            name: product.name, slug: product.slug, description: product.description,
+            price: product.price, salePrice: product.salePrice, images: product.images,
+          })
+          if (!result.ok) console.warn('[products] Facebook post failed (non-fatal):', result.error)
+        } catch (e) {
+          console.warn('[products] Facebook post threw (non-fatal):', e instanceof Error ? e.message : String(e))
+        }
+      })()
     }
 
     return Response.json(product, { status: 201 })

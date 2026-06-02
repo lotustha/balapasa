@@ -1090,6 +1090,17 @@ export default function ProductForm({ initial, mode, productId }: Props) {
   const [saved,  setSaved]  = useState(false)
   const [carrierLimits, setCarrierLimits] = useState<{ pathao: CarrierLimitInfo; pickndrop: CarrierLimitInfo } | null>(null)
 
+  // "Post to Facebook" toggle — shown only when a page is configured; on by default.
+  const [fbConfigured, setFbConfigured] = useState(false)
+  const [postToFb,     setPostToFb]     = useState(true)
+  useEffect(() => {
+    if (mode !== 'create') return
+    fetch('/api/admin/facebook/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.configured) setFbConfigured(true) })
+      .catch(() => {})
+  }, [mode])
+
   useEffect(() => {
     Promise.all([
       fetch('/api/admin/categories').then(r => r.json()),
@@ -1175,6 +1186,8 @@ export default function ProductForm({ initial, mode, productId }: Props) {
       sku: form.sku || null, isActive: form.isActive,
       isFeatured: form.isFeatured, isNew: form.isNew, freeDelivery: form.freeDelivery,
       boughtTogetherIds: form.boughtTogetherIds,
+      // New products only: ask the API to announce on the linked Facebook page.
+      postToFacebook: mode === 'create' ? postToFb : undefined,
       variantOptions: variantOptions.length ? variantOptions : undefined,
       variants: variants.length ? variants.map(v => ({
         title: v.title, options: v.options,
@@ -1656,6 +1669,9 @@ export default function ProductForm({ initial, mode, productId }: Props) {
               <Toggle label="Featured" desc="Show in featured sections" value={form.isFeatured} onChange={v => set('isFeatured', v)} />
               <Toggle label="Mark as New" desc="Show 'New' badge on product" value={form.isNew} onChange={v => set('isNew', v)} />
               <Toggle label="Free delivery" desc="Customer pays no shipping for this item (only in Paid mode)" value={form.freeDelivery} onChange={v => set('freeDelivery', v)} />
+              {mode === 'create' && fbConfigured && (
+                <Toggle label="Post to Facebook" desc="Announce this product on your linked Facebook page when created" value={postToFb} onChange={setPostToFb} />
+              )}
             </div>
 
             {/* Actions */}
