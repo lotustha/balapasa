@@ -48,6 +48,10 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
   const [stats,      setStats]      = useState(FALLBACK_STATS)
   const [categories, setCategories] = useState<{ slug: string; name: string; color: string; count: number; icon?: string | null }[]>([])
 
+  // Live flash-deal summary (null = loading). Drives the Flash Deal card —
+  // hidden entirely when there are no products actively on sale.
+  const [flashDeal, setFlashDeal] = useState<{ count: number; maxOff: number } | null>(null)
+
   const CACHE_KEY = 'balapasa_trending_v1'
   const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
@@ -105,6 +109,23 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
         ])
       })
       .catch(() => {})
+  }, [])
+
+  // Live flash deals — only products with an ACTIVE salePrice (server filters
+  // out expired/scheduled). Derives the real max discount % shown on the card.
+  useEffect(() => {
+    fetch('/api/products?flash=true&limit=50')
+      .then(r => r.json())
+      .then(d => {
+        const items = (d.products ?? []) as { price: number; salePrice?: number | null }[]
+        const deals = items.filter(p => p.salePrice != null && p.salePrice < p.price)
+        const maxOff = deals.reduce((m, p) => {
+          const off = Math.round(((p.price - (p.salePrice as number)) / p.price) * 100)
+          return off > m ? off : m
+        }, 0)
+        setFlashDeal({ count: deals.length, maxOff })
+      })
+      .catch(() => setFlashDeal({ count: 0, maxOff: 0 }))
   }, [])
 
   useEffect(() => {
@@ -312,23 +333,26 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                 </Link>
               ))}
 
-              {/* Flash Deal — moved into the old delivery slot; grows to fill the
-                  remaining height so the trending card aligns to its bottom. */}
-              <Link href="/deals"
-                className="flex-1 glass-card p-4 flex flex-col justify-center animate-fade-in-up delay-300 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
-                style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 shrink-0">
-                    <Zap size={13} className="text-white fill-white" />
+              {/* Flash Deal — only when products are actively on sale; shows the
+                  real max discount. Grows to fill the remaining height so the
+                  trending card aligns to its bottom. */}
+              {flashDeal && flashDeal.maxOff > 0 && (
+                <Link href="/deals"
+                  className="flex-1 glass-card p-4 flex flex-col justify-center animate-fade-in-up delay-300 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 shrink-0">
+                      <Zap size={13} className="text-white fill-white" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">Flash Deal Active</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-700">Flash Deal Active</span>
-                </div>
-                <p className="font-heading font-extrabold text-xl text-slate-900 leading-tight">Up to <span className="gradient-text-warm">40% OFF</span></p>
-                <p className="text-[11px] text-slate-500 mt-1 leading-snug">Selected products this week only</p>
-                <span className="inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-violet-600">
-                  View Deals <ArrowRight size={12} />
-                </span>
-              </Link>
+                  <p className="font-heading font-extrabold text-xl text-slate-900 leading-tight">Up to <span className="gradient-text-warm">{flashDeal.maxOff}% OFF</span></p>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">{flashDeal.count} product{flashDeal.count !== 1 ? 's' : ''} on sale now</p>
+                  <span className="inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-violet-600">
+                    View Deals <ArrowRight size={12} />
+                  </span>
+                </Link>
+              )}
             </div>
           </div>
 
