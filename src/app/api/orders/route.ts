@@ -10,7 +10,6 @@ import { createMagicToken, magicLinkUrl } from '@/lib/magic-link'
 import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
-import { createPndOrder, resolveBranchForAddress, cityToDistrict } from '@/lib/pickndrop'
 import { resolveOrderCodePrefix, assignOrderCode } from '@/lib/order-code'
 import { getBundleItemRows } from '@/lib/bundle'
 
@@ -57,7 +56,7 @@ export async function POST(req: NextRequest) {
       // Guest signup nudge — "Save my info for next time" checkbox
       createAccount,
       // Delivery extras (landmark is also re-extracted from structured fields above)
-      deliveryNote, selectedBranchName,
+      deliveryNote,
     } = body
 
     // Read DELIVERY_MODE from app_settings at order time so the value is audited
@@ -403,74 +402,15 @@ export async function POST(req: NextRequest) {
       console.warn('[orders] orderCode assignment failed (non-fatal):', e)
     }
 
-    // ── Pick & Drop dispatch ────────────────────────────────────────────────
-    // Fire-and-forget: if shipping went via Pick & Drop, hand the order off to
-    // their carrier API. Success → persist pndOrderId + trackingUrl. Failure →
-    // soft-record into Order.notes so admin can retry without blocking the
-    // customer-facing confirmation.
-    if (shippingProvider === 'PICKNDROP' && deliveryMode !== 'FREE') {
-      ;(async () => {
-        try {
-          let destinationBranch = (typeof selectedBranchName === 'string' && selectedBranchName.trim())
-            ? selectedBranchName.trim()
-            : ''
-          if (!destinationBranch) {
-            // Multi-atom match over the full structured address (same matcher
-            // checkout used to quote the rate) — not a single-atom city lookup,
-            // which fails for valley addresses whose city is just "Kathmandu".
-            const resolved = await resolveBranchForAddress([
-              province, district, municipality, ward, street, tole, structuredLandmark, city,
-            ])
-            destinationBranch = resolved.branch?.branch_name ?? cityToDistrict(city ?? '')
-          }
-          if (!destinationBranch) throw new Error('no destination branch resolved')
-
-          const itemNames = (items as { name: string; quantity: number }[])
-            .map(i => `${i.quantity}× ${i.name}`).join(', ').slice(0, 120) || `Order ${order.id.slice(0, 8)}`
-          const isCod = paymentMethod === 'COD' || paymentMethod === 'PARTIAL_COD'
-          const pndCodAmount = isCod
-            ? Math.max(0, total - (advancePaid ? Number(advancePaid) : 0))
-            : 0
-
-          const result = await createPndOrder({
-            customerName:        name,
-            primaryMobileNo:     String(phone ?? '').replace(/\D/g, '').slice(-10),
-            destinationBranch,
-            destinationCityArea: municipality || district || city || '',
-            landmark:            typeof structuredLandmark === 'string' ? structuredLandmark : undefined,
-            codAmount:           pndCodAmount,
-            orderDescription:    itemNames,
-            customerLatitude:    lat ? Number(lat) : undefined,
-            customerLongitude:   lng ? Number(lng) : undefined,
-            vendorTrackingNumber: order.id,
-            orderType:           'Regular',
-          })
-
-          await prisma.order.update({
-            where: { id: order.id },
-            data: {
-              pndOrderId:    result.trackingId,
-              // Admin order page + tracking display read pathaoOrderId for ALL
-              // carriers (see assign-delivery). Populate it here too so an
-              // auto-dispatched PnD order shows its tracking code immediately,
-              // instead of looking "assigned" with an empty tracking number.
-              pathaoOrderId: result.trackingId,
-              pathaoHash:    result.trackingId,
-              trackingUrl:   result.trackingUrl,
-              shippingOption: `Pick & Drop — ${destinationBranch}`,
-              pndAttempts:   1,   // checkout is dispatch attempt #1 → next re-assign refs <id>-1
-            },
-          })
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          console.warn('[orders] PnD dispatch failed (non-fatal):', msg)
-          await prisma.order.update({
-            where: { id: order.id },
-            data: { notes: `PND_DISPATCH_FAILED: ${msg.slice(0, 200)}` },
-          }).catch(() => {})
-        }
-      })()
-    }
+    // ── Delivery dispatch: MANUAL ───────────────────────────────────────────
+    // No carrier consignment is created at checkout. The order is stored with
+    // the customer's chosen shippingProvider / shippingOption / deliveryCharge
+    // (above), but an admin assigns and dispatches delivery from the order
+    // detail page — "Confirm & Assign" → POST /api/admin/orders/[id]/assign-delivery,
+    // which calls the Pick & Drop / Pathao API and sets pathaoOrderId + tracking.
+    // The admin UI keys "assigned" on pathaoOrderId/trackingUrl, so an
+    // un-dispatched order correctly shows the Assign control with the customer's
+    // chosen provider pre-selected.
 
     // ── Guest signup nudge: create a passwordless Profile + Address + magic-link token ──
     // Fires only when (1) request is guest (no auth cookie), (2) createAccount flag set,
