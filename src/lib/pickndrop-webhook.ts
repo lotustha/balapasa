@@ -124,16 +124,21 @@ export interface ProcessResult {
 export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<ProcessResult> {
   const result: ProcessResult = { matched: false, orderId: null, logged: false, advanced: null, notifications: [] }
 
-  // Find the order by PnD tracking number.
+  // Find the order by tracking number. PnD may echo back the orderID we stored
+  // (pndOrderId / pathaoOrderId) OR the vendorTrackingNumber we sent (our own
+  // order.id) — match any of them so a real delivered event is never missed.
+  const tn = event.tracking_number.trim()
   const order = await prisma.order.findFirst({
-    where: { pndOrderId: event.tracking_number },
+    where: { OR: [{ pndOrderId: tn }, { pathaoOrderId: tn }, { id: tn }] },
     select: { id: true, userId: true, status: true, paymentStatus: true, paymentMethod: true, transactionId: true },
   })
   if (!order) return result   // matched stays false; caller returns 200 OK so PnD doesn't retry forever
   result.matched = true
   result.orderId = order.id
 
-  const mapping = PND_STATUS_MAP[event.status] ?? { mappedStatus: null }
+  // Normalize the status key so casing/spacing variants ("Delivered",
+  // "out for delivery") still map to our snake_case keys.
+  const mapping = PND_STATUS_MAP[normalizeStatus(event.status)] ?? { mappedStatus: null }
   const isoTs   = parsePndTimestamp(event.timestamp)
 
   if (await alreadyLogged(order.id, event.status, isoTs)) {
@@ -237,6 +242,12 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   }
 
   return result
+}
+
+// PnD status keys are snake_case lowercase; tolerate casing/spacing/dash variants
+// (e.g. "Delivered", "Out For Delivery", "out-for-delivery") from any environment.
+function normalizeStatus(s: string): string {
+  return s.trim().toLowerCase().replace(/[\s-]+/g, '_')
 }
 
 function parsePndTimestamp(s: string | null | undefined): string | null {
