@@ -20,7 +20,9 @@ export async function POST(req: Request) {
     return Response.json({ error: `File too large (max ${isVideo ? '200' : '10'} MB)` }, { status: 400 })
   }
 
-  const saved = await saveFile(await file.arrayBuffer(), file.type || (isVideo ? 'video/mp4' : 'image/jpeg'), file.name)
+  // Optional product name → SEO-friendly stored filename (e.g. from the product form).
+  const baseName = (form.get('name') as string | null)?.trim() || undefined
+  const saved = await saveFile(await file.arrayBuffer(), file.type || (isVideo ? 'video/mp4' : 'image/jpeg'), file.name, baseName)
   const me    = await getCurrentUser()
   await recordMediaAsset(saved, me?.sub ?? null)
 

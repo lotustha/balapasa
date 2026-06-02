@@ -8,18 +8,21 @@ interface Props {
   images:   string[]
   onChange: (imgs: string[]) => void
   max?:     number
+  /** Product name — stored files are named after it for SEO/searchability. */
+  productName?: string
 }
 
-async function uploadFile(file: File): Promise<string | null> {
+async function uploadFile(file: File, productName?: string): Promise<string | null> {
   const form = new FormData()
   form.append('file', file)
+  if (productName?.trim()) form.append('name', productName.trim())
   const res  = await fetch('/api/admin/upload', { method: 'POST', body: form })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'Upload failed')
   return data.url
 }
 
-export default function ImageUploader({ images, onChange, max = 10 }: Props) {
+export default function ImageUploader({ images, onChange, max = 10, productName }: Props) {
   const [isDragging,  setIsDragging]  = useState(false)
   const [uploading,   setUploading]   = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -34,7 +37,7 @@ export default function ImageUploader({ images, onChange, max = 10 }: Props) {
     if (!files.length) return
     setUploading(true); setUploadError('')
     try {
-      const urls = await Promise.all(files.slice(0, max - images.length).map(uploadFile))
+      const urls = await Promise.all(files.slice(0, max - images.length).map(f => uploadFile(f, productName)))
       onChange([...images, ...urls.filter(Boolean) as string[]])
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')

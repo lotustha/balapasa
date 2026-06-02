@@ -1301,7 +1301,7 @@ export default function ProductForm({ initial, mode, productId }: Props) {
                   Product Images
                   <span className="ml-2 text-slate-300 font-normal normal-case text-[10px]">First image = primary photo</span>
                 </label>
-                <ImageUploader images={form.images} onChange={v => set('images', v)} max={10} />
+                <ImageUploader images={form.images} onChange={v => set('images', v)} max={10} productName={form.name} />
               </div>
 
               {/* Video */}
