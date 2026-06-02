@@ -75,8 +75,17 @@ Category: ${input.category}${input.brand ? `\nBrand: ${input.brand}` : ''}${inpu
 Cover a mix of these topics — pick what's relevant:
 - Specs / compatibility / what's in the box
 - How to use / care / setup
-- Delivery / return / warranty in Nepal context
+- Delivery / return in Nepal context (use the store policy below — never invent terms)
 - Comparison / use cases
+
+Store policy — state ACCURATELY, do NOT invent or assume:
+- Delivery is across Nepal, with same-day delivery in the Kathmandu Valley where available.
+- Returns: a 7-day inspection-and-replacement window from delivery — i.e. if an item is
+  defective, damaged, or wrong, the customer can request a replacement within 7 days of
+  receiving it.
+- There is NO multi-month or manufacturer warranty. Never claim a "3 month", "6 month",
+  "1 year", "lifetime", or brand/manufacturer warranty unless the product data above explicitly
+  states one. If asked about warranty, describe only the 7-day replacement window.
 
 Requirements:
 - Exactly 4 entries
@@ -84,6 +93,7 @@ Requirements:
 - Each answer: 25-60 words, plain text, useful and specific (not generic)
 - No markdown, no bullets, no emoji
 - Avoid duplicate phrasing across entries
+- Do not state any warranty period other than the 7-day replacement window above
 
 Return ONLY valid JSON in this exact shape, nothing else:
 {"faqs":[{"q":"...","a":"..."},{"q":"...","a":"..."},{"q":"...","a":"..."},{"q":"...","a":"..."}]}`
