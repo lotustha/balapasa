@@ -66,25 +66,55 @@ export async function postProductToFacebook(
     : `NPR ${p.price}`
   const plain = p.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400)
   const caption = `🆕 ${p.name}\n\n${plain}\n\n💰 ${price}\n🛒 Order now: ${url}`
-  const image = absUrl(p.images[0] ?? '')
+
+  // All PUBLIC https images (Facebook can only fetch public URLs), capped at 10.
+  const images = p.images.map(absUrl).filter(im => /^https:\/\//i.test(im)).slice(0, 10)
+
+  const headers = { 'Content-Type': 'application/json' }
 
   try {
-    // Photo post — only when the image is a public https URL Facebook can fetch.
-    if (/^https:\/\//i.test(image)) {
+    // Multi-image post: Facebook has no "post N image URLs" call, so upload each
+    // photo UNPUBLISHED to /photos, then create ONE feed post attaching them all.
+    if (images.length > 1) {
+      const mediaIds: string[] = []
+      for (const im of images) {
+        const r = await fetch(`${GRAPH_BASE}/${cfg.pageId}/photos`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ url: im, published: false, access_token: token }),
+        })
+        const d = await r.json()
+        if (r.ok && d?.id) mediaIds.push(String(d.id))
+        else console.warn('[facebook] image upload skipped:', JSON.stringify(d?.error ?? d).slice(0, 200))
+      }
+      if (mediaIds.length >= 1) {
+        const res = await fetch(`${GRAPH_BASE}/${cfg.pageId}/feed`, {
+          method: 'POST', headers,
+          body: JSON.stringify({
+            message: caption,
+            attached_media: mediaIds.map(id => ({ media_fbid: id })),
+            access_token: token,
+          }),
+        })
+        const data = await res.json()
+        if (res.ok) return { ok: true, postId: data.id }
+        console.warn('[facebook] multi-photo post failed, trying single:', JSON.stringify(data?.error ?? data).slice(0, 300))
+      }
+    }
+
+    // Single photo post (one image, or the multi-photo path failed).
+    if (images[0]) {
       const res  = await fetch(`${GRAPH_BASE}/${cfg.pageId}/photos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: image, caption, access_token: token }),
+        method: 'POST', headers,
+        body: JSON.stringify({ url: images[0], caption, access_token: token }),
       })
       const data = await res.json()
       if (res.ok) return { ok: true, postId: data.post_id ?? data.id }
       console.warn('[facebook] photo post failed, trying feed:', JSON.stringify(data?.error ?? data).slice(0, 300))
     }
 
-    // Link feed post fallback.
+    // Link feed post fallback (no usable image).
     const res2  = await fetch(`${GRAPH_BASE}/${cfg.pageId}/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers,
       body: JSON.stringify({ message: caption, link: url, access_token: token }),
     })
     const data2 = await res2.json()
