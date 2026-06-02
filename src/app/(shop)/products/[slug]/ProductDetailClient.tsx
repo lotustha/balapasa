@@ -369,15 +369,13 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     )
   }, [])
 
-  // Auto-detect on mount ONLY when geolocation was already granted — no
-  // intrusive prompt on page load; otherwise we surface a "Use my location"
-  // button that triggers the prompt from a user gesture.
+  // Auto-request location on load so the delivery estimate is personalised
+  // immediately. This triggers the browser's GPS permission prompt on mount; if
+  // already granted it resolves silently, and if denied we fall back to the
+  // default estimate with a "Use my location" button to retry.
   useEffect(() => {
-    if (!mounted || typeof navigator === 'undefined') return
-    const perms = (navigator as Navigator & { permissions?: { query: (d: { name: PermissionName }) => Promise<{ state: string }> } }).permissions
-    perms?.query({ name: 'geolocation' as PermissionName })
-      .then(p => { if (p.state === 'granted') requestLocation() })
-      .catch(() => {})
+    if (!mounted || typeof navigator === 'undefined' || !navigator.geolocation) return
+    requestLocation()
   }, [mounted, requestLocation])
 
   const effectiveEstimate = geoEstimate ?? deliveryEstimate
