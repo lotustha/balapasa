@@ -12,6 +12,7 @@ import {
   GitCompareArrows, Eye, HelpCircle, Clock, Flame, FileText, List, Repeat,
   MapPin, Pencil, Trash2, Bell,
 } from 'lucide-react'
+import AdminProductEditButton from '@/components/admin/AdminProductEditButton'
 import { useCart } from '@/context/CartContext'
 import { useRegisterProduct, useProductContext } from '@/context/ProductContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
@@ -728,6 +729,9 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   return (
     <div className="min-h-screen relative"
       style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)' }}>
+
+      {/* Admin-only shortcut to edit this product in the admin panel. */}
+      <AdminProductEditButton productId={p.id} />
 
       {/* Blobs — desktop-only. On mobile they sat behind the gallery and any
           recolour repaint read as a flicker. The base gradient is enough at
