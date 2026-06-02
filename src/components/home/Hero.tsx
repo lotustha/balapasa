@@ -228,12 +228,14 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
             transition: 'transform 0.25s ease-out',
           }}
         >
-          {/* Row 1: Featured product card + category chips */}
-          <div className="flex gap-4">
-            {/* Featured product — skeleton while loading, real card after */}
+          {/* Main bento: a tall trending product on the left that stretches to
+              match the right column (category chips + Flash Deal). */}
+          <div className="flex gap-4 items-stretch">
+
+            {/* Left: Featured trending product — fills the full column height */}
             {!current ? (
-              <div className="flex-1 glass-card p-4 animate-pulse">
-                <div className="h-40 rounded-2xl bg-slate-200/80 mb-3" />
+              <div className="flex-1 glass-card p-4 animate-pulse flex flex-col">
+                <div className="flex-1 min-h-40 rounded-2xl bg-slate-200/80 mb-3" />
                 <div className="h-3 bg-slate-200/80 rounded-full w-3/4 mb-2" />
                 <div className="flex items-center justify-between mt-1.5">
                   <div className="h-4 bg-slate-200/80 rounded-full w-20" />
@@ -248,12 +250,12 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
             ) : (
               <Link
                 href={`/products/${current.slug}`}
-                className="flex-1 glass-card p-4 animate-fade-in-up delay-100 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+                className="flex-1 glass-card p-4 flex flex-col animate-fade-in-up delay-100 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
               >
-                <div style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.28s ease' }}>
-                  <div className="relative h-40 rounded-2xl overflow-hidden mb-3">
+                <div className="flex-1 flex flex-col" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.28s ease' }}>
+                  <div className="relative flex-1 min-h-40 rounded-2xl overflow-hidden mb-3">
                     <Image key={current.id} src={current.images[0]} alt={current.name}
-                      fill className="object-cover" sizes="220px"
+                      fill className="object-cover" sizes="320px"
                       priority={activeIdx === 0} fetchPriority={activeIdx === 0 ? 'high' : 'auto'} />
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)' }} />
                     <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-white text-[10px] font-bold rounded-xl"
@@ -282,8 +284,8 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
               </Link>
             )}
 
-            {/* Category chips — skeleton while loading */}
-            <div className="w-36 flex flex-col gap-3">
+            {/* Right column: category chips + Flash Deal */}
+            <div className="w-44 flex flex-col gap-3">
               {categories.length === 0 && [1,2,3].map(i => (
                 <div key={i} className="glass-card p-3 flex items-center gap-2.5 animate-pulse">
                   <div className="w-8 h-8 rounded-xl bg-slate-200/80 shrink-0" />
@@ -303,44 +305,30 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-lg leading-none" style={{ background: `${color}20` }}>
                     {icon ? icon : <Package size={15} style={{ color }} />}
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-800 text-xs leading-none">{name}</p>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 text-xs leading-none truncate">{name}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">{count} sold this week</p>
                   </div>
                 </Link>
               ))}
-            </div>
-          </div>
 
-          {/* Row 2: Flash deal + delivery */}
-          <div className="flex gap-4 animate-fade-in-up delay-300">
-            <div className="flex-1 glass-card p-4 cursor-default"
-              style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500">
-                  <Zap size={13} className="text-white fill-white" />
-                </div>
-                <span className="text-xs font-bold text-slate-700">Flash Deal Active</span>
-              </div>
-              <p className="font-heading font-extrabold text-2xl text-slate-900">Up to <span className="gradient-text-warm">40% OFF</span></p>
-              <p className="text-xs text-slate-500 mt-1">Selected products this week only</p>
+              {/* Flash Deal — moved into the old delivery slot; grows to fill the
+                  remaining height so the trending card aligns to its bottom. */}
               <Link href="/deals"
-                className="inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-violet-600 hover:text-violet-700 cursor-pointer">
-                View Deals <ArrowRight size={12} />
+                className="flex-1 glass-card p-4 flex flex-col justify-center animate-fade-in-up delay-300 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 shrink-0">
+                    <Zap size={13} className="text-white fill-white" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">Flash Deal Active</span>
+                </div>
+                <p className="font-heading font-extrabold text-xl text-slate-900 leading-tight">Up to <span className="gradient-text-warm">40% OFF</span></p>
+                <p className="text-[11px] text-slate-500 mt-1 leading-snug">Selected products this week only</p>
+                <span className="inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-violet-600">
+                  View Deals <ArrowRight size={12} />
+                </span>
               </Link>
-            </div>
-
-            <div className="w-36 glass-card p-3 cursor-default"
-              style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.08))' }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
-                style={{ background: 'rgba(16,185,129,0.15)' }}>
-                <Truck size={16} className="text-emerald-600" />
-              </div>
-              <p className="font-bold text-slate-800 text-xs leading-tight">Same-day Delivery</p>
-              <p className="text-[10px] text-slate-400 mt-1 leading-snug">Via Pathao across Kathmandu</p>
-              <div className="flex items-center gap-1 mt-2 text-[10px] text-emerald-600 font-semibold">
-                <Clock size={10} /> 1–3 hrs
-              </div>
             </div>
           </div>
 
