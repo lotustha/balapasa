@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { formatPrice, discountPercent } from "@/lib/utils";
+import { computeAutoDiscounts, type DiscountRule } from "@/lib/discounts";
 import {
   ShoppingBag,
   Trash2,
@@ -80,10 +81,16 @@ export default function CartPage() {
   // items (deleted, deactivated, or out of stock) get a warning banner.
   const [taxableFlags, setTaxableFlags] = useState<Record<string, boolean>>({})
   const [validity, setValidity] = useState<Record<string, { active: boolean; stock: number; trackInventory: boolean; name: string }>>({})
+  // Admin-configured automatic promotions (the same rules checkout applies) so
+  // the cart total reflects them instead of showing a raw subtotal.
+  const [autoRules, setAutoRules] = useState<DiscountRule[]>([])
 
   useEffect(() => {
     fetch('/api/store-config').then(r => r.json())
       .then(d => setFreeThreshold(d.FREE_DELIVERY_THRESHOLD ?? 5000))
+      .catch(() => {})
+    fetch('/api/discount-rules').then(r => r.json())
+      .then(d => setAutoRules(d.rules ?? []))
       .catch(() => {})
   }, [])
 
@@ -118,6 +125,12 @@ export default function CartPage() {
     if (v.trackInventory && v.stock < it.quantity)           return [{ id: it.id, name: v.name || it.name, reason: v.stock <= 0 ? 'Out of stock' : `Only ${v.stock} left` }]
     return []
   })
+
+  // Auto-promotions — identical computation to checkout (shared lib). The
+  // order discount comes off the cart total here; the delivery subsidy only
+  // applies once delivery is charged at checkout, so it's shown as a note.
+  const { deliverySubsidy, orderDiscount: autoDiscount } = computeAutoDiscounts(autoRules, subtotal);
+  const grandTotal = Math.max(0, subtotal - autoDiscount);
 
   const deliveryFee = subtotal >= freeThreshold ? 0 : BASE_DELIVERY;
   const toFreeDelivery = Math.max(0, freeThreshold - subtotal);
@@ -469,6 +482,24 @@ export default function CartPage() {
                     </span>
                   </div>
                 )}
+                {autoDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-green-600 font-semibold flex items-center gap-1">
+                      <Zap size={13} className="shrink-0" /> Promo discount
+                    </span>
+                    <span className="font-bold text-green-600">
+                      -{formatPrice(autoDiscount)}
+                    </span>
+                  </div>
+                )}
+                {deliverySubsidy > 0 && (
+                  <div className="flex justify-between text-blue-600 text-xs">
+                    <span className="font-semibold">Delivery discount</span>
+                    <span className="font-semibold italic">
+                      -{formatPrice(deliverySubsidy)} at checkout
+                    </span>
+                  </div>
+                )}
                 {vatAmount > 0 && (
                   <div className="flex justify-between text-slate-400 text-xs pt-1">
                     <span>VAT ({Math.round(VAT_RATE * 100)}%) incl.</span>
@@ -486,7 +517,7 @@ export default function CartPage() {
                   Total
                 </span>
                 <span className="font-heading font-extrabold text-xl text-primary">
-                  {formatPrice(subtotal)}
+                  {formatPrice(grandTotal)}
                 </span>
               </div>
 
