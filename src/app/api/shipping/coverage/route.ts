@@ -139,6 +139,12 @@ export async function POST(req: NextRequest) {
       available:     true,
       meta: {
         zone: rate.zone, type: rate.type,
+        // Expose the matched PnD branch + base/surge breakdown so the quoted
+        // rate is auditable from the client (which branch the address resolved
+        // to and whether 150 is the branch's real base or added surge).
+        branch:     rate.meta?.destinationBranch,
+        basePrice:  rate.meta?.basePrice,
+        surgePrice: rate.meta?.surgePrice,
         // Inside valley: regular delivery is "today" only before the 8:45 window.
         ...(inValley ? { etaLabel: elig.regularToday ? 'today' : 'tomorrow' } : {}),
       },

@@ -50,9 +50,23 @@ function areaTokens(area: string[]): string[] {
 }
 
 // Score a branch against a customer's full address (multiple atoms — province,
-// district, municipality, ward, street, tole, landmark). The branch whose
-// area[] tokens overlap the address atoms wins. Stronger matches (exact
-// branch-name hit, exact area-token hit) score higher than substring matches.
+// district, municipality, ward, street, tole, landmark). Two tiers:
+//
+//   • Tier 1 (coverage-first): a branch that lists the customer's locality in
+//     its area[] is the real delivering branch and must beat a hub that merely
+//     shares the name. e.g. "Chapagaun" is in SATDOBATO's area[] (Rs 100), so
+//     it wins over the same-named CHAPAGAUN hub (Rs 150) whose area[] covers the
+//     deeper villages (Lele, Tikabhairab…). We require an EXACT area-token hit
+//     so a weak substring on a district atom can't promote the wrong branch;
+//     among covering branches the strongest area overlap wins.
+//   • Tier 2 (name fallback): only when NO branch exactly covers any atom do we
+//     fall back to the original name+area scoring — keeping legit hub-by-name
+//     routing (deep-south address → CHAPAGAUN hub) intact.
+//
+// Atom-agnostic by design: district names ("lalitpur") don't appear in area[]
+// lists (those hold localities), so feeding all atoms is harmless and lets the
+// quote path and the dispatch path (flattened Order.address, where street/tole
+// aren't separable) resolve to the same branch.
 export function matchBranchForAddress<T extends PndBranchLite>(
   branches: T[],
   atoms: string[],
@@ -60,37 +74,47 @@ export function matchBranchForAddress<T extends PndBranchLite>(
   const needles = atoms.map(normPnd).filter(Boolean)
   if (needles.length === 0) return null
 
-  let best: { branch: T; score: number } | null = null
+  let bestCoverage: { branch: T; score: number; area: number } | null = null
+  let bestOverall:  { branch: T; score: number } | null = null
 
   for (const b of branches) {
-    let score = 0
     const bn = normPnd(b.branch_name)
 
-    // Direct branch-name hit is the strongest signal.
+    // Direct branch-name hit is the strongest name signal.
+    let nameScore = 0
     for (const n of needles) {
-      if (!n) continue
-      if (bn === n)                                score += 10
-      else if (bn.includes(n) && n.length >= 4)    score += 4
-      else if (n.includes(bn) && bn.length >= 4)   score += 3
+      if (bn === n)                                nameScore += 10
+      else if (bn.includes(n) && n.length >= 4)    nameScore += 4
+      else if (n.includes(bn) && bn.length >= 4)   nameScore += 3
     }
 
     // Each individual area[] token can match an address atom.
+    let areaScore = 0
+    let areaExact = false
     const tokens = areaTokens(b.area ?? [])
     for (const t of tokens) {
       for (const n of needles) {
-        if (!n) continue
-        if (t === n)                              score += 5
-        else if (t.includes(n) && n.length >= 4)  score += 2
-        else if (n.includes(t) && t.length >= 4)  score += 1
+        if (t === n)                              { areaScore += 5; areaExact = true }
+        else if (t.includes(n) && n.length >= 4)  areaScore += 2
+        else if (n.includes(t) && t.length >= 4)  areaScore += 1
       }
     }
 
-    if (score > 0 && (!best || score > best.score)) {
-      best = { branch: b, score }
+    const total = nameScore + areaScore
+
+    // Tier 1 candidate: exact locality coverage. Rank covering branches by their
+    // area overlap (not total) so a hub that also name-matches can't jump ahead.
+    if (areaExact && (!bestCoverage || areaScore > bestCoverage.area)) {
+      bestCoverage = { branch: b, score: total, area: areaScore }
+    }
+    if (total > 0 && (!bestOverall || total > bestOverall.score)) {
+      bestOverall = { branch: b, score: total }
     }
   }
 
-  return best
+  return bestCoverage
+    ? { branch: bestCoverage.branch, score: bestCoverage.score }
+    : bestOverall
 }
 
 // Score-based ranking for typeahead. Higher = better match.
