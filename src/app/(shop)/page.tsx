@@ -78,10 +78,10 @@ export default async function HomePage() {
         },
       }) }} />
       <Hero hero={settings.hero} />
+      <HeroDealOfTheDay />
       <CategorySection />
       <NewlyAddedProducts />
       <FeaturedProducts />
-      <HeroDealOfTheDay />
       <DealsSection />
 
       {/* Trust bar */}
