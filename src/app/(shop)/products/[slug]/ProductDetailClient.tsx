@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import DeferOnVisible from '@/components/ui/DeferOnVisible'
 import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
@@ -122,6 +123,47 @@ function ytId(url: string): string | null {
   return m?.[1] ?? null
 }
 
+// A product video can be a YouTube/Vimeo link OR a direct file uploaded via the
+// admin VideoUploader (mp4/mov/webm). The page used to only handle YouTube, so
+// uploaded files and Vimeo links silently rendered nothing. Normalise all three.
+type VideoSource =
+  | { kind: 'youtube'; id: string }
+  | { kind: 'vimeo';   id: string }
+  | { kind: 'file';    src: string }
+
+function parseVideo(url: string | null | undefined): VideoSource | null {
+  if (!url) return null
+  const yt = ytId(url)
+  if (yt) return { kind: 'youtube', id: yt }
+  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  if (vm) return { kind: 'vimeo', id: vm[1] }
+  // Anything else is treated as a direct video file (uploaded or external link).
+  return { kind: 'file', src: url }
+}
+
+// Embed URL for the iframe-based players (YouTube / Vimeo). Direct files use a
+// native <video> element instead and return null here.
+function embedSrc(v: VideoSource): string | null {
+  if (v.kind === 'youtube') return `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&rel=0`
+  if (v.kind === 'vimeo')   return `https://player.vimeo.com/video/${v.id}?autoplay=1`
+  return null
+}
+
+// Fills its (already position:relative) parent. Iframe for YouTube/Vimeo,
+// native controls for a direct file so mp4/webm actually plays.
+function VideoPlayer({ v }: { v: VideoSource }) {
+  if (v.kind === 'file') {
+    return (
+      <video src={v.src} controls autoPlay playsInline preload="metadata"
+        className="absolute inset-0 w-full h-full object-contain bg-black" />
+    )
+  }
+  return (
+    <iframe src={embedSrc(v)!} className="absolute inset-0 w-full h-full"
+      allow="autoplay; fullscreen" allowFullScreen title="Product video" />
+  )
+}
+
 // ── Blob background ─────────────────────────────────────────────────────────
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255; g /= 255; b /= 255
@@ -194,8 +236,10 @@ interface Props {
   reviews: ClientReview[]
 }
 
-type ReviewSort = 'recent' | 'helpful' | 'highest' | 'lowest'
-type ReviewFilter = 0 | 1 | 2 | 3 | 4 | 5
+// Reviews block (incl. its modal) is the largest below-the-fold chunk and is
+// rarely reached, so it's code-split out of the initial route bundle. Wrapped in
+// DeferOnVisible below, the chunk only downloads when the user scrolls near it.
+const ProductReviews = dynamic(() => import('./ProductReviews'))
 
 export default function ProductDetailClient({ initialProduct, similar, shopsChoice, boughtTogether, reviews }: Props) {
   const { addItem, setBuyNow } = useCart()
@@ -208,7 +252,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   const images = p?.images.length ? p.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&h=700&fit=crop']
   const [activeImg,  setActiveImg]  = useState(0)
   const [mediaMode,  setMediaMode]  = useState<'image' | 'video'>('image')
-  const [activeVideo,setActiveVideo]= useState<string | null>(null)
+  const [activeVideo,setActiveVideo]= useState(false)
   function switchImg(idx: number) {
     if (idx === activeImg) return
     setActiveImg(idx)
@@ -527,7 +571,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   }
 
   // ── Video ───────────────────────────────────────────────────────────────
-  const videoYtId = p?.videoUrl ? ytId(p.videoUrl) : null
+  const video = parseVideo(p?.videoUrl)
   const [playingVideo, setPlayingVideo] = useState(false)
 
   // ── View tracking + recently viewed ─────────────────────────────────────
@@ -562,89 +606,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     return rows
   }, [p, options, variantStock])
 
-  // ── Reviews filter + sort ────────────────────────────────────────────────
-  const [helpful, setHelpful] = useState<Set<string>>(new Set())
-  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>(0)
-  const [reviewSort, setReviewSort] = useState<ReviewSort>('recent')
-  const [reviewsExpanded, setReviewsExpanded] = useState(false)
-  const filteredReviews = useMemo(() => {
-    const filtered = reviewFilter === 0 ? reviews : reviews.filter(r => r.rating === reviewFilter)
-    const sorted = [...filtered]
-    if (reviewSort === 'recent') sorted.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-    else if (reviewSort === 'highest') sorted.sort((a, b) => b.rating - a.rating)
-    else if (reviewSort === 'lowest') sorted.sort((a, b) => a.rating - b.rating)
-    else if (reviewSort === 'helpful') sorted.sort((a, b) => (helpful.has(b.id) ? 1 : 0) - (helpful.has(a.id) ? 1 : 0))
-    return sorted
-  }, [reviews, reviewFilter, reviewSort, helpful])
-
-  // ── Write a review ──────────────────────────────────────────────────────
-  const [showReviewForm,  setShowReviewForm]  = useState(false)
-  const [showReviewModal, setShowReviewModal] = useState(false)
-  const [myRating,      setMyRating]      = useState(0)
-  const [myReview,      setMyReview]      = useState('')
-  const [reviewSaving,  setReviewSaving]  = useState(false)
-  const [reviewMsg,     setReviewMsg]     = useState<{ text: string; ok: boolean } | null>(null)
-  // Ownership of reviews is resolved client-side (the page is ISR-cached, so we
-  // can't read the cookie server-side without making it dynamic). GET /api/reviews
-  // returns a `mine` flag per review; we keep the ids of the user's own reviews.
-  const [myReviewIds,   setMyReviewIds]   = useState<Set<string>>(new Set())
-  const [editingReviewId, setEditingReviewId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!p?.id) return
-    fetch(`/api/reviews?productId=${p.id}`)
-      .then(r => r.ok ? r.json() : null)
-      .then((d: { reviews?: Array<{ id: string; mine: boolean }> } | null) => {
-        if (d?.reviews) setMyReviewIds(new Set(d.reviews.filter(x => x.mine).map(x => x.id)))
-      })
-      .catch(() => {})
-  }, [p?.id])
-
-  async function submitReview() {
-    if (!p || myRating === 0) return
-    setReviewSaving(true); setReviewMsg(null)
-    const res = editingReviewId
-      ? await fetch(`/api/reviews/${editingReviewId}`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rating: myRating, comment: myReview }),
-        })
-      : await fetch('/api/reviews', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: p.id, rating: myRating, comment: myReview }),
-        })
-    const data = await res.json()
-    if (res.ok) {
-      setReviewMsg({ text: editingReviewId ? 'Review updated!' : 'Review submitted! Thank you.', ok: true })
-      setMyRating(0); setMyReview(''); setShowReviewForm(false); setEditingReviewId(null)
-      router.refresh()
-    } else {
-      setReviewMsg({ text: data.error ?? 'Failed to submit review', ok: false })
-    }
-    setReviewSaving(false)
-  }
-
-  function startEditReview(r: ClientReview) {
-    setEditingReviewId(r.id)
-    setMyRating(r.rating)
-    setMyReview(r.comment ?? '')
-    setReviewMsg(null)
-    setShowReviewForm(true)
-  }
-
-  async function deleteReview(id: string) {
-    if (!confirm('Delete your review? This cannot be undone.')) return
-    const res = await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
-    if (res.ok) {
-      setMyReviewIds(prev => { const s = new Set(prev); s.delete(id); return s })
-      if (editingReviewId === id) { setEditingReviewId(null); setShowReviewForm(false); setMyRating(0); setMyReview('') }
-      router.refresh()
-    }
-  }
-
-  const ratingBreakdown = [5,4,3,2,1].map(stars => ({
-    stars,
-    pct: reviews.length ? Math.round(reviews.filter(r => r.rating === stars).length / reviews.length * 100) : 0,
-    count: reviews.filter(r => r.rating === stars).length,
-  }))
+  // Review state + handlers live in the code-split <ProductReviews> component.
 
   // ── Live viewers ────────────────────────────────────────────────────────
   const sessionId = useRef(Math.random().toString(36).slice(2))
@@ -720,8 +682,8 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     </div>
   )
 
-  const allMedia: { src: string; isVideo?: boolean }[] = videoYtId
-    ? [...images.map(src => ({ src })), { src: `https://img.youtube.com/vi/${videoYtId}/mqdefault.jpg`, isVideo: true }]
+  const allMedia: { src: string; isVideo?: boolean }[] = video
+    ? [...images.map(src => ({ src })), { src: '', isVideo: true }]
     : images.map(src => ({ src }))
 
   return (
@@ -776,17 +738,21 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   when there are 4+ thumbnails. */}
               <div className="lg:w-20 lg:shrink-0 min-w-0 max-w-full flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:max-h-[calc(100vh-7rem)] pb-1 lg:pb-0" style={{ scrollbarWidth: 'none' }}>
                 {images.map((img, i) => (
-                  <button key={i} onClick={() => { switchImg(i); setMediaMode('image'); setActiveVideo(null) }}
+                  <button key={i} onClick={() => { switchImg(i); setMediaMode('image'); setActiveVideo(false) }}
                     aria-label={`View image ${i+1}`}
                     className={`relative w-20 h-20 shrink-0 rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer ${mediaMode==='image' && activeImg===i ? 'ring-2 ring-primary ring-offset-2 shadow-md' : 'ring-1 ring-slate-200 hover:ring-slate-400 opacity-70 hover:opacity-100'}`}>
                     <Image src={img} alt={`${p.name} view ${i+1}`} fill className="object-cover" sizes="80px" />
                   </button>
                 ))}
-                {videoYtId && (
-                  <button onClick={() => { setMediaMode('video'); setActiveVideo(videoYtId) }}
+                {video && (
+                  <button onClick={() => { setMediaMode('video'); setActiveVideo(true) }}
                     aria-label="Play product video"
                     className={`relative w-20 h-20 shrink-0 rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer ${mediaMode==='video' ? 'ring-2 ring-accent ring-offset-2 shadow-md' : 'ring-1 ring-slate-200 hover:ring-slate-400 opacity-70 hover:opacity-100'}`}>
-                    <Image src={`https://img.youtube.com/vi/${videoYtId}/mqdefault.jpg`} alt="Product video" fill className="object-cover" sizes="80px" />
+                    {/* YouTube gives us a thumbnail; Vimeo/uploaded files don't,
+                        so fall back to a dark tile behind the play glyph. */}
+                    {video.kind === 'youtube'
+                      ? <Image src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`} alt="Product video" fill className="object-cover" sizes="80px" />
+                      : <div className="absolute inset-0 bg-slate-900" />}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                       <Play size={18} className="text-white fill-white ml-0.5" />
                     </div>
@@ -801,11 +767,10 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               <div className="flex-1 min-w-0 relative overflow-hidden lg:max-w-[calc(100vh-9rem)] lg:mx-auto"
                 style={{ borderRadius:'2rem', background:'rgba(255,255,255,0.50)', backdropFilter:'blur(24px) saturate(200%)', border:'1px solid rgba(255,255,255,0.78)', boxShadow:'0 24px 64px rgba(0,0,0,0.10)' }}>
                 <div className="relative aspect-square">
-                  {mediaMode === 'video' && activeVideo ? (
+                  {mediaMode === 'video' && activeVideo && video ? (
                     <>
-                      <iframe src={`https://www.youtube-nocookie.com/embed/${activeVideo}?autoplay=1&rel=0`}
-                        className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen" allowFullScreen title="Product video" />
-                      <button onClick={() => { setMediaMode('image'); setActiveVideo(null) }}
+                      <VideoPlayer v={video} />
+                      <button onClick={() => { setMediaMode('image'); setActiveVideo(false) }}
                         className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white cursor-pointer"
                         style={{ background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)' }}>
                         <X size={12} /> Back to photos
@@ -1399,7 +1364,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
         </div>
 
         {/* ── Product video (full width) ──────────────────────────────────── */}
-        {videoYtId && (
+        {video && (
           <DeferOnVisible minHeight={400}>
           <section className="mt-16 animate-fade-in-up" aria-labelledby="video-heading">
             <h2 id="video-heading" className="font-heading font-bold text-slate-900 text-2xl mb-6 flex items-center gap-2">
@@ -1407,12 +1372,19 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             </h2>
             <div className="glass-panel overflow-hidden">
               <div className="relative" style={{ paddingBottom:'56.25%' }}>
-                {playingVideo ? (
-                  <iframe src={`https://www.youtube-nocookie.com/embed/${videoYtId}?autoplay=1&rel=0`}
+                {video.kind === 'file' ? (
+                  // Uploaded file: native controls, first product image as poster.
+                  <video src={video.src} controls preload="metadata" playsInline
+                    poster={images[0]} className="absolute inset-0 w-full h-full object-contain bg-black" />
+                ) : playingVideo ? (
+                  <iframe src={embedSrc(video)!}
                     className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen" allowFullScreen title={`${p.name} video`} />
                 ) : (
                   <>
-                    <Image src={`https://img.youtube.com/vi/${videoYtId}/maxresdefault.jpg`} alt={`${p.name} video thumbnail`} fill className="object-cover" sizes="100vw" />
+                    {/* YouTube has a thumbnail; Vimeo doesn't, so use a dark tile. */}
+                    {video.kind === 'youtube'
+                      ? <Image src={`https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`} alt={`${p.name} video thumbnail`} fill className="object-cover" sizes="100vw" />
+                      : <div className="absolute inset-0 bg-slate-900" />}
                     <div className="absolute inset-0 bg-black/30" />
                     <button onClick={() => setPlayingVideo(true)} className="absolute inset-0 flex items-center justify-center cursor-pointer group">
                       <div className="w-20 h-20 rounded-full bg-white/90 flex items-center justify-center shadow-xl transition-all group-hover:scale-110 group-hover:bg-white">
@@ -1427,177 +1399,9 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
           </DeferOnVisible>
         )}
 
-        {/* ── Reviews (full width below hero) ──────────────────────────── */}
+        {/* ── Reviews (code-split; chunk loads on scroll) ─────────────── */}
         <DeferOnVisible minHeight={500}>
-        <section id="reviews" className="mt-16 animate-fade-in-up" aria-labelledby="reviews-heading">
-          <div className="flex items-center justify-between mb-5">
-            <h2 id="reviews-heading" className="font-heading font-bold text-slate-900 text-2xl flex items-center gap-2">
-              <Star size={20} className="text-gold-bright fill-gold-bright" /> Customer Reviews
-            </h2>
-            <button onClick={() => setShowReviewForm(s=>!s)} aria-expanded={showReviewForm}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-primary-dark transition-colors">
-              + Write Review
-            </button>
-          </div>
-
-          {showReviewForm && (
-            <div className="glass-panel p-5 space-y-3 mb-5 animate-fade-in-up">
-              <p className="text-xs text-slate-500">Only verified customers can submit reviews.</p>
-              <div className="flex items-center gap-2" role="radiogroup" aria-label="Your rating">
-                {[1,2,3,4,5].map(i => (
-                  <button key={i} onClick={() => setMyRating(i)} aria-label={`${i} star${i>1?'s':''}`} className="cursor-pointer">
-                    <Star size={22} className={i<=myRating?'fill-gold-bright text-gold-bright':'text-slate-200 hover:text-amber-300'} />
-                  </button>
-                ))}
-              </div>
-              <textarea value={myReview} onChange={e=>setMyReview(e.target.value)} placeholder="Share your experience…" rows={3}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none text-slate-800"
-                style={{ background:'rgba(255,255,255,0.60)', border:'1px solid rgba(255,255,255,0.80)' }} />
-              {reviewMsg && (
-                <p className={`text-xs font-semibold ${reviewMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{reviewMsg.text}</p>
-              )}
-              <div className="flex justify-end gap-2">
-                <button onClick={()=>{ setShowReviewForm(false); setEditingReviewId(null) }} className="px-4 py-2 text-sm text-slate-500 cursor-pointer">Cancel</button>
-                <button onClick={submitReview} disabled={reviewSaving || myRating === 0}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-primary hover:bg-primary-dark disabled:opacity-50 text-white text-sm font-bold rounded-xl cursor-pointer transition-colors">
-                  {reviewSaving ? <><Loader2 size={13} className="animate-spin" /> {editingReviewId ? 'Saving…' : 'Submitting…'}</> : (editingReviewId ? 'Update Review' : 'Submit Review')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {reviews.length === 0 ? (
-            <div className="glass-panel px-6 py-5 flex items-center justify-between gap-4 flex-wrap"
-              style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--clr-primary) 6%, transparent) 0%, rgba(6,182,212,0.04) 100%)' }}>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1">
-                  {[1,2,3,4,5].map(i => <Star key={i} size={18} className="text-slate-200" />)}
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-700 text-sm">No reviews yet</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Be the first to review this product</p>
-                </div>
-              </div>
-              <button onClick={() => setShowReviewForm(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-xl cursor-pointer transition-colors shadow-md shadow-primary/20 shrink-0">
-                <Star size={13} className="fill-white" /> Write a Review
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              <div className="md:col-span-4 glass-panel p-5 h-fit">
-                <div className="flex items-center gap-4">
-                  <span className="font-heading font-extrabold text-5xl text-slate-900">{p.rating.toFixed(1)}</span>
-                  <div>
-                    <div className="flex items-center gap-0.5 mb-1">
-                      {[1,2,3,4,5].map(i=><Star key={i} size={16} className={i<=Math.round(p.rating)?'fill-gold-bright text-gold-bright':'text-slate-200'} aria-hidden="true" />)}
-                    </div>
-                    <p className="text-xs text-slate-500">Based on {reviews.length} reviews</p>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-1.5">
-                  {ratingBreakdown.map(({stars,pct,count})=>(
-                    <button key={stars} onClick={() => setReviewFilter(stars as ReviewFilter)}
-                      className={`flex items-center gap-2 w-full cursor-pointer p-1 rounded-lg transition-colors ${reviewFilter === stars ? 'bg-primary-bg' : 'hover:bg-white/40'}`} title={`${count} reviews`}>
-                      <span className="text-xs text-slate-600 w-3">{stars}</span>
-                      <Star size={11} className="text-gold-bright fill-gold-bright shrink-0" aria-hidden="true" />
-                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background:'rgba(0,0,0,0.06)' }}>
-                        <div className="h-full bg-gradient-to-r from-amber-400 to-gold-bright rounded-full" style={{ width:`${pct}%` }} />
-                      </div>
-                      <span className="text-[10px] text-slate-400 w-7 text-right">{pct}%</span>
-                    </button>
-                  ))}
-                </div>
-                {reviewFilter !== 0 && (
-                  <button onClick={() => setReviewFilter(0)} className="mt-3 text-xs font-semibold text-primary hover:text-primary-dark cursor-pointer">Clear filter</button>
-                )}
-                <button onClick={() => setShowReviewForm(true)} className="mt-4 w-full py-2.5 bg-primary text-white text-sm font-bold rounded-xl cursor-pointer hover:bg-primary-dark transition-colors shadow-sm">
-                  Write a Review
-                </button>
-              </div>
-
-              <div className="md:col-span-8 flex flex-col gap-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Filter:</span>
-                  {([0,5,4,3,2,1] as ReviewFilter[]).map(n => (
-                    <button key={n} onClick={() => setReviewFilter(n)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer transition-colors ${reviewFilter === n ? 'bg-primary text-white' : 'bg-white/60 text-slate-600 hover:bg-white/90 border border-white/70'}`}>
-                      {n === 0 ? 'All' : `${n}★`}
-                    </button>
-                  ))}
-                  <div className="ml-auto flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sort:</span>
-                    <select value={reviewSort} onChange={e => setReviewSort(e.target.value as ReviewSort)}
-                      className="text-xs font-semibold bg-white/60 border border-white/70 rounded-lg px-2 py-1.5 cursor-pointer text-slate-700 outline-none">
-                      <option value="recent">Most Recent</option>
-                      <option value="helpful">Most Helpful</option>
-                      <option value="highest">Highest Rating</option>
-                      <option value="lowest">Lowest Rating</option>
-                    </select>
-                  </div>
-                </div>
-
-                {(reviewsExpanded ? filteredReviews : filteredReviews.slice(0, 4)).map(r => (
-                  <article key={r.id} className="glass-panel p-5">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <div className="flex items-center gap-0.5 mb-1">
-                          {[1,2,3,4,5].map(i=><Star key={i} size={13} className={i<=r.rating?'fill-gold-bright text-gold-bright':'text-slate-200'} aria-hidden="true" />)}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                            {r.user.avatar ? (
-                              <Image src={r.user.avatar} alt={r.user.name??'User'} width={28} height={28} className="rounded-full object-cover" />
-                            ) : (
-                              <span className="text-[11px] font-extrabold text-primary">{(r.user.name??'A')[0].toUpperCase()}</span>
-                            )}
-                          </div>
-                          <span className="font-bold text-slate-800 text-sm">{r.user.name ?? 'Anonymous'}</span>
-                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded-full">
-                            <BadgeCheck size={9} /> Verified
-                          </span>
-                        </div>
-                      </div>
-                      <time className="text-xs text-slate-400 shrink-0">
-                        {new Date(r.createdAt).toLocaleDateString('en-NP',{year:'numeric',month:'short',day:'numeric'})}
-                      </time>
-                    </div>
-                    <p className="text-slate-600 text-sm leading-relaxed mt-3">{r.comment ?? 'No comment provided.'}</p>
-                    <div className="mt-3 flex items-center gap-4 flex-wrap">
-                      <button onClick={() => { const s=new Set(helpful); s.has(r.id)?s.delete(r.id):s.add(r.id); setHelpful(s) }}
-                        className={`inline-flex items-center gap-1 text-xs font-semibold cursor-pointer transition-colors ${helpful.has(r.id)?'text-primary':'text-slate-400 hover:text-slate-600'}`}>
-                        <ThumbsUp size={12} /> {helpful.has(r.id)?'Helpful':'Mark helpful'}
-                      </button>
-                      {myReviewIds.has(r.id) && (
-                        <>
-                          <button onClick={() => startEditReview(r)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-primary cursor-pointer transition-colors">
-                            <Pencil size={11} /> Edit
-                          </button>
-                          <button onClick={() => deleteReview(r.id)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-500 cursor-pointer transition-colors">
-                            <Trash2 size={11} /> Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                ))}
-
-                {filteredReviews.length === 0 && (
-                  <div className="text-center py-8 text-slate-400 text-sm">No reviews match this filter</div>
-                )}
-
-                {filteredReviews.length > 4 && (
-                  <button onClick={() => reviewsExpanded ? setShowReviewModal(true) : setReviewsExpanded(true)}
-                    className="self-center text-sm font-bold text-primary hover:text-primary-dark cursor-pointer inline-flex items-center gap-1.5">
-                    {reviewsExpanded ? `View all ${filteredReviews.length} in modal` : `Show ${filteredReviews.length - 4} more`} <ChevronRight size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
+          <ProductReviews productId={p.id} rating={p.rating} reviews={reviews} />
         </DeferOnVisible>
 
         {/* ── Shop's Choice ──────────────────────────────────────────────── */}
@@ -1863,52 +1667,6 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor:'rgba(0,0,0,0.06)' }}>
               <button onClick={() => { setCompareList([]); setShowCompare(false) }} className="px-4 py-2 text-sm text-slate-500 cursor-pointer">Clear &amp; Close</button>
               <button onClick={() => setShowCompare(false)} className="px-5 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-xl cursor-pointer">Done</button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ── Reviews modal ───────────────────────────────────────────────── */}
-      {showReviewModal && (
-        <>
-          <div className="fixed inset-0 z-50 animate-fade-in" style={{ background:'rgba(0,0,0,0.35)', backdropFilter:'blur(8px)' }}
-            onClick={() => setShowReviewModal(false)} aria-hidden="true" />
-          <div role="dialog" aria-modal="true" aria-labelledby="review-modal-title"
-            className="fixed inset-x-4 top-16 bottom-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-2xl z-50 flex flex-col rounded-3xl overflow-hidden animate-fade-in-up"
-            style={{ background:'rgba(255,255,255,0.90)', backdropFilter:'blur(28px) saturate(200%)', border:'1px solid rgba(255,255,255,0.90)', boxShadow:'0 32px 80px rgba(0,0,0,0.18)' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor:'rgba(0,0,0,0.06)' }}>
-              <h3 id="review-modal-title" className="font-heading font-bold text-slate-900 text-lg">All Reviews ({filteredReviews.length})</h3>
-              <button onClick={() => setShowReviewModal(false)} aria-label="Close"
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-              {filteredReviews.map(r => (
-                <article key={r.id} className="rounded-2xl p-5" style={{ background:'rgba(255,255,255,0.70)', border:'1px solid rgba(0,0,0,0.06)' }}>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-extrabold text-primary">{(r.user.name??'A')[0].toUpperCase()}</span>
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-800 text-sm">{r.user.name ?? 'Anonymous'}</span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {[1,2,3,4,5].map(i=><Star key={i} size={11} className={i<=r.rating?'fill-gold-bright text-gold-bright':'text-slate-200'} aria-hidden="true" />)}
-                        </div>
-                      </div>
-                    </div>
-                    <time className="text-xs text-slate-400 shrink-0">{new Date(r.createdAt).toLocaleDateString('en-NP',{year:'numeric',month:'short',day:'numeric'})}</time>
-                  </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">{r.comment ?? 'No comment provided.'}</p>
-                </article>
-              ))}
-            </div>
-            <div className="px-6 py-4 border-t" style={{ borderColor:'rgba(0,0,0,0.06)' }}>
-              <button onClick={() => { setShowReviewModal(false); setShowReviewForm(true) }}
-                className="w-full py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-2xl cursor-pointer transition-colors shadow-lg shadow-primary/20">
-                + Write a Review
-              </button>
             </div>
           </div>
         </>
