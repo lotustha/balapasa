@@ -14,12 +14,17 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 25m
           script: |
+            set -e
             cd /www/wwwroot/balapasa
             git fetch origin master
             git reset --hard origin/master
             npm ci
             npx prisma db push --accept-data-loss
             npx prisma generate
+            # `set -e` above guarantees a failed/OOM-killed build aborts the
+            # script here — pm2 is only restarted after a clean build, so it
+            # can never end up serving a partial .next.
             npm run build
             pm2 restart balapasa
