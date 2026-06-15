@@ -14,17 +14,24 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 25m
+          command_timeout: 40m
           script: |
             set -e
-            cd /www/wwwroot/balapasa
-            git fetch origin master
-            git reset --hard origin/master
-            npm ci
-            npx prisma db push --accept-data-loss
-            npx prisma generate
-            # `set -e` above guarantees a failed/OOM-killed build aborts the
-            # script here — pm2 is only restarted after a clean build, so it
-            # can never end up serving a partial .next.
-            npm run build
-            pm2 restart balapasa
+            # Both apps are the SAME repo deployed to separate dirs, each with
+            # its own .env.local (balapasa = port 3002, dinesh = port 3004).
+            # `set -e` guarantees a failed/OOM-killed build aborts before its
+            # `pm2 restart`, so pm2 never ends up serving a partial .next.
+            deploy_app() {
+              echo "::group::deploy $2"
+              cd "$1"
+              git fetch origin master
+              git reset --hard origin/master
+              npm ci
+              npx prisma db push --accept-data-loss
+              npx prisma generate
+              npm run build
+              pm2 restart "$2" --update-env
+              echo "::endgroup::"
+            }
+            deploy_app /www/wwwroot/balapasa               balapasa
+            deploy_app /www/wwwroot/dinesh.mugenstream.fun dinesh.mugenstream.fun
