@@ -24,10 +24,24 @@ jobs:
             deploy_app() {
               echo "::group::deploy $2"
               cd "$1"
+              OLD=$(git rev-parse HEAD)
               git fetch origin master
               git reset --hard origin/master
-              npm ci
-              npx prisma db push --accept-data-loss
+              NEW=$(git rev-parse HEAD)
+              # npm ci wipes + reinstalls node_modules and is the slow step
+              # (10-16 min on this shared box). Only run it when the lockfile
+              # changed, or node_modules is broken/missing (self-heal).
+              if ! git diff --quiet "$OLD" "$NEW" -- package-lock.json package.json || [ ! -d node_modules/next ]; then
+                echo "deps changed or node_modules incomplete -> npm ci"
+                npm ci
+              else
+                echo "deps unchanged -> skip npm ci"
+              fi
+              # Push schema only when it actually changed.
+              if ! git diff --quiet "$OLD" "$NEW" -- prisma/schema.prisma; then
+                echo "schema changed -> prisma db push"
+                npx prisma db push --accept-data-loss
+              fi
               npx prisma generate
               npm run build
               pm2 restart "$2" --update-env
