@@ -228,12 +228,14 @@ export default function Navbar({
   const [mobileQ,     setMobileQ]     = useState('')
   const [profile,    setProfile]     = useState<NavProfile | null>(null)
 
-  // Lightweight client-side auth check — fetched once. /api/account/profile
-  // returns the signed-in user's name/email/avatar, or 401 for guests.
+  // Lightweight client-side auth check, re-run on every route change.
+  // /api/account/profile returns the signed-in user's name/email/avatar, or 401
+  // for guests. Always write the result (including null) so the avatar clears
+  // after logout — SignOutButton navigates here, which re-runs this effect.
   useEffect(() => {
     fetch('/api/account/profile', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.profile) setProfile(d.profile) })
+      .then(d => setProfile(d?.profile ?? null))
       .catch(() => {})
   }, [pathname])
 
