@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: product.name,
     description: desc,
-    keywords: [...product.tags, product.brand ?? '', product.category.name, 'buy online', siteName, 'online shopping'].filter(Boolean).join(', '),
+    keywords: [...product.tags.filter(t => !t.startsWith('_')), product.brand ?? '', product.category.name, 'buy online', siteName, 'online shopping'].filter(Boolean).join(', '),
     alternates: { canonical: url },
     openGraph: { title: ogTitle, description: desc, url, siteName, type: 'website', images: image ? [{ url: image, width: 800, height: 800, alt: product.name }] : [], locale: 'en_US' },
     twitter: { card: 'summary_large_image', title: ogTitle, description: desc, images: image ? [image] : [] },
@@ -106,7 +106,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
     saleInitialStock:     product.saleInitialStock,
     maxPerCustomerOnSale: product.maxPerCustomerOnSale,
     isDealOfTheDay:       product.isDealOfTheDay,
-    tags: product.tags,
+    // Internal tags (prefixed with "_", e.g. the import-provenance marker) are
+    // for ops/rollback only — never expose them to the client or SEO.
+    tags: product.tags.filter(t => !t.startsWith('_')),
     kind:   product.kind,
     planId: product.planId,
     plan: product.plan ? {
