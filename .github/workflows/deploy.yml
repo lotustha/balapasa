@@ -43,8 +43,15 @@ jobs:
                 npx prisma db push --accept-data-loss
               fi
               npx prisma generate
-              npm run build
+              # Zero-downtime build: compile into a side dir so the live process
+              # keeps serving the current .next untouched (no in-place rewrite →
+              # no mid-deploy 500s), then swap atomically and restart. set -e
+              # ensures a failed build never reaches the swap or pm2 restart.
+              rm -rf .next-build .next-old
+              NEXT_DIST_DIR=.next-build npm run build
+              mv .next .next-old && mv .next-build .next
               pm2 restart "$2" --update-env
+              rm -rf .next-old
               echo "::endgroup::"
             }
             deploy_app /www/wwwroot/balapasa               balapasa

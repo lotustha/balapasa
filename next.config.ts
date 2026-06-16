@@ -1,6 +1,10 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Lets the deploy build into a side dir (.next-build) and atomically swap it
+  // into place, so a deploy never rewrites the live .next in place. Defaults to
+  // the normal .next everywhere else (dev, local build, runtime `next start`).
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   outputFileTracingRoot: process.cwd(),
   typescript: { ignoreBuildErrors: true },
   images: {
