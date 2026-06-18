@@ -159,7 +159,7 @@ export default function AdminGiftCardsPage() {
   }
 
   async function deleteCard(card: GiftCardRow) {
-    if (card._count.redemptions > 0) {
+    if ((card._count?.redemptions ?? 0) > 0) {
       alert('Cannot delete a card that has been redeemed. Deactivate it instead.')
       return
     }
@@ -364,7 +364,7 @@ export default function AdminGiftCardsPage() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-slate-600 text-xs">
-                          {card._count.redemptions}× redemption{card._count.redemptions === 1 ? '' : 's'}
+                          {(card._count?.redemptions ?? 0)}× redemption{(card._count?.redemptions ?? 0) === 1 ? '' : 's'}
                         </td>
                         <td className="px-5 py-3.5">
                           {!card.isActive ? (
@@ -390,8 +390,8 @@ export default function AdminGiftCardsPage() {
                               <Power size={13} />
                             </button>
                             <button type="button" onClick={() => deleteCard(card)}
-                              title={card._count.redemptions > 0 ? 'Cannot delete a redeemed card' : 'Delete'}
-                              disabled={card._count.redemptions > 0}
+                              title={(card._count?.redemptions ?? 0) > 0 ? 'Cannot delete a redeemed card' : 'Delete'}
+                              disabled={(card._count?.redemptions ?? 0) > 0}
                               className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer">
                               <Trash2 size={13} />
                             </button>

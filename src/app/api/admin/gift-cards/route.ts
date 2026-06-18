@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
         issuedToEmail: body.issuedToEmail?.trim().toLowerCase() || null,
         note:          body.note?.trim() || null,
       },
+      // Match the GET shape — the admin list renders card._count.redemptions, so
+      // a created card MUST carry _count or prepending it crashes the table.
+      include: { _count: { select: { redemptions: true } } },
     })
 
     return Response.json({ card }, { status: 201 })
