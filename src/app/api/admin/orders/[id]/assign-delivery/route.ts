@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       receiverLng:     PATHAO_RX_LNG,
       receiverAddress: `${order.address}, ${order.city}`,
       totalValue:      order.total,
-      isCodActive:     order.paymentMethod === 'COD',
+      isCodActive:     order.paymentMethod === 'COD' || order.paymentMethod === 'PARTIAL_COD',
     })
     return Response.json(estimate)
   } catch (e) {
@@ -72,6 +72,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // (`deliveryCharge` is a Float — guard with <= 0 against rounding dust.)
     const deliveryIsFree = (order.deliveryCharge ?? 0) <= 0
 
+    // Cash to collect on delivery. PARTIAL_COD orders already paid `advancePaid`
+    // online, so the courier collects only the remainder (total − advance);
+    // plain COD collects the whole total; prepaid collects nothing. Without this
+    // a partial order made the courier collect 0 (PnD) or nothing (Pathao wasn't
+    // even flagged COD) — under-collecting the money still owed.
+    const advance      = order.advancePaid ?? 0
+    const isPartial    = order.paymentMethod === 'PARTIAL_COD'
+    const isCodOrder   = order.paymentMethod === 'COD' || isPartial
+    const codToCollect = (total: number) =>
+      !isCodOrder ? 0 : Math.max(0, total - (isPartial ? advance : 0))
+
     if (type === 'PATHAO') {
       const parcel = await createParcel({
         sid, serviceOptionId,
@@ -82,9 +93,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         receiverRoad:    order.road    ?? undefined,
         receiverLat:     PATHAO_RX_LAT,
         receiverLng:     PATHAO_RX_LNG,
-        totalValue:      order.total,
+        // For COD/partial, total_value is what Pathao collects → pass the
+        // amount actually owed (remainder for partial). Prepaid: declared value.
+        totalValue:      isCodOrder ? codToCollect(order.total) : order.total,
         externalRefId:   order.id,
-        isCod:           order.paymentMethod === 'COD',
+        isCod:           isCodOrder,
       })
 
       // Pathao response: data.order_id (display), data.hashed_id (cancel ref), data.tracking_url
@@ -100,6 +113,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           trackingUrl:    d.tracking_url ?? null,
           deliveryCharge: pathaoCharge,
           total:          pathaoTotal,
+          // Keep the partial-COD remainder in sync with the recomputed total so
+          // the invoice's "COLLECT ON DELIVERY" matches what's actually owed.
+          codAmount:      isPartial ? codToCollect(pathaoTotal) : order.codAmount,
           shippingOption: `Pathao`,
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },
@@ -161,7 +177,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         destinationBranch:   resolved,
         destinationCityArea: order.city,
         landmark:            [order.house, order.road, order.address].filter(Boolean).join(', ').slice(0, 200),
-        codAmount:           order.paymentMethod === 'COD' ? newTotal : 0,
+        codAmount:           codToCollect(newTotal),   // remainder for partial, full for COD, 0 for prepaid
         orderDescription:    itemSummary || `Order ${order.id}`,
         weightKg:            weightKg ?? (totalWeightKg > 0 ? totalWeightKg : 1),
         dimWeight: (lengthCm || widthCm || heightCm || maxLen || maxWid || maxHgt)
@@ -189,6 +205,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           trackingUrl:      result.trackingUrl,
           deliveryCharge:   newCharge,
           total:            newTotal,
+          codAmount:        isPartial ? codToCollect(newTotal) : order.codAmount,
           pndAttempts:      attempt + 1,
           shippingOption:   `Pick & Drop — ${resolved}`,
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
@@ -215,6 +232,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           trackingUrl:    trackingUrl    ?? null,
           deliveryCharge: manualCharge,
           total:          manualTotal,
+          codAmount:      isPartial ? codToCollect(manualTotal) : order.codAmount,
           shippingOption: notes?.split(':')[0] ?? 'Manual delivery',
           notes: notes ? `${order.notes ?? ''}\n[Delivery] ${notes}`.trim() : order.notes,
         },

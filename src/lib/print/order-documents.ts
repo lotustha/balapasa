@@ -204,6 +204,10 @@ function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store
     const isPartial = order.paymentMethod === 'PARTIAL_COD'
     const isCod     = order.paymentMethod === 'COD' || isPartial
     const collect   = isPartial ? (order.codAmount ?? order.total) : order.total
+    // Total of all discounts (coupon + auto + gift card + store credit), derived
+    // from the reconciliation gap so the invoice always balances:
+    // Subtotal − Discount + Delivery = Total.
+    const discount  = Math.max(0, order.subtotal + order.deliveryCharge - order.total)
     const addr      = [order.house, order.road, order.address].filter(Boolean).join(', ')
     const date      = new Date(order.createdAt).toLocaleDateString('en-NP', {day:'numeric',month:'long',year:'numeric'})
     return `
@@ -263,6 +267,7 @@ function invoiceA4(orders: Awaited<ReturnType<typeof fetchOrders>>, store: Store
   <div class="totals-section">
     <div class="totals-box">
       <div class="total-row"><span>Subtotal</span><span>NPR ${order.subtotal.toLocaleString()}</span></div>
+      ${discount > 0 ? `<div class="total-row"><span>Discount</span><span>− NPR ${discount.toLocaleString()}</span></div>` : ''}
       ${order.hasVat ? `<div class="total-row muted"><span>VAT (13%) incl.</span><span>NPR ${order.vatAmount.toLocaleString()}</span></div>` : ''}
       ${order.deliveryCharge > 0 ? `<div class="total-row"><span>Delivery Charge</span><span>NPR ${order.deliveryCharge.toLocaleString()}</span></div>` : ''}
       <div class="total-row grand"><span>TOTAL</span><span>NPR ${order.total.toLocaleString()}</span></div>
