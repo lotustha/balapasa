@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { esewaFormData, getEsewaPaymentUrl, khaltiInitiate } from '@/lib/payment'
 import { getCurrentUser } from '@/lib/auth'
-import { pushOrderEvent } from '@/lib/push'
+import { pushOrderEvent, pushToStaff } from '@/lib/push'
 import { validateCoupon } from '@/lib/coupons'
 import { validateGiftCard } from '@/lib/gift-cards'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
@@ -591,6 +591,13 @@ export async function POST(req: NextRequest) {
           const subject = expressOk ? `⚡ EXPRESS SAME-DAY — dispatch now · ${rendered.subject}` : rendered.subject
           await sendEmailLogged('admin-new-order', { to: adminTo, subject, html: rendered.html, context: { orderId: order.id, express: expressOk } })
         }
+
+        // Vendor-app push: alert staff devices of the new order.
+        await pushToStaff({
+          title: expressOk ? '⚡ New EXPRESS order!' : '🛒 New order received',
+          body:  `${name} · Rs. ${Math.round(total).toLocaleString('en-IN')} · ${(items as unknown[]).length} item(s) · ${paymentMethod}`,
+          data:  { orderId: order.id, screen: 'order', type: 'new_order' },
+        }).catch(() => {})
 
         if (lowTo) {
           for (const p of crossedLowStock) {

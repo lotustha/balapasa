@@ -139,6 +139,21 @@ export async function pushToUser(userId: string, payload: PushPayload): Promise<
   await Promise.all(tokens.map(({ token }) => sendPush(token, payload).catch(() => {})))
 }
 
+/** Send to every ADMIN/MANAGER/STAFF user's registered devices. Powers the
+ *  vendor app's new-order alerts. Fire-and-forget safe. */
+export async function pushToStaff(payload: PushPayload): Promise<void> {
+  const staff = await prisma.profile.findMany({
+    where:  { role: { in: ['ADMIN', 'MANAGER', 'STAFF'] } },
+    select: { id: true },
+  })
+  if (!staff.length) return
+  const tokens = await prisma.deviceToken.findMany({
+    where:  { userId: { in: staff.map(s => s.id) } },
+    select: { token: true },
+  })
+  await Promise.all(tokens.map(({ token }) => sendPush(token, payload).catch(() => {})))
+}
+
 /** Send to all registered tokens for a phone-identified guest session.
  *  (Guests don't have userId, so we match by the order's phone—store
  *   guest tokens keyed to phone in a future enhancement.) */
