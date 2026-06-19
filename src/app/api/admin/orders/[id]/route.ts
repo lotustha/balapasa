@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { pushOrderEvent } from '@/lib/push'
+import { pushOrderEvent, pushOrderStatusToStaff } from '@/lib/push'
 import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
@@ -117,6 +117,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // customer email above. Fire-and-forget.
     if (body.status) {
       notifyAdminStatusChange({ orderId: order.id, status: String(body.status), source: 'Admin' })
+      // Vendor-app push on every status change (not gated by the email opt-in).
+      pushOrderStatusToStaff(order.id, String(body.status))
     }
 
     if (body.paymentStatus === 'PAID' && order.paymentStatus === 'PAID') {

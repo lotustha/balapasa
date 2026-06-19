@@ -154,6 +154,21 @@ export async function pushToStaff(payload: PushPayload): Promise<void> {
   await Promise.all(tokens.map(({ token }) => sendPush(token, payload).catch(() => {})))
 }
 
+/** Push every staff device when an order's status changes. NOT gated by the
+ *  admin email opt-in — the vendor app wants every status transition. */
+export async function pushOrderStatusToStaff(orderId: string, status: string): Promise<void> {
+  const order = await prisma.order
+    .findUnique({ where: { id: orderId }, select: { orderCode: true, name: true } })
+    .catch(() => null)
+  const ref   = order?.orderCode ?? orderId.slice(0, 6)
+  const label = status ? status.charAt(0) + status.slice(1).toLowerCase() : status
+  await pushToStaff({
+    title: `📦 ${ref} → ${label}`,
+    body:  `${order?.name ?? 'Order'} is now ${label}.`,
+    data:  { orderId, screen: 'order', type: 'status_change', status },
+  }).catch(() => {})
+}
+
 /** Send to all registered tokens for a phone-identified guest session.
  *  (Guests don't have userId, so we match by the order's phone—store
  *   guest tokens keyed to phone in a future enhancement.) */

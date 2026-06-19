@@ -6,7 +6,7 @@ import { notifyPaymentReceipt } from '@/lib/notify-payment-receipt'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { sendEmailLogged } from '@/lib/email'
 import { getSiteSettings } from '@/lib/site-settings'
-import { pushOrderEvent } from '@/lib/push'
+import { pushOrderEvent, pushOrderStatusToStaff } from '@/lib/push'
 import { restoreStockForOrder } from '@/lib/restore-stock'
 import { notifyAdminStatusChange } from '@/lib/notify-admin-status'
 import { awardLoyaltyForOrder } from '@/lib/loyalty'
@@ -226,6 +226,7 @@ export async function processPndWebhookEvent(event: PndWebhookEvent): Promise<Pr
   // Opt-in admin alert when the webhook advanced the order's status.
   if (result.advanced) {
     notifyAdminStatusChange({ orderId: order.id, status: result.advanced, source: 'Pick & Drop' })
+    pushOrderStatusToStaff(order.id, result.advanced)   // vendor-app push (carrier-driven)
     result.notifications.push('admin-status-change')
   }
 
