@@ -48,3 +48,9 @@ next-env.d.ts
 # Local MCP config — contains API keys, never commit.
 # Use .mcp.json.example as the template.
 .mcp.json
+
+# Firebase service-account private keys + client configs — NEVER commit.
+*firebase-adminsdk*.json
+balapasa-firebase-adminsdk.json
+google-services.json
+GoogleService-Info.plist

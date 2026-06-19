@@ -65,6 +65,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const order = await prisma.order.findUnique({ where: { id } })
     if (!order) return Response.json({ error: 'Order not found' }, { status: 404 })
 
+    // The customer's delivery was free (free-delivery mode/product/threshold, or
+    // store pickup) ⇒ they were charged 0 at checkout. Assigning a courier is a
+    // store-side cost that must NOT retroactively bill the customer, so we keep
+    // their delivery charge at 0 and never add the carrier cost to total/COD.
+    // (`deliveryCharge` is a Float — guard with <= 0 against rounding dust.)
+    const deliveryIsFree = (order.deliveryCharge ?? 0) <= 0
+
     if (type === 'PATHAO') {
       const parcel = await createParcel({
         sid, serviceOptionId,
@@ -82,7 +89,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       // Pathao response: data.order_id (display), data.hashed_id (cancel ref), data.tracking_url
       const d = parcel.data ?? {}
-      const pathaoCharge = deliveryCharge ?? d.charge ?? 0
+      const pathaoCharge = deliveryIsFree ? 0 : (deliveryCharge ?? d.charge ?? 0)
       const pathaoTotal  = await computeOrderTotal(order, pathaoCharge)
       const updated = await prisma.order.update({
         where: { id },
@@ -134,7 +141,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       // New delivery charge for this (re)assignment. The admin UI sends the
       // selected estimate; if it's omitted, keep whatever was already on the
       // order so a re-assign never silently zeroes the agreed price.
-      const newCharge = typeof deliveryCharge === 'number' ? deliveryCharge : order.deliveryCharge
+      const newCharge = deliveryIsFree
+        ? 0
+        : (typeof deliveryCharge === 'number' ? deliveryCharge : order.deliveryCharge)
       // Recompute total authoritatively (subtotal − discounts + charge) so it
       // can't drift across cancel/re-assign cycles.
       const newTotal = await computeOrderTotal(order, newCharge)
@@ -195,7 +204,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     if (type === 'MANUAL') {
-      const manualCharge = deliveryCharge ?? 0
+      const manualCharge = deliveryIsFree ? 0 : (deliveryCharge ?? 0)
       const manualTotal  = await computeOrderTotal(order, manualCharge)
       const updated = await prisma.order.update({
         where: { id },
