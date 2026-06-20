@@ -14,7 +14,7 @@ import NepalAddressSelector, { type NepalAddress } from '@/components/checkout/N
 import { friendlyStatusLabel } from '@/lib/pnd-status-labels'
 import { formatPrice } from '@/lib/utils'
 
-interface OrderItem { id: string; name: string; quantity: number; price: number; image?: string | null }
+interface OrderItem { id: string; name: string; quantity: number; price: number; image?: string | null; productId?: string | null }
 interface Order {
   id: string; name: string; phone: string; email: string | null
   address: string; house: string | null; road: string | null; city: string
@@ -885,15 +885,29 @@ export default function OrderDetailPage() {
             <div className="space-y-2">
               {order.items.map(item => (
                 <div key={item.id} className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${editItems ? 'bg-slate-50 border border-dashed border-slate-200' : 'bg-slate-50'}`}>
-                  {item.image && (
-                    <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white">
-                      <Image src={item.image} alt={item.name} fill sizes="40px" className="object-cover" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-800 text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-slate-400">{formatPrice(item.price)} each</p>
-                  </div>
+                  {(() => {
+                    const inner = (
+                      <>
+                        {item.image && (
+                          <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white">
+                            <Image src={item.image} alt={item.name} fill sizes="40px" className="object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm truncate group-hover:text-primary transition-colors flex items-center gap-1">
+                            {item.name}
+                            {item.productId && <ExternalLink size={11} className="text-slate-300 group-hover:text-primary shrink-0" />}
+                          </p>
+                          <p className="text-xs text-slate-400">{formatPrice(item.price)} each</p>
+                        </div>
+                      </>
+                    )
+                    // Link to the product's admin page (not while editing items,
+                    // so the qty controls stay the focus).
+                    return item.productId && !editItems
+                      ? <Link href={`/admin/products/${item.productId}/edit`} className="flex items-center gap-3 flex-1 min-w-0 group">{inner}</Link>
+                      : <div className="flex items-center gap-3 flex-1 min-w-0">{inner}</div>
+                  })()}
 
                   {editItems ? (
                     /* Edit mode: qty controls + remove */
