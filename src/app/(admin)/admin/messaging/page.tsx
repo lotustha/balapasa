@@ -11,7 +11,7 @@ interface Conversation {
   id: string; platform: string; customerId: string
   customerName: string | null; customerPhone: string | null
   status: string; lastMessageAt: string | null
-  messages: { content: string; direction: string; createdAt: string }[]
+  messages: { content: string; direction: string; createdAt: string; mediaType?: string | null }[]
 }
 
 function WaIcon() {
@@ -224,7 +224,7 @@ export default function MessagingPage() {
                       {lastMsg && (
                         <p className="text-xs text-slate-400 truncate">
                           {lastMsg.direction === 'OUT' ? <span className="text-primary font-semibold">You: </span> : null}
-                          {lastMsg.content}
+                          {lastMsg.content || (lastMsg.mediaType === 'video' ? '🎬 Video' : lastMsg.mediaType === 'image' ? '📷 Photo' : '')}
                         </p>
                       )}
                     </div>

@@ -9,6 +9,7 @@ import {
 
 interface Message {
   id: string; direction: string; content: string; status: string; createdAt: string
+  mediaUrl?: string | null; mediaType?: string | null
 }
 interface Conversation {
   id: string; platform: string; customerId: string
@@ -37,7 +38,17 @@ function Bubble({ msg }: { msg: Message }) {
           ? 'bg-primary text-white rounded-br-sm shadow-primary/20'
           : 'bg-white border border-slate-100 text-slate-800 rounded-bl-sm'
       }`}>
-        <p>{msg.content}</p>
+        {msg.mediaUrl && (
+          msg.mediaType === 'video' ? (
+            <video src={msg.mediaUrl} controls className="mb-1.5 rounded-xl max-w-full max-h-72" />
+          ) : (
+            <a href={msg.mediaUrl} target="_blank" rel="noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={msg.mediaUrl} alt="" className="mb-1.5 rounded-xl max-w-full max-h-72 object-cover" />
+            </a>
+          )
+        )}
+        {msg.content && <p>{msg.content}</p>}
         <div className={`flex items-center gap-1 mt-1 ${isOut ? 'justify-end' : ''}`}>
           <span className={`text-[10px] ${isOut ? 'text-white/60' : 'text-slate-400'}`}>
             {formatTime(msg.createdAt)}

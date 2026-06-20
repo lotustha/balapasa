@@ -1,7 +1,11 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireRole } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole('STAFF')
+  if ('error' in auth) return auth.error
+
   const { searchParams } = req.nextUrl
   const platform = searchParams.get('platform') ?? undefined
   const status   = searchParams.get('status')   ?? undefined

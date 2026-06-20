@@ -514,6 +514,9 @@ model Message {
   conversationId String       @map("conversation_id")
   direction      String       // IN | OUT
   content        String       @db.Text
+  mediaUrl       String?      @map("media_url")   // relative /uploads path when message carries media
+  mediaType      String?      @map("media_type")  // image | video
+  mediaMime      String?      @map("media_mime")
   externalId     String?      @map("external_id")
   status         String       @default("SENT")  // SENT | DELIVERED | READ | FAILED
   createdAt      DateTime     @default(now()) @map("created_at")

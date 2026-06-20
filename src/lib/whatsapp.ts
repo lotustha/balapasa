@@ -1,5 +1,6 @@
 import { getSetting } from './appSettings'
 import { STORE_NAME, STORE_URL } from './config'
+import { abs } from './chatMedia'
 
 const WA_BASE = 'https://graph.facebook.com/v19.0'
 
@@ -59,6 +60,37 @@ export async function sendWhatsAppText(phone: string, text: string) {
     const data = await res.json()
     return res.ok ? (data.messages?.[0]?.id ?? null) : null
   } catch { return null }
+}
+
+/** Send an image/video by link within a 24-hour customer-initiated session.
+ *  `mediaUrl` may be relative (/uploads/...) — it's made absolute so Meta's
+ *  servers can fetch it. Returns the message id or null (e.g. outside 24h window). */
+export async function sendWhatsAppMedia(
+  phone: string,
+  kind: 'image' | 'video',
+  mediaUrl: string,
+  caption?: string,
+) {
+  const { token, phoneId } = await creds()
+  if (!token || !phoneId) return null
+
+  const to   = phone.replace(/[\s\-()]/g, '').replace(/^0/, '+977')
+  const link = abs(mediaUrl)
+  const mediaObj: { link: string; caption?: string } = { link }
+  if (caption && caption.trim()) mediaObj.caption = caption
+  try {
+    const res = await fetch(`${WA_BASE}/${phoneId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: kind, [kind]: mediaObj }),
+    })
+    const data = await res.json()
+    if (!res.ok) { console.error('[WA] media send failed:', data); return null }
+    return data.messages?.[0]?.id ?? null
+  } catch (e) {
+    console.error('[WA] media network error:', e)
+    return null
+  }
 }
 
 /** Mark an incoming message as read */
