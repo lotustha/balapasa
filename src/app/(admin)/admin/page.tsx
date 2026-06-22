@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
-  ShoppingBag, Package, Users, TrendingUp, TrendingDown,
-  ArrowUpRight, ArrowDownRight, Clock, AlertTriangle,
+  ShoppingBag, Package, Users, TrendingUp,
+  ArrowUpRight, ArrowDownRight,
   CheckCircle2, Loader2, Zap, BarChart2,
   Eye, MousePointerClick, Globe, Activity,
 } from 'lucide-react'
@@ -20,12 +20,26 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED:  'bg-red-100 text-red-700',
 }
 
+type Range = 'today' | 'yesterday' | '7d' | '30d'
+const RANGE_OPTIONS: { id: Range; label: string }[] = [
+  { id: 'today',     label: 'Today'     },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: '7d',        label: '7 Days'    },
+  { id: '30d',       label: '1 Month'   },
+]
+
+interface RangeStat { value: number; previous: number; change: number | null }
+
 interface DashboardData {
+  range:      string
+  rangeLabel: string
   stats: {
-    revenue:   { today: number; month: number; change: number | null }
-    orders:    { total: number; month: number; pending: number; confirmed: number; processing: number; shipped: number }
+    revenue:   RangeStat
+    orders:    RangeStat
+    customers: RangeStat & { total: number }
+    avgOrder:  { value: number }
+    pipeline:  { pending: number; confirmed: number; processing: number; shipped: number; total: number }
     products:  { total: number; lowStock: number; outOfStock: number }
-    customers: { total: number }
   }
   dailyRevenue: { day: string; revenue: number }[]
   recentOrders: { id: string; customer: string; product: string; amount: number; status: string; payment: string; paid: boolean; createdAt: string }[]
@@ -41,6 +55,19 @@ interface Analytics {
   topPages:  { path: string; views: number }[]
   topProducts: { id: string; name: string; slug: string; image: string | null; views: number }[]
   sources:   { host: string; views: number }[]
+}
+
+// Change badge vs the previous equal-length window. Null change (no prior data)
+// renders nothing.
+function ChangeBadge({ change }: { change: number | null }) {
+  if (change === null) return null
+  const up = change >= 0
+  return (
+    <span className={`flex items-center gap-0.5 text-xs font-bold ${up ? 'text-green-600' : 'text-red-500'}`}>
+      {up ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+      {Math.abs(change)}%
+    </span>
+  )
 }
 
 function timeAgo(iso: string) {
@@ -106,23 +133,38 @@ function Sparkline({ data }: { data: { day: string; revenue: number }[] }) {
 }
 
 export default function AdminDashboard() {
-  const [data,      setData]      = useState<DashboardData | null>(null)
-  const [analytics, setAnalytics] = useState<Analytics | null>(null)
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState('')
+  const [data,        setData]        = useState<DashboardData | null>(null)
+  const [analytics,   setAnalytics]   = useState<Analytics | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [error,       setError]       = useState('')
+  const [range,       setRange]       = useState<Range>('today')
 
+  // Dashboard stats — refetch whenever the range changes. The full-page spinner
+  // only shows on the first load; later range switches dim the cards instead.
   useEffect(() => {
-    Promise.all([
-      fetch('/api/admin/dashboard').then(r => r.json()),
-      fetch('/api/admin/analytics').then(r => r.json()).catch(() => null),
-    ])
-      .then(([d, a]) => {
-        if (d.error) setError(d.error); else setData(d)
-        if (a) setAnalytics(a as Analytics)
+    let cancelled = false
+    fetch(`/api/admin/dashboard?range=${range}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (d.error) setError(d.error); else { setData(d); setError('') }
       })
-      .catch(() => setError('Failed to load dashboard'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!cancelled) setError('Failed to load dashboard') })
+      .finally(() => { if (!cancelled) { setLoading(false); setStatsLoading(false) } })
+    return () => { cancelled = true }
+  }, [range])
+
+  // Analytics — range-independent, loaded once.
+  useEffect(() => {
+    fetch('/api/admin/analytics').then(r => r.json()).then(a => setAnalytics(a as Analytics)).catch(() => {})
   }, [])
+
+  function selectRange(r: Range) {
+    if (r === range) return
+    setStatsLoading(true)
+    setRange(r)
+  }
 
   if (loading) return (
     <div className="p-8 flex items-center justify-center h-64">
@@ -135,7 +177,7 @@ export default function AdminDashboard() {
 
   const { stats, dailyRevenue, recentOrders, topProducts, lowStockProducts } = data
 
-  const needsAttention = stats.orders.pending + stats.products.outOfStock + stats.products.lowStock
+  const needsAttention = stats.pipeline.pending + stats.products.outOfStock + stats.products.lowStock
 
   return (
     <div className="p-8 space-y-6">
@@ -149,60 +191,69 @@ export default function AdminDashboard() {
               : 'All systems running smoothly'}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-xl border border-gray-200">
-          <Clock size={15} /> {new Date().toLocaleDateString('en-NP', { weekday: 'short', day: 'numeric', month: 'short' })}
+        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200">
+          {RANGE_OPTIONS.map(opt => (
+            <button key={opt.id} type="button" onClick={() => selectRange(opt.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${range === opt.id ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── Row 1: KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── Row 1: KPI Cards — performance, scoped to the selected range ── */}
+      <div className="flex items-center gap-2 -mb-2">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Performance · {data.rangeLabel}</p>
+        <span className="text-[10px] text-slate-400">vs previous period</span>
+      </div>
+      <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-200 ${statsLoading ? 'opacity-50' : 'opacity-100'}`}>
 
-        {/* Today's Revenue */}
+        {/* Revenue (range) */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100">
           <div className="flex items-start justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-primary-bg text-primary flex items-center justify-center">
               <TrendingUp size={18} />
             </div>
-            {stats.revenue.change !== null && (
-              <span className={`flex items-center gap-0.5 text-xs font-bold ${stats.revenue.change >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                {stats.revenue.change >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                {Math.abs(stats.revenue.change)}% vs last month
-              </span>
-            )}
+            <ChangeBadge change={stats.revenue.change} />
           </div>
-          <p className="font-extrabold text-2xl text-gray-900">{formatPrice(stats.revenue.today)}</p>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Today&apos;s Revenue</p>
-          <p className="text-[11px] text-gray-400 mt-1">{formatPrice(stats.revenue.month)} this month</p>
+          <p className="font-extrabold text-2xl text-gray-900">{formatPrice(stats.revenue.value)}</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Revenue</p>
+          <p className="text-[11px] text-gray-400 mt-1">{formatPrice(stats.revenue.previous)} prev. period</p>
         </div>
 
-        {/* Pending Orders — actionable */}
-        <Link href="/admin/orders?status=PENDING" className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-amber-300 hover:bg-amber-50/30 transition-all cursor-pointer block">
+        {/* Orders placed (range) */}
+        <Link href="/admin/orders" className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-slate-300 hover:bg-slate-50/30 transition-all cursor-pointer block">
           <div className="flex items-start justify-between mb-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stats.orders.pending > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400'}`}>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <ShoppingBag size={18} />
             </div>
-            {stats.orders.pending > 0 && (
-              <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full animate-pulse">
-                Action needed
-              </span>
-            )}
+            <ChangeBadge change={stats.orders.change} />
           </div>
-          <p className="font-extrabold text-2xl text-gray-900">{stats.orders.pending}</p>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Pending Orders</p>
-          <p className="text-[11px] text-gray-400 mt-1">
-            {stats.orders.confirmed} confirmed · {stats.orders.processing} processing · {stats.orders.shipped} shipped
-          </p>
+          <p className="font-extrabold text-2xl text-gray-900">{stats.orders.value.toLocaleString()}</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Orders</p>
+          <p className="text-[11px] text-gray-400 mt-1">{formatPrice(stats.avgOrder.value)} avg. order value</p>
         </Link>
 
-        {/* Products + Stock alert */}
+        {/* New customers (range) */}
+        <div className="bg-white rounded-2xl p-5 border border-gray-100">
+          <div className="flex items-start justify-between mb-4">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Users size={18} />
+            </div>
+            <ChangeBadge change={stats.customers.change} />
+          </div>
+          <p className="font-extrabold text-2xl text-gray-900">{stats.customers.value.toLocaleString()}</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">New Customers</p>
+          <p className="text-[11px] text-gray-400 mt-1">{stats.customers.total.toLocaleString()} total registered</p>
+        </div>
+
+        {/* Products + Stock alert — live (not range-scoped) */}
         <Link href="/admin/products" className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-slate-300 hover:bg-slate-50/30 transition-all cursor-pointer block">
           <div className="flex items-start justify-between mb-4">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stats.products.outOfStock > 0 ? 'bg-red-50 text-red-500' : stats.products.lowStock > 0 ? 'bg-amber-50 text-amber-600' : 'bg-orange-50 text-orange-600'}`}>
               <Package size={18} />
             </div>
-            {(stats.products.outOfStock > 0 || stats.products.lowStock > 0) && (
-              <AlertTriangle size={15} className="text-amber-500 mt-0.5" />
-            )}
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">Live</span>
           </div>
           <p className="font-extrabold text-2xl text-gray-900">{stats.products.total}</p>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Products</p>
@@ -214,28 +265,16 @@ export default function AdminDashboard() {
               : <span className="text-green-600">All stocked</span>}
           </p>
         </Link>
-
-        {/* Customers */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-100">
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Users size={18} />
-            </div>
-          </div>
-          <p className="font-extrabold text-2xl text-gray-900">{stats.customers.total.toLocaleString()}</p>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Customers</p>
-          <p className="text-[11px] text-gray-400 mt-1">Total registered accounts</p>
-        </div>
       </div>
 
       {/* ── Row 2: Revenue Chart + Order Status + Low Stock ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* 7-day Revenue Sparkline */}
+        {/* Revenue Sparkline — matches the selected range */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 lg:col-span-1">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">7-Day Revenue</h3>
+              <h3 className="font-bold text-slate-800 text-sm">Revenue · {data.rangeLabel}</h3>
               <p className="text-[11px] text-slate-400 mt-0.5">Paid orders only</p>
             </div>
             <BarChart2 size={16} className="text-slate-300" />
@@ -252,17 +291,20 @@ export default function AdminDashboard() {
         {/* Order Status Breakdown */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-800 text-sm">Order Status</h3>
-            <Link href="/admin/orders" className="text-xs font-bold text-primary hover:text-primary-dark cursor-pointer">View all →</Link>
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+              Order Status
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">Live</span>
+            </h3>
+            <Link href="/admin/orders?status=PENDING" className="text-xs font-bold text-primary hover:text-primary-dark cursor-pointer">View all →</Link>
           </div>
           <div className="space-y-3">
             {[
-              { label: 'Pending',    count: stats.orders.pending,    color: 'bg-yellow-400', textColor: 'text-yellow-700' },
-              { label: 'Confirmed',  count: stats.orders.confirmed,  color: 'bg-blue-400',   textColor: 'text-blue-700'   },
-              { label: 'Processing', count: stats.orders.processing, color: 'bg-purple-400', textColor: 'text-purple-700' },
-              { label: 'Shipped',    count: stats.orders.shipped,    color: 'bg-indigo-400', textColor: 'text-indigo-700' },
+              { label: 'Pending',    count: stats.pipeline.pending,    color: 'bg-yellow-400', textColor: 'text-yellow-700' },
+              { label: 'Confirmed',  count: stats.pipeline.confirmed,  color: 'bg-blue-400',   textColor: 'text-blue-700'   },
+              { label: 'Processing', count: stats.pipeline.processing, color: 'bg-purple-400', textColor: 'text-purple-700' },
+              { label: 'Shipped',    count: stats.pipeline.shipped,    color: 'bg-indigo-400', textColor: 'text-indigo-700' },
             ].map(({ label, count, color, textColor }) => {
-              const total = stats.orders.total || 1
+              const total = stats.pipeline.total || 1
               return (
                 <div key={label}>
                   <div className="flex items-center justify-between mb-1">
@@ -276,7 +318,7 @@ export default function AdminDashboard() {
               )
             })}
           </div>
-          <p className="text-[11px] text-slate-400 mt-3">{stats.orders.total} orders total</p>
+          <p className="text-[11px] text-slate-400 mt-3">{stats.pipeline.total} orders in pipeline</p>
         </div>
 
         {/* Low Stock Alert */}
@@ -374,7 +416,7 @@ export default function AdminDashboard() {
         {/* Top Products */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
-            <h2 className="font-heading font-bold text-slate-800">Top Products</h2>
+            <h2 className="font-heading font-bold text-slate-800">Top Products <span className="text-[11px] font-normal text-slate-400">· {data.rangeLabel}</span></h2>
             <Link href="/admin/products" className="text-xs font-bold text-primary hover:text-primary-dark cursor-pointer">All →</Link>
           </div>
           {topProducts.length === 0 ? (
