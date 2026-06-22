@@ -200,6 +200,18 @@ export interface RefundIssuedData extends BrandFields {
   orderUrl:      string
 }
 
+// Customer receipt when a billing Invoice transitions OPEN → PAID — covers
+// subscription-cycle invoices and admin one-off invoices. Sent from
+// markInvoicePaid() so every paid invoice triggers exactly one email.
+export interface InvoicePaidData extends BrandFields {
+  recipientName: string
+  invoiceNumber: string
+  amount:        number
+  method:        string                 // 'ESEWA' | 'KHALTI' | 'COD' | etc.
+  description:   string                 // line-item label (notes / plan name / generic)
+  invoiceUrl:    string                 // link to download the invoice (account-scoped)
+}
+
 // Customer alert when a product they subscribed to (via "Notify me when
 // available" on an out-of-stock PDP) is restocked. Sent by the back-in-stock cron.
 export interface BackInStockData extends BrandFields {

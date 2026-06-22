@@ -1,5 +1,41 @@
 import { prisma } from './prisma'
-import type { PlanInterval } from '@prisma/client'
+import type { PlanInterval, Prisma } from '@prisma/client'
+import { render } from './emails/registry'
+import { sendEmailLogged } from './email'
+import { getSiteSettings } from './site-settings'
+
+type InvoiceWithSub = Prisma.InvoiceGetPayload<{ include: { subscription: { include: { plan: true } } } }>
+
+// Fire-and-forget receipt email when an invoice becomes PAID. Best-effort: any
+// failure is logged by sendEmailLogged and never propagates to the payment path.
+async function sendInvoicePaidEmail(invoice: InvoiceWithSub, paymentMethod: string): Promise<void> {
+  try {
+    const user = await prisma.profile.findUnique({
+      where:  { id: invoice.userId },
+      select: { name: true, email: true },
+    })
+    if (!user?.email) return
+
+    const { siteName, storeUrl, logoUrl } = await getSiteSettings()
+    const description = invoice.notes?.trim()
+      || (invoice.subscription ? `${invoice.subscription.plan.name} — subscription` : 'Service / Product')
+
+    const { subject, html } = await render('invoice-paid', {
+      recipientName: user.name ?? 'Customer',
+      invoiceNumber: invoice.number,
+      amount:        invoice.amount,
+      method:        paymentMethod,
+      description,
+      invoiceUrl:    `${storeUrl.replace(/\/+$/, '')}/api/account/invoices/${invoice.id}/print`,
+      siteUrl:       storeUrl,
+      siteName,
+      logoUrl,
+    })
+    await sendEmailLogged('invoice-paid', { to: user.email, subject, html, context: { invoice: invoice.number } })
+  } catch (e) {
+    console.warn('[billing] invoice-paid email failed:', e)
+  }
+}
 
 /**
  * Compute the next period-end date given a start, an interval, and a count.
@@ -133,6 +169,10 @@ export async function markInvoicePaid(
       })
     }
   })
+
+  // Receipt email on the OPEN → PAID transition. Best-effort; never blocks the
+  // paid result. `invoice` already has subscription+plan included above.
+  await sendInvoicePaidEmail(invoice, opts.paymentMethod)
 
   return { ok: true, alreadyPaid: false }
 }

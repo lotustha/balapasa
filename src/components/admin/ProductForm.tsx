@@ -1158,6 +1158,12 @@ export default function ProductForm({ initial, mode, productId }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.categoryId) { setError('Please select a category'); return }
+    // A subscription product is useless without a linked billing plan — without
+    // one the product page silently falls back to the normal add-to-cart flow.
+    if (form.kind === 'SUBSCRIPTION' && !form.planId) {
+      setError('Select a billing plan for this subscription product (Admin → Plans to create one).')
+      return
+    }
     setSaving(true); setError('')
 
     const payload = {

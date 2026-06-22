@@ -23,6 +23,7 @@ import type {
   RefundIssuedData,
   AbandonedCartData,
   BackInStockData,
+  InvoicePaidData,
 } from './types'
 
 import { orderConfirmedBranded } from './templates/order-confirmed/branded'
@@ -81,6 +82,7 @@ import { returnApprovedBranded }           from './templates/return-approved/bra
 import { returnRejectedBranded }           from './templates/return-rejected/branded'
 import { refundIssuedBranded }             from './templates/refund-issued/branded'
 import { backInStockBranded }              from './templates/back-in-stock/branded'
+import { invoicePaidBranded }              from './templates/invoice-paid/branded'
 
 export type RenderResult = { subject: string; html: string }
 
@@ -144,6 +146,7 @@ export interface EventDataMap {
   'return-rejected':          ReturnRejectedData
   'refund-issued':            RefundIssuedData
   'back-in-stock':            BackInStockData
+  'invoice-paid':             InvoicePaidData
 }
 
 export type EventId = keyof EventDataMap
@@ -399,6 +402,16 @@ const SAMPLE_BACK_IN_STOCK: BackInStockData = {
   ...SAMPLE_BRAND,
 }
 
+const SAMPLE_INVOICE_PAID: InvoicePaidData = {
+  recipientName: 'Aarav Sharma',
+  invoiceNumber: 'INV-2026-00042',
+  amount:        1500,
+  method:        'ESEWA',
+  description:   'My School App — subscription',
+  invoiceUrl:    'https://balapasa.com/api/account/invoices/preview/print',
+  ...SAMPLE_BRAND,
+}
+
 const REGISTRY: Record<EventId, AnyEmailEvent> = {
   'order-confirmed': defineEvent<OrderConfirmationData>({
     id:          'order-confirmed',
@@ -566,6 +579,14 @@ const REGISTRY: Record<EventId, AnyEmailEvent> = {
     description: 'Customer alert when a product they subscribed to (via "Notify me when available") is restocked. Sent by the back-in-stock cron.',
     sampleData:  SAMPLE_BACK_IN_STOCK,
     variants:    [backInStockBranded],
+    customerFacing: true,
+  }),
+  'invoice-paid': defineEvent<InvoicePaidData>({
+    id:          'invoice-paid',
+    label:       'Invoice paid',
+    description: 'Customer receipt when a subscription-cycle or one-off invoice is paid — amount, method, and a download-invoice link.',
+    sampleData:  SAMPLE_INVOICE_PAID,
+    variants:    [invoicePaidBranded],
     customerFacing: true,
   }),
 }

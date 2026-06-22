@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   FileText, Plus, Loader2, AlertCircle, X as XIcon, CheckCircle2, Ban, Filter,
+  Search, Printer, User, Package,
 } from 'lucide-react'
 
 type InvoiceStatus = 'OPEN' | 'PAID' | 'OVERDUE' | 'VOID'
@@ -52,6 +53,43 @@ export default function AdminInvoicesPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [form, setForm] = useState({ userId: '', amount: '', dueDate: '', notes: '' })
 
+  // ── Customer picker (search-as-you-type over /api/admin/customers) ──────────
+  type Customer = { id: string; name: string | null; email: string; phone: string | null }
+  const [customers, setCustomers]   = useState<Customer[]>([])
+  const [custQuery,  setCustQuery]  = useState('')
+  const [custName,   setCustName]   = useState('')   // label of the chosen customer
+  const [custOpen,   setCustOpen]   = useState(false)
+  useEffect(() => {
+    fetch('/api/admin/customers')
+      .then(r => r.ok ? r.json() : { customers: [] })
+      .then(d => setCustomers(d.customers ?? []))
+      .catch(() => {})
+  }, [])
+  const custMatches = custQuery.trim().length < 1 ? [] : customers.filter(c => {
+    const q = custQuery.toLowerCase()
+    return (c.name ?? '').toLowerCase().includes(q)
+      || c.email.toLowerCase().includes(q)
+      || (c.phone ?? '').includes(custQuery.trim())
+  }).slice(0, 8)
+
+  // ── Product picker (autofills amount + description for billable products) ───
+  type ProdHit = { id: string; name: string; price: number; salePrice: number | null }
+  const [prodQuery,   setProdQuery]   = useState('')
+  const [prodHits,    setProdHits]    = useState<ProdHit[]>([])
+  const [prodOpen,    setProdOpen]    = useState(false)
+  useEffect(() => {
+    const q = prodQuery.trim()
+    const ctrl = new AbortController()
+    const t = setTimeout(() => {
+      if (q.length < 2) { setProdHits([]); return }
+      fetch(`/api/products?admin=true&limit=8&search=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+        .then(r => r.ok ? r.json() : { products: [] })
+        .then(d => setProdHits((d.products ?? []).map((p: ProdHit) => ({ id: p.id, name: p.name, price: p.price, salePrice: p.salePrice }))))
+        .catch(() => {})
+    }, 250)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [prodQuery])
+
   // mark-paid modal
   const [paying, setPaying] = useState<InvoiceRow | null>(null)
   const [payForm, setPayForm] = useState({ paymentMethod: 'COD', transactionId: '' })
@@ -86,6 +124,7 @@ export default function AdminInvoicesPage() {
       const data = await res.json()
       if (!res.ok) { setCreateError(data.error ?? 'Failed to create'); return }
       setForm({ userId: '', amount: '', dueDate: '', notes: '' })
+      setCustQuery(''); setCustName(''); setProdQuery('')
       setShowForm(false)
       load(filter)
     } catch (e) {
@@ -107,6 +146,10 @@ export default function AdminInvoicesPage() {
     if (!res.ok) { const d = await res.json(); alert(d.error ?? 'Failed'); return }
     setPaying(null); setPayForm({ paymentMethod: 'COD', transactionId: '' })
     load(filter)
+  }
+
+  function printInvoice(inv: InvoiceRow) {
+    window.open(`/api/admin/invoices/${inv.id}/print`, '_blank', 'noopener')
   }
 
   async function voidInv(inv: InvoiceRow) {
@@ -145,12 +188,81 @@ export default function AdminInvoicesPage() {
               <div className="w-0.5 h-4 rounded-full bg-primary" /> One-off invoice
             </h2>
             <div className="grid sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Customer ID <span className="text-red-400">*</span></label>
-                <input required value={form.userId}
-                  onChange={e => setForm(s => ({ ...s, userId: e.target.value }))}
-                  placeholder="profile id (uuid)" className={inputCls} />
+              {/* Customer picker — search by name / email / phone, no UUID needed */}
+              <div className="relative">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Customer <span className="text-red-400">*</span></label>
+                {form.userId ? (
+                  <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm border border-primary/40 rounded-xl bg-primary-bg">
+                    <span className="flex items-center gap-2 min-w-0 text-slate-800 font-semibold truncate">
+                      <User size={14} className="text-primary shrink-0" /> {custName}
+                    </span>
+                    <button type="button" onClick={() => { setForm(s => ({ ...s, userId: '' })); setCustName(''); setCustQuery('') }}
+                      className="text-slate-400 hover:text-red-500 cursor-pointer shrink-0"><XIcon size={14} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                      <input value={custQuery}
+                        onChange={e => { setCustQuery(e.target.value); setCustOpen(true) }}
+                        onFocus={() => setCustOpen(true)}
+                        onBlur={() => setTimeout(() => setCustOpen(false), 150)}
+                        placeholder="Search name, email or phone…" className={inputCls + ' pl-9'} />
+                    </div>
+                    {custOpen && custMatches.length > 0 && (
+                      <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        {custMatches.map(c => (
+                          <li key={c.id}>
+                            <button type="button"
+                              onMouseDown={() => { setForm(s => ({ ...s, userId: c.id })); setCustName(c.name ?? c.email); setCustOpen(false) }}
+                              className="w-full text-left px-3.5 py-2 hover:bg-slate-50 cursor-pointer">
+                              <p className="text-sm font-semibold text-slate-800 truncate">{c.name ?? '—'}</p>
+                              <p className="text-[11px] text-slate-400 truncate">{c.email}{c.phone ? ` · ${c.phone}` : ''}</p>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {custOpen && custQuery.trim().length >= 1 && custMatches.length === 0 && (
+                      <p className="text-[11px] text-slate-400 mt-1">No matching customer.</p>
+                    )}
+                  </>
+                )}
               </div>
+
+              {/* Product picker — optional; autofills amount + description */}
+              <div className="relative">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bill for a product <span className="text-slate-300 normal-case font-medium">(optional)</span></label>
+                <div className="relative">
+                  <Package size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input value={prodQuery}
+                    onChange={e => { setProdQuery(e.target.value); setProdOpen(true) }}
+                    onFocus={() => setProdOpen(true)}
+                    onBlur={() => setTimeout(() => setProdOpen(false), 150)}
+                    placeholder="Search a product to auto-fill…" className={inputCls + ' pl-9'} />
+                </div>
+                {prodOpen && prodHits.length > 0 && (
+                  <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                    {prodHits.map(p => {
+                      const amt = p.salePrice ?? p.price
+                      return (
+                        <li key={p.id}>
+                          <button type="button"
+                            onMouseDown={() => {
+                              setForm(s => ({ ...s, amount: String(Math.round(amt)), notes: s.notes.trim() || p.name }))
+                              setProdQuery(p.name); setProdOpen(false)
+                            }}
+                            className="w-full flex items-center justify-between gap-2 px-3.5 py-2 hover:bg-slate-50 cursor-pointer">
+                            <span className="text-sm text-slate-800 truncate">{p.name}</span>
+                            <span className="text-xs font-bold text-slate-500 shrink-0">Rs. {Math.round(amt).toLocaleString()}</span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount (NPR) <span className="text-red-400">*</span></label>
                 <input type="number" required min="1" step="1" value={form.amount}
@@ -164,11 +276,11 @@ export default function AdminInvoicesPage() {
                   className={inputCls} />
                 <p className="text-[10px] text-slate-400 mt-1">Defaults to 7 days from now</p>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Notes</label>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description <span className="text-slate-300 normal-case font-medium">(shows as the line item on the invoice)</span></label>
                 <input value={form.notes}
                   onChange={e => setForm(s => ({ ...s, notes: e.target.value }))}
-                  className={inputCls} />
+                  placeholder="e.g. Website buildup — design & development" className={inputCls} />
               </div>
             </div>
 
@@ -251,6 +363,11 @@ export default function AdminInvoicesPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="inline-flex items-center gap-1">
+                          <button type="button" onClick={() => printInvoice(inv)}
+                            title="Print / download invoice"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-primary hover:bg-primary-bg transition-colors cursor-pointer">
+                            <Printer size={13} />
+                          </button>
                           {inv.status === 'OPEN' || inv.status === 'OVERDUE' ? (
                             <>
                               <button type="button" onClick={() => setPaying(inv)}
