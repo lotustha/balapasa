@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireRole } from '@/lib/auth'
 
 // Nepal is UTC+5:45 — there is no DST. We compute calendar-day boundaries in NPT
 // explicitly (shift into NPT, truncate to midnight, shift back to the UTC
@@ -35,6 +36,10 @@ function pctChange(curr: number, prev: number): number | null {
 }
 
 export async function GET(req: NextRequest) {
+  // Dashboard exposes revenue + customer counts — staff-only.
+  const guard = await requireRole('STAFF')
+  if ('error' in guard) return guard.error
+
   try {
     const rangeParam = req.nextUrl.searchParams.get('range') as Range | null
     const range: Range = rangeParam && RANGES.includes(rangeParam) ? rangeParam : 'today'
