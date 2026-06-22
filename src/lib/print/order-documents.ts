@@ -1066,3 +1066,118 @@ ${body}
 
     return html
 }
+
+// ── Standalone invoice (billing) ──────────────────────────────────────────────
+// Renders a print-ready A4 invoice straight from an `Invoice` row — works for
+// BOTH subscription-cycle invoices and admin one-off invoices, neither of which
+// is backed by an Order. It reuses the order A4 invoice CSS/shell so billing
+// documents look identical to order invoices. Auto-opens the print dialog so
+// the user can save it as a PDF. Authorization is the caller's responsibility.
+export async function renderStandaloneInvoice(invoiceId: string): Promise<string | null> {
+  const [invoice, storeDB] = await Promise.all([
+    prisma.invoice.findUnique({
+      where:   { id: invoiceId },
+      include: { subscription: { include: { plan: true } } },
+    }),
+    fetchStoreSettings(),
+  ])
+  if (!invoice) return null
+
+  const store   = buildStore(storeDB)
+  const logoUrl = storeDB.STORE_LOGO_URL ?? ''
+  const [user, socialQrSvg] = await Promise.all([
+    prisma.profile.findUnique({
+      where:  { id: invoice.userId },
+      select: { name: true, email: true, phone: true },
+    }),
+    generateSocialQRSvg(store),
+  ])
+
+  const isPaid = invoice.status === 'PAID'
+  const date   = invoice.createdAt.toLocaleDateString('en-NP', { day: 'numeric', month: 'long', year: 'numeric' })
+  const due    = invoice.dueDate.toLocaleDateString('en-NP', { day: 'numeric', month: 'long', year: 'numeric' })
+  // Single line item. Prefer the admin-entered note, fall back to the plan name,
+  // then a generic label so the document never has a blank description.
+  const lineLabel = invoice.notes?.trim()
+    || (invoice.subscription ? `${invoice.subscription.plan.name} — subscription` : 'Service / Product')
+  const amount = invoice.amount
+
+  const body = `
+<div class="page inv-a4-page">
+  <div class="inv-a4-hdr">
+    <div class="inv-a4-lhs">
+      ${logoUrl ? `<img src="${logoUrl}" alt="${store.name}" class="inv-logo-lg" />` : ''}
+      <div class="${logoUrl ? 'inv-a4-name-sub' : 'brand'}">${store.name}</div>
+      <div class="inv-a4-store-detail">${store.address}</div>
+      <div class="inv-a4-store-detail">${store.phone}${store.email ? ' · ' + store.email : ''}</div>
+      ${store.pan ? `<div class="inv-a4-store-detail">PAN: ${store.pan}</div>` : ''}
+    </div>
+    <div class="inv-a4-rhs">
+      <div class="doc-title">INVOICE</div>
+      <div class="inv-meta"><span class="label">Invoice No.</span><span class="value">#${invoice.number}</span></div>
+      <div class="inv-meta"><span class="label">Date</span><span class="value">${date}</span></div>
+      <div class="inv-meta"><span class="label">Due</span><span class="value">${due}</span></div>
+      ${invoice.paymentMethod ? `<div class="inv-meta"><span class="label">Payment</span><span class="value">${invoice.paymentMethod}</span></div>` : ''}
+      <div class="status-badge ${isPaid ? 'paid' : 'unpaid'}">${invoice.status}</div>
+    </div>
+  </div>
+  <div class="addr-row">
+    <div class="addr-box">
+      <div class="addr-label">Bill To</div>
+      <div class="addr-name">${user?.name ?? 'Customer'}</div>
+      ${user?.email ? `<div class="addr-line">${user.email}</div>` : ''}
+      ${user?.phone ? `<div class="addr-line">${user.phone}</div>` : ''}
+    </div>
+  </div>
+  <table class="items-table">
+    <thead><tr>
+      <th style="width:36px">#</th>
+      <th>Item Description</th>
+      <th style="width:50px">Qty</th>
+      <th style="width:90px">Amount</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td class="center">1</td>
+        <td>${lineLabel}</td>
+        <td class="center">1</td>
+        <td class="right">NPR ${amount.toLocaleString()}</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="total-row"><span>Subtotal</span><span>NPR ${amount.toLocaleString()}</span></div>
+      <div class="total-row grand"><span>TOTAL</span><span>NPR ${amount.toLocaleString()}</span></div>
+    </div>
+  </div>
+  <div class="inv-a4-footer">
+    <div class="inv-a4-footer-row">
+      <div class="inv-a4-footer-mid">
+        <div class="inv-a4-footer-thanks">${isPaid ? 'Thank you for your payment!' : 'Thank you for your business!'}</div>
+        <div class="inv-a4-footer-note">${store.url}</div>
+        <div class="inv-a4-footer-note">Computer-generated document · No signature required</div>
+      </div>
+      ${socialQrSvg ? `
+      <div class="inv-footer-social">
+        <div class="inv-a4-footer-qr">${socialQrSvg}</div>
+        <div class="inv-a4-footer-scan">Follow us</div>
+      </div>` : ''}
+    </div>
+  </div>
+</div>`
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>${store.name} — Invoice #${invoice.number}</title>
+<style>${CSS}</style>
+<style>@media print { @page { size: A4; margin: 0; } }</style>
+</head>
+<body>
+${body}
+<script>window.onload = () => window.print()</script>
+</body>
+</html>`
+}

@@ -249,7 +249,17 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   useRegisterProduct(p?.name ?? null, p ? (p.salePrice ?? p.price) : null, p?.slug ?? null)
 
   // ── Active image ────────────────────────────────────────────────────────
-  const images = p?.images.length ? p.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&h=700&fit=crop']
+  // Gallery = the product's own images first (so images[0] stays the hero /
+  // blob source / OG image), then any per-variant images that aren't already
+  // there. Merging them in means a variant whose image lives outside p.images
+  // still resolves to a real index, so selecting it can switch the main photo.
+  const images = useMemo(() => {
+    const base = p?.images.length ? p.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&h=700&fit=crop']
+    const variantImgs = (p?.variants ?? [])
+      .map(v => v.image)
+      .filter((img): img is string => !!img && !base.includes(img))
+    return [...base, ...Array.from(new Set(variantImgs))]
+  }, [p])
   const [activeImg,  setActiveImg]  = useState(0)
   const [mediaMode,  setMediaMode]  = useState<'image' | 'video'>('image')
   const [activeVideo,setActiveVideo]= useState(false)
@@ -328,17 +338,18 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     options.every(o => !selected[o.name] || (v.options as Record<string,string>)[o.name] === selected[o.name])
   ) ?? null
   function selectOption(optName: string, value: string) {
-    setSelected(prev => {
-      const next = { ...prev, [optName]: value }
-      if (/^colou?r$/i.test(optName)) {
-        const v = variants.find(vr => (vr.options as Record<string,string>)[optName] === value)
-        if (v?.image) {
-          const idx = images.indexOf(v.image)
-          if (idx !== -1) switchImg(idx)
-        }
-      }
-      return next
-    })
+    const next = { ...selected, [optName]: value }
+    setSelected(next)
+    // Switch the main photo to the chosen variant's image — for ANY option
+    // type, not just colour. We resolve the variant by the full option set the
+    // click produces, then jump to its image (now always in `images`).
+    const v = variants.find(vr =>
+      options.every(o => (vr.options as Record<string,string>)[o.name] === next[o.name])
+    )
+    if (v?.image) {
+      const idx = images.indexOf(v.image)
+      if (idx !== -1) { setMediaMode('image'); setActiveVideo(false); switchImg(idx) }
+    }
   }
 
   const saleActive = p?.salePrice != null
@@ -829,7 +840,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             {/* Name + rating */}
             <div className="glass-panel p-5">
               {p.brand && <p className="text-xs font-extrabold uppercase tracking-widest mb-2 text-primary">{p.brand}</p>}
-              <h1 className="font-heading font-extrabold text-lg sm:text-xl lg:text-2xl text-slate-900 leading-snug">{p.name}</h1>
+              <h1 className="font-heading font-extrabold text-base sm:text-lg lg:text-xl text-slate-900 leading-snug">{p.name}</h1>
               {p.sku && <p className="text-[10px] text-slate-400 mt-1">SKU: {p.sku}</p>}
               <div className="flex items-center gap-3 mt-3 flex-wrap">
                 <div className="flex items-center gap-0.5" aria-label={`Rating: ${p.rating} out of 5`}>

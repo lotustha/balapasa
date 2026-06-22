@@ -3,7 +3,7 @@ import Image from 'next/image'
 import {
   User, ShoppingBag, MapPin, Heart, ChevronRight, Package, Star,
   Settings, ArrowRight, Shield, Clock, Repeat, Wallet, Sparkles, Users,
-  Gift, Trophy,
+  Gift, Trophy, FileText,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -14,6 +14,7 @@ import SignOutButton from './SignOutButton'
 const NAV = [
   { href: '/account/orders',        icon: ShoppingBag, label: 'My Orders',          desc: 'Track & manage orders'     },
   { href: '/account/subscriptions', icon: Repeat,      label: 'My Subscriptions',   desc: 'Recurring plans & billing' },
+  { href: '/account/invoices',      icon: FileText,    label: 'Invoices',           desc: 'View & download invoices'  },
   { href: '/account/addresses',     icon: MapPin,      label: 'Saved Addresses',    desc: 'Manage delivery locations' },
   { href: '/account/wishlist',  icon: Heart,       label: 'Wishlist',           desc: 'Products you saved'        },
   { href: '/account/store-credit', icon: Wallet,   label: 'Store Credit',       desc: 'Your wallet balance'       },
