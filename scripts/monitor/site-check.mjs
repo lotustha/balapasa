@@ -11,7 +11,7 @@
  * MONITOR_STATE_FILE  default /root/.balapasa-wa/monitor-state.json
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import tls from 'node:tls'
 import { config } from 'dotenv'
@@ -29,6 +29,8 @@ const CERT_WARN_DAYS = 10
 const DISK_WARN_PERCENT = 90
 // The syncs run once a day; a log untouched for longer than this means a run was missed.
 const SYNC_MAX_AGE_HOURS = 26
+const BACKUP_DIR = process.env.MONITOR_BACKUP_DIR ?? '/root/backups/balapasa'
+const BACKUP_MAX_AGE_HOURS = 26
 const SYNC_LOGS = [
   ['Website price sync', '/var/log/balapasa-daraz-sync.log', /Daraz sync FAILED/],
   ['Daraz shop sync', '/var/log/balapasa-daraz-mirror.log', /mirror sync FAILED/],
@@ -101,6 +103,15 @@ function syncChecks() {
   })
 }
 
+// Only checked where backups are set up (the directory exists), so this stays quiet on a dev machine.
+function backupCheck() {
+  if (!existsSync(BACKUP_DIR)) return null
+  const newest = readdirSync(BACKUP_DIR).filter(f => f.endsWith('.dump')).map(f => statSync(path.join(BACKUP_DIR, f)).mtimeMs).sort((a, b) => b - a)[0]
+  if (!newest) return result('Database backup', false, 'no backup has been made yet')
+  const hours = (Date.now() - newest) / 3_600_000
+  return result('Database backup', hours <= BACKUP_MAX_AGE_HOURS, hours <= BACKUP_MAX_AGE_HOURS ? `made ${Math.round(hours)} h ago` : `the newest one is ${Math.round(hours)} hours old`)
+}
+
 async function botCheck() {
   const { WA_NOTIFY_URL, WA_NOTIFY_TOKEN } = process.env
   if (!WA_NOTIFY_URL || !WA_NOTIFY_TOKEN) return null
@@ -122,7 +133,7 @@ function diskCheck() {
   }
 }
 
-const results = [...await siteChecks(), await certificateCheck(), ...syncChecks(), await botCheck(), diskCheck()].filter(Boolean)
+const results = [...await siteChecks(), await certificateCheck(), ...syncChecks(), backupCheck(), await botCheck(), diskCheck()].filter(Boolean)
 // Reported as a note, not a failure: nobody should be paged because the owner closed the store.
 if (closed) results.push(result('Store', true, 'closed for maintenance (switched on in Settings)'))
 
