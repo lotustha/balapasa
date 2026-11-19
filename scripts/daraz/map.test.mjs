@@ -64,8 +64,8 @@ test('single SKU → no variants', () => {
 test('inactive SKUs are dropped', () => {
   const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: 'Gold' }), sku({ SkuId: 2, color: 'White', Status: 'inactive' }), sku({ SkuId: 3, color: 'Grey' })] }), NOW)
   assert.deepEqual(m.variants.map(v => v.sku), ['DZ-1', 'DZ-3'])
-  assert.deepEqual(m.options, [{ name: 'Color Family', values: ['Gold', 'Grey'] }])
-  assert.deepEqual(m.variants[0].options, { 'Color Family': 'Gold' })
+  assert.deepEqual(m.options, [{ name: 'Color', values: ['Gold', 'Grey'] }])
+  assert.deepEqual(m.variants[0].options, { Color: 'Gold' })
   assert.equal(m.variants[0].title, 'Gold')
 })
 
@@ -80,6 +80,22 @@ test('cheapest variant comes first so the page opens on the listed price', () =>
   assert.equal(m.price, 90)
   assert.deepEqual(m.variants.map(v => v.title), ['1 PC', '10 PC SET', '5 PC'])
   assert.deepEqual(m.options[0].values, ['1 PC', '10 PC SET', '5 PC'])
+})
+
+test('colour property holding non-colours is labelled Variant', () => {
+  const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: 'Toilets' }), sku({ SkuId: 2, color: 'No Parking' })] }), NOW)
+  assert.deepEqual(m.options, [{ name: 'Variant', values: ['Toilets', 'No Parking'] }])
+  assert.deepEqual(m.variants[1].options, { Variant: 'No Parking' })
+})
+
+test('multi-word colours still count as colours', () => {
+  const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: 'Matte Black' }), sku({ SkuId: 2, color: 'Light blue' }), sku({ SkuId: 3, color: 'Antique White' })] }), NOW)
+  assert.equal(m.options[0].name, 'Color')
+})
+
+test('other properties keep their own name', () => {
+  const m = mapProduct(product({ skus: [sku({ SkuId: 1, saleProp: { size_wear: 'M' } }), sku({ SkuId: 2, saleProp: { size_wear: 'L' } })] }), NOW)
+  assert.deepEqual(m.options, [{ name: 'Size Wear', values: ['M', 'L'] }])
 })
 
 test('same variant prices → variant price null', () => {

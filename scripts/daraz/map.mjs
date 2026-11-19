@@ -34,6 +34,17 @@ function dimension(v) {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+const COLOR_WORDS = new Set(('black white grey gray silver gold golden pink green blue brown red yellow purple orange beige cream ivory '
+  + 'khaki maroon navy sky rose violet turquoise teal coffee champagne transparent clear multicolor multicolour multi colour color '
+  + 'dark light matte glossy antique deep pastel neon army wine off').split(' '))
+const isColor = value => String(value).toLowerCase().split(/[^a-z]+/).filter(Boolean).every(w => COLOR_WORDS.has(w))
+
+// Daraz files every variant type under a colour property, including things like "10 PC SET".
+function optionName(key, values) {
+  if (!/colou?r/i.test(key)) return titleCase(key)
+  return values.length > 0 && values.every(isColor) ? 'Color' : 'Variant'
+}
+
 const titleCase = key => key.replace(/_/g, ' ').trim().replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase())
 
 export function mapProduct(p, now) {
@@ -51,20 +62,20 @@ export function mapProduct(p, now) {
   const multi = skus.length > 1
   const pricesDiffer = new Set(skus.map(s => effectivePrice(s, now))).size > 1
 
-  const options = []
+  const propValues = new Map()
   if (multi) {
     for (const s of skus) {
       for (const [key, value] of Object.entries(s.saleProp ?? {})) {
-        const optName = titleCase(key)
-        let opt = options.find(o => o.name === optName)
-        if (!opt) options.push(opt = { name: optName, values: [] })
-        if (!opt.values.includes(String(value))) opt.values.push(String(value))
+        if (!propValues.has(key)) propValues.set(key, [])
+        if (!propValues.get(key).includes(String(value))) propValues.get(key).push(String(value))
       }
     }
   }
+  const nameOfProp = new Map([...propValues].map(([key, values]) => [key, optionName(key, values)]))
+  const options = [...propValues].map(([key, values]) => ({ name: nameOfProp.get(key), values }))
 
   const variants = !multi ? [] : skus.map((s, i) => {
-    const opts = Object.fromEntries(Object.entries(s.saleProp ?? {}).map(([k, v]) => [titleCase(k), String(v)]))
+    const opts = Object.fromEntries(Object.entries(s.saleProp ?? {}).map(([k, v]) => [nameOfProp.get(k), String(v)]))
     return {
       sku: `DZ-${s.SkuId}`,
       title: Object.values(opts).join(' / ') || `Option ${i + 1}`,
