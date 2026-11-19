@@ -4,12 +4,13 @@
  *   node scripts/daraz/mirror-sync.mjs            apply
  *   node scripts/daraz/mirror-sync.mjs --dry-run  report only
  *
- * Tokens for both shops come from app_settings (see tokens.mjs). Set DISCORD_WEBHOOK_URL for a Discord summary.
+ * Tokens for both shops come from app_settings (see tokens.mjs). Alerts go to WhatsApp and/or Discord when configured (see notify.mjs).
  */
 import { config } from 'dotenv'
 import pg from 'pg'
 import { darazPost, fetchProducts } from './api.mjs'
 import { getAccessToken } from './tokens.mjs'
+import { notify } from './notify.mjs'
 import { planMirror, priceQuantityXml } from './mirror-plan.mjs'
 import { createMirror } from './mirror-lib.mjs'
 
@@ -21,16 +22,6 @@ const BATCH = 20
 const MIN_CATALOG_RATIO = 0.5
 const SKIP_KEY = 'daraz.mirror.skip'
 const sleep = ms => new Promise(r => setTimeout(r, ms))
-
-async function notify(text) {
-  const hook = process.env.DISCORD_WEBHOOK_URL
-  if (!hook) return
-  try {
-    await fetch(hook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text.slice(0, 1900) }) })
-  } catch (err) {
-    console.error(`discord notify failed: ${err.message}`)
-  }
-}
 
 const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/\?.*$/, '')
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }

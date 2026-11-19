@@ -1,0 +1,12 @@
+{
+  "name": "balapasa-wa-notifier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sends balapasa alert messages over WhatsApp from a linked device session.",
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "pino": "^9.6.0"
+  }
+}

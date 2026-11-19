@@ -5,13 +5,14 @@
  *   node scripts/daraz/daily-sync.mjs --dry-run    report only
  *   node scripts/daraz/daily-sync.mjs --apply-held also apply price moves over the 20% hold threshold
  *
- * Every price change is written to price_history. Set DISCORD_WEBHOOK_URL to get the summary in Discord.
+ * Every price change is written to price_history. Alerts go to WhatsApp and/or Discord when configured (see notify.mjs).
  */
 import { config } from 'dotenv'
 import pg from 'pg'
 import { createId } from '@paralleldrive/cuid2'
 import { fetchProducts, fetchCategoryPaths } from './api.mjs'
 import { getAccessToken } from './tokens.mjs'
+import { notify } from './notify.mjs'
 import { mergeFamilies } from './families.mjs'
 import { mapProduct } from './map.mjs'
 import { planSync } from './plan-sync.mjs'
@@ -28,16 +29,6 @@ const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
 const db = new pg.Client({ connectionString: url })
 await db.connect()
-
-async function notify(text) {
-  const hook = process.env.DISCORD_WEBHOOK_URL
-  if (!hook) return
-  try {
-    await fetch(hook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text.slice(0, 1900) }) })
-  } catch (err) {
-    console.error(`discord notify failed: ${err.message}`)
-  }
-}
 
 async function loadExisting() {
   const products = (await db.query(`SELECT id, sku, name, price, sale_price AS "salePrice", sale_price_expires_at AS "salePriceExpiresAt", is_active AS "isActive" FROM products WHERE sku LIKE 'DZ-%'`)).rows
