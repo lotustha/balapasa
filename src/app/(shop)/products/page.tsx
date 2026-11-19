@@ -4,6 +4,7 @@ import Link from 'next/link'
 import ProductCard from '@/components/ui/ProductCard'
 import type { Product } from '@/components/ui/ProductCard'
 import ProductSidebar from '@/components/ui/ProductSidebar'
+import CategoryChips, { type ChipCategory } from '@/components/ui/CategoryChips'
 import { prisma } from '@/lib/prisma'
 import { PackageOpen, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
@@ -12,7 +13,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const title = params.search
     ? `Results for "${params.search}"`
     : params.category
-    ? params.category.charAt(0).toUpperCase() + params.category.slice(1)
+    ? titleFromSlug(params.category)
     : 'All Products'
 
   const description = params.search
@@ -72,10 +73,27 @@ const ALL_MOCK: Product[] = [
 interface Params {
   category?: string; search?: string; sort?: string; featured?: string
   minPrice?: string; maxPrice?: string; onSale?: string; flash?: string; isNew?: string
+  inStock?: string
   page?: string
 }
 
-interface SidebarCategory { slug: string; name: string; color: string }
+const FILTER_KEYS = ['category', 'search', 'sort', 'featured', 'minPrice', 'maxPrice', 'onSale', 'flash', 'isNew', 'inStock'] as const
+
+function titleFromSlug(slug: string): string {
+  return slug.split('-').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+// Listing URL with the current filters, minus `page`, with `overrides` applied (empty value removes a key).
+function listingUrl(params: Params, overrides: Partial<Record<(typeof FILTER_KEYS)[number] | 'page', string>> = {}): string {
+  const sp = new URLSearchParams()
+  for (const k of FILTER_KEYS) if (params[k]) sp.set(k, params[k]!)
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v) sp.set(k, v)
+    else sp.delete(k)
+  }
+  const q = sp.toString()
+  return `/products${q ? `?${q}` : ''}`
+}
 
 // ── Data fetching ────────────────────────────────────────────────────────────
 async function getProducts(params: Params): Promise<{ products: Product[]; total: number }> {
@@ -90,6 +108,7 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
     if (params.featured === 'true') where.isFeatured = true
     if (params.isNew    === 'true') where.isNew     = true
     if (params.onSale   === 'true') where.salePrice = { not: null }
+    if (params.inStock  === 'true') where.stock     = { gt: 0 }
     if (params.flash    === 'true') {
       const now = new Date()
       where.salePrice = { not: null }
@@ -132,6 +151,7 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
     }
     if (params.isNew  === 'true') list = list.filter(p => p.isNew)
     if (params.onSale === 'true') list = list.filter(p => p.salePrice != null)
+    if (params.inStock === 'true') list = list.filter(p => p.stock > 0)
     if (params.flash  === 'true') list = list.filter(p => p.salePrice != null)
     if (minP > 0)     list = list.filter(p => (p.salePrice ?? p.price) >= minP)
     if (maxP < 50000) list = list.filter(p => (p.salePrice ?? p.price) <= maxP)
@@ -142,17 +162,17 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
   }
 }
 
-async function getCategories(): Promise<SidebarCategory[]> {
+async function getCategories(): Promise<ChipCategory[]> {
   try {
-    return await prisma.category.findMany({
+    const rows = await prisma.category.findMany({
       // Hide empty categories from the filter sidebar — only list categories
       // that have at least one active product (same rule the homepage's
       // /api/categories endpoint applies). A category with no purchasable
       // products is a dead-end filter, so we drop it here and on the homepage.
       where:   { products: { some: { isActive: true } } },
-      select:  { name: true, slug: true, color: true },
-      orderBy: { name: 'asc' },
+      select:  { name: true, slug: true, _count: { select: { products: { where: { isActive: true } } } } },
     })
+    return rows.map(r => ({ name: r.name, slug: r.slug, count: r._count.products }))
   } catch {
     return []
   }
@@ -173,27 +193,20 @@ async function getCategoryIntro(slug: string | undefined): Promise<{ name: strin
 }
 
 // ── Active filter chips ──────────────────────────────────────────────────────
-function ActiveFilters({ params }: { params: Params }) {
+function ActiveFilters({ params, categoryName }: { params: Params; categoryName: string | null }) {
   const chips: { label: string; key: string }[] = []
   if (params.search)              chips.push({ label: `"${params.search}"`,                           key: 'search'   })
-  if (params.category)            chips.push({ label: params.category,                                key: 'category' })
+  if (params.category)            chips.push({ label: categoryName ?? titleFromSlug(params.category), key: 'category' })
   if (params.isNew   === 'true')  chips.push({ label: 'New Arrivals',                                 key: 'isNew'    })
   if (params.onSale  === 'true')  chips.push({ label: 'On Sale',                                      key: 'onSale'   })
   if (params.flash   === 'true')  chips.push({ label: 'Flash Deals',                                  key: 'flash'    })
+  if (params.inStock === 'true')  chips.push({ label: 'In Stock',                                     key: 'inStock'  })
   if (Number(params.minPrice) > 0)       chips.push({ label: `From NPR ${Number(params.minPrice).toLocaleString()}`, key: 'minPrice' })
   if (Number(params.maxPrice) < 50000)   chips.push({ label: `To NPR ${Number(params.maxPrice).toLocaleString()}`,   key: 'maxPrice' })
 
   if (chips.length === 0) return null
 
-  function removeUrl(key: string) {
-    const sp = new URLSearchParams()
-    const keys = ['category','search','sort','featured','minPrice','maxPrice','onSale','flash','isNew'] as const
-    for (const k of keys) {
-      if (k !== key && params[k]) sp.set(k, params[k]!)
-    }
-    const q = sp.toString()
-    return `/products${q ? `?${q}` : ''}`
-  }
+  const removeUrl = (key: string) => listingUrl(params, { [key]: '' })
 
   return (
     <div className="flex flex-wrap gap-2 mb-5">
@@ -211,21 +224,7 @@ function ActiveFilters({ params }: { params: Params }) {
 function Pagination({ page, totalPages, params }: { page: number; totalPages: number; params: Params }) {
   if (totalPages <= 1) return null
 
-  function pageUrl(p: number) {
-    const sp = new URLSearchParams()
-    if (params.category) sp.set('category', params.category)
-    if (params.search)   sp.set('search',   params.search)
-    if (params.sort)     sp.set('sort',     params.sort)
-    if (params.featured) sp.set('featured', params.featured)
-    if (params.minPrice) sp.set('minPrice', params.minPrice)
-    if (params.maxPrice) sp.set('maxPrice', params.maxPrice)
-    if (params.onSale)   sp.set('onSale',   params.onSale)
-    if (params.flash)    sp.set('flash',    params.flash)
-    if (params.isNew)    sp.set('isNew',    params.isNew)
-    if (p > 1)           sp.set('page',     String(p))
-    const q = sp.toString()
-    return `/products${q ? `?${q}` : ''}`
-  }
+  const pageUrl = (p: number) => listingUrl(params, { page: p > 1 ? String(p) : '' })
 
   const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = []
   if (totalPages <= 7) {
@@ -292,10 +291,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const page       = Math.max(1, Number(params.page ?? 1))
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
+  const activeCategory = categories.find(c => c.slug === params.category) ?? null
+  const allCount       = categories.reduce((sum, c) => sum + c.count, 0)
+
   const pageTitle = params.search
     ? `Results for "${params.search}"`
     : params.category
-    ? params.category.charAt(0).toUpperCase() + params.category.slice(1)
+    ? activeCategory?.name ?? titleFromSlug(params.category)
     : 'All Products'
 
   return (
@@ -337,6 +339,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
       {/* Main layout */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <CategoryChips
+          key={params.category ?? ''}
+          categories={categories}
+          activeSlug={params.category ?? ''}
+          totalCount={allCount}
+          hrefFor={slug => listingUrl(params, { category: slug })}
+        />
+
         <div className="flex gap-7 items-stretch">
 
           {/* Sidebar */}
@@ -345,7 +355,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <div className="glass-card p-5 h-96 skeleton-light rounded-3xl" />
             </div>
           }>
-            <ProductSidebar totalCount={total} categories={categories} />
+            <ProductSidebar totalCount={total} />
           </Suspense>
 
           {/* Grid area */}
@@ -356,7 +366,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 <p className="text-sm text-slate-600 leading-relaxed">{categoryIntro.seoIntro}</p>
               </div>
             )}
-            <ActiveFilters params={params} />
+            <ActiveFilters params={params} categoryName={activeCategory?.name ?? null} />
 
             {products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 glass-card rounded-3xl animate-fade-in-up">

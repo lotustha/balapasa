@@ -1,21 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Search, X, SlidersHorizontal, Cpu, Zap, Sparkles,
+  Search, X, SlidersHorizontal, Zap, PackageCheck,
   Tag, Star, ChevronDown, ChevronUp, RotateCcw,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
-
-// Maps known category slugs to icons — unknown slugs fall back to a colored dot
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
-  electronics: Cpu,
-  gadgets:     Zap,
-  beauty:      Sparkles,
-}
-
-interface SidebarCategory { slug: string; name: string; color: string }
 
 const SORT_OPTIONS = [
   { value: 'newest',     label: 'Newest First'        },
@@ -124,17 +116,7 @@ function Section({
 
 // ── Main sidebar ─────────────────────────────────────────────────────────────
 
-export default function ProductSidebar({ totalCount, categories }: { totalCount: number; categories: SidebarCategory[] }) {
-  const displayCategories = [
-    { slug: '', label: 'All Products', icon: null, color: '#16A34A', bg: 'rgba(22,163,74,0.10)' },
-    ...categories.map(c => ({
-      slug:  c.slug,
-      label: c.name,
-      icon:  ICON_MAP[c.slug] ?? null,
-      color: c.color,
-      bg:    `${c.color}1A`,
-    })),
-  ]
+export default function ProductSidebar({ totalCount }: { totalCount: number }) {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -148,18 +130,18 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const activeCategory = searchParams.get('category') ?? ''
   const activeSort     = searchParams.get('sort') ?? 'newest'
   const onSale         = searchParams.get('onSale') === 'true'
   const flash          = searchParams.get('flash')  === 'true'
   const isNew          = searchParams.get('isNew')  === 'true'
+  const inStock        = searchParams.get('inStock') === 'true'
 
   // Count active filters for badge
   const filterCount = [
-    activeCategory, searchParams.get('search'),
+    searchParams.get('search'),
     priceRange[0] > 0 ? '1' : '',
     priceRange[1] < PRICE_MAX ? '1' : '',
-    onSale ? '1' : '', flash ? '1' : '', isNew ? '1' : '',
+    onSale ? '1' : '', flash ? '1' : '', isNew ? '1' : '', inStock ? '1' : '',
   ].filter(Boolean).length
 
   // Navigate with merged params — resets page to 1 on any filter change
@@ -194,7 +176,8 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
   function clearAll() {
     setSearchInput('')
     setPriceRange([0, PRICE_MAX])
-    router.push('/products', { scroll: false })
+    const category = searchParams.get('category')
+    router.push(category ? `/products?category=${encodeURIComponent(category)}` : '/products', { scroll: false })
   }
 
   const SidebarContent = (
@@ -221,37 +204,6 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
         </div>
       </Section>
 
-      {/* Categories */}
-      <Section title="Category" accent="#6366F1">
-        <div className="space-y-2">
-          {displayCategories.map(({ slug, label, icon: Icon, color, bg }) => (
-            <button
-              key={slug}
-              onClick={() => navigate({ category: slug })}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer text-left"
-              style={activeCategory === slug
-                ? { background: bg, color, fontWeight: 700, border: `1.5px solid ${color}30` }
-                : { background: 'transparent', color: '#475569', border: '1.5px solid transparent' }}
-            >
-              {Icon
-                ? <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-all"
-                    style={{ background: activeCategory === slug ? `${color}20` : 'rgba(0,0,0,0.04)' }}>
-                    <Icon size={14} style={{ color }} />
-                  </div>
-                : <div className="w-7 h-7 rounded-xl shrink-0 flex items-center justify-center"
-                    style={{ background: activeCategory === slug ? `${color}20` : 'rgba(0,0,0,0.04)' }}>
-                    <span className="w-2 h-2 rounded-full" style={{ background: color }} />
-                  </div>
-              }
-              <span className="flex-1">{label}</span>
-              {activeCategory === slug && (
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-              )}
-            </button>
-          ))}
-        </div>
-      </Section>
-
       {/* Price Range */}
       <Section title="Price Range" accent="#EC4899">
         <DualRangeSlider
@@ -273,7 +225,7 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
               }`}
             >
               <input
-                type="radio" name="sort" value={value}
+                type="radio" value={value}
                 checked={activeSort === value}
                 onChange={() => navigate({ sort: value })}
                 className="accent-primary w-4 h-4"
@@ -285,12 +237,13 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
       </Section>
 
       {/* Quick Toggles */}
-      <Section title="Quick Filters" defaultOpen={false} accent="#F59E0B">
+      <Section title="Quick Filters" accent="#F59E0B">
         <div className="space-y-2.5">
           {[
             { key: 'flash',  label: 'Flash Deals',  icon: Zap,   color: '#F59E0B', val: flash  },
             { key: 'isNew',  label: 'New Arrivals', icon: Star,  color: '#06B6D4', val: isNew  },
             { key: 'onSale', label: 'On Sale',      icon: Tag,   color: '#EC4899', val: onSale },
+            { key: 'inStock', label: 'In Stock',    icon: PackageCheck, color: '#16A34A', val: inStock },
           ].map(({ key, label, icon: Icon, color, val }) => (
             <button
               key={key}
@@ -360,27 +313,37 @@ export default function ProductSidebar({ totalCount, categories }: { totalCount:
       </button>
 
       {/* ── Mobile drawer ─────────────────────────────────────── */}
-      {mobileOpen && (
+      {/* Portalled to <body>: the page content sits in its own stacking context below the bottom nav. */}
+      {mobileOpen && createPortal(
         <>
           <div
-            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm animate-fade-in lg:hidden"
+            className="fixed inset-0 z-[60] bg-black/20 backdrop-blur-sm animate-fade-in lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="fixed left-0 top-0 bottom-0 z-50 w-[300px] animate-slide-right lg:hidden"
-            style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.9)', boxShadow: '8px 0 32px rgba(0,0,0,0.10)' }}>
+          <div role="dialog" aria-label="Filters"
+            className="fixed inset-x-0 bottom-0 z-[60] max-h-[85vh] flex flex-col rounded-t-3xl animate-slide-up lg:hidden"
+            style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.12)' }}>
+            <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" aria-hidden="true" />
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <span className="font-heading font-bold text-slate-900 flex items-center gap-2">
                 <SlidersHorizontal size={16} className="text-primary" /> Filters
               </span>
-              <button onClick={() => setMobileOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
+              <button onClick={() => setMobileOpen(false)} aria-label="Close filters" className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-all">
                 <X size={16} />
               </button>
             </div>
-            <div className="overflow-y-auto h-full pb-20 px-5 py-2">
+            <div className="overflow-y-auto flex-1 px-5 py-2">
               {SidebarContent}
             </div>
+            <div className="px-5 py-3 border-t border-slate-100" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+              <button onClick={() => setMobileOpen(false)}
+                className="w-full py-3 rounded-2xl bg-primary text-white text-sm font-bold cursor-pointer active:scale-[0.99] transition-transform">
+                Show {totalCount} product{totalCount !== 1 ? 's' : ''}
+              </button>
+            </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
 
       {/* ── Desktop sidebar ───────────────────────────────────── */}
