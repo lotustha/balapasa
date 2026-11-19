@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser, requireRole } from '@/lib/auth'
+import { hasRole } from '@/lib/admin-access'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -10,7 +12,10 @@ export async function GET(req: NextRequest) {
   const status     = searchParams.get('status')     // 'active' | 'draft' | null (null = active only for shop)
   const stock      = searchParams.get('stock')      // 'low' | 'out' | null
   const supplierId = searchParams.get('supplier')
-  const admin      = searchParams.get('admin') === 'true' // admin mode: no isActive filter
+  // Admin mode (drafts, unmasked sale prices, cost price) is only honoured for signed-in staff:
+  // the query flag alone must not expose unpublished products.
+  const admin      = searchParams.get('admin') === 'true'
+    && hasRole((await getCurrentUser().catch(() => null))?.role, 'STAFF')
   const sort       = searchParams.get('sort') ?? 'newest'
   const limit      = parseInt(searchParams.get('limit') ?? '24', 10)
   const page       = parseInt(searchParams.get('page') ?? '1', 10)
@@ -98,7 +103,9 @@ export async function GET(req: NextRequest) {
     // scheduled for the future). Admin requests with admin=true bypass this
     // masking so the editor can show what's saved.
     const now = new Date()
-    const products = admin ? rawProducts : rawProducts.map(p => {
+    // Shoppers never get the cost price.
+    const products = admin ? rawProducts : rawProducts.map(raw => {
+      const p = { ...raw, costPrice: null }
       const expired   = p.salePriceExpiresAt && p.salePriceExpiresAt <= now
       const scheduled = p.salePriceStartsAt  && p.salePriceStartsAt  >  now
       if (expired || scheduled) {
@@ -114,6 +121,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireRole('MANAGER')
+  if ('error' in guard) return guard.error
+
   try {
     const body = await req.json()
     const {

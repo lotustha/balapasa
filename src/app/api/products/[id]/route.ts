@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, requireRole } from '@/lib/auth'
+import { hasRole } from '@/lib/admin-access'
 import { hasDeliveredPurchase } from '@/lib/review-eligibility'
 
 export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[id]'>) {
@@ -56,13 +57,18 @@ export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[i
       }
     }
 
-    return Response.json({ ...product, canReview, bundleComponents })
+    // The cost price is for staff only (the admin edit form reads it from here).
+    const costPrice = hasRole(me?.role, 'STAFF') ? product.costPrice : null
+    return Response.json({ ...product, costPrice, canReview, bundleComponents })
   } catch {
     return Response.json({ error: 'Failed to fetch product' }, { status: 500 })
   }
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[id]'>) {
+  const guard = await requireRole('MANAGER')
+  if ('error' in guard) return guard.error
+
   const { id } = await ctx.params
   try {
     const body = await req.json()
@@ -217,6 +223,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext<'/api/products/[id]'>) {
+  const guard = await requireRole('MANAGER')
+  if ('error' in guard) return guard.error
+
   const { id } = await ctx.params
   try {
     // Hard delete — OrderItem.productId has no FK constraint and snapshots name/image,
