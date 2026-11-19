@@ -35,12 +35,14 @@ const titleCase = key => key.replace(/_/g, ' ').trim().replace(/\S+/g, w => w[0]
 
 export function mapProduct(p, now) {
   if (p.status !== 'Active') return null
-  const skus = (p.skus ?? []).filter(s => s.Status === 'active')
-  if (skus.length === 0) return null
+  const active = (p.skus ?? []).filter(s => s.Status === 'active')
+  if (active.length === 0) return null
 
   const attrs = p.attributes ?? {}
   const name = String(attrs.name_en || attrs.name || '').trim()
-  const base = skus.reduce((best, s) => (effectivePrice(s, now) < effectivePrice(best, now) ? s : best))
+  const base = active.reduce((best, s) => (effectivePrice(s, now) < effectivePrice(best, now) ? s : best))
+  // The storefront opens on the first variant; keep it the one whose price the listing shows.
+  const skus = [base, ...active.filter(s => s !== base)]
   const sale = saleOf(base, now)
 
   const multi = skus.length > 1

@@ -70,6 +70,13 @@ test('variant prices differ', () => {
   assert.deepEqual(m.variants.map(v => v.price), [500, 700])
 })
 
+test('cheapest variant comes first so the page opens on the listed price', () => {
+  const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: '10 PC SET', price: 900 }), sku({ SkuId: 2, color: '1 PC', price: 90 }), sku({ SkuId: 3, color: '5 PC', price: 450 })] }), NOW)
+  assert.equal(m.price, 90)
+  assert.deepEqual(m.variants.map(v => v.title), ['1 PC', '10 PC SET', '5 PC'])
+  assert.deepEqual(m.options[0].values, ['1 PC', '10 PC SET', '5 PC'])
+})
+
 test('same variant prices → variant price null', () => {
   const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: 'A' }), sku({ SkuId: 2, color: 'B' })] }), NOW)
   assert.deepEqual(m.variants.map(v => v.price), [null, null])
