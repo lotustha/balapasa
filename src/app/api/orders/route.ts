@@ -6,6 +6,7 @@ import { pushOrderEvent, pushToStaff } from '@/lib/push'
 import { sendOrderAlert } from '@/lib/wa-bot'
 import { priceOrderLines } from '@/lib/order-pricing'
 import { computeAutoDiscounts } from '@/lib/discounts'
+import { minimumDeliveryCharge } from '@/lib/delivery-floor'
 import { getRules as getDiscountRules } from '@/app/api/discount-rules/route'
 import { hasRole } from '@/lib/admin-access'
 import { ordersBlocked, ORDERS_PAUSED_FALLBACK_MESSAGE } from '@/lib/site-settings-shared'
@@ -121,6 +122,30 @@ export async function POST(req: NextRequest) {
     const effectiveDeliveryCharge = expressOk ? EXPRESS_FEE
       : deliveryMode === 'FREE' ? 0
       : Math.max(0, Number(deliveryCharge) || 0)
+
+    // The delivery charge is quoted in the browser from live courier rates, so it cannot be
+    // recomputed here exactly. It is checked against the lowest charge the store ever offers, so an
+    // order cannot be posted with free delivery unless a store rule really makes it free.
+    if (!expressOk && deliveryMode !== 'FREE') {
+      const [thresholdRow, freeRows, rules] = await Promise.all([
+        prisma.appSetting.findUnique({ where: { key: 'FREE_DELIVERY_THRESHOLD' } }).catch(() => null),
+        prisma.product.findMany({ where: { id: { in: items.map(i => i.id) }, freeDelivery: true }, select: { id: true } }),
+        getDiscountRules(),
+      ])
+      const freeIds = new Set(freeRows.map(r => r.id))
+      const floor = minimumDeliveryCharge({
+        subtotal,
+        nonFreeSubtotal: items.reduce((sum, i) => (freeIds.has(i.id) ? sum : sum + i.price * i.quantity), 0),
+        freeDeliveryThreshold: parseInt(thresholdRow?.value ?? '5000', 10) || 5000,
+        deliverySubsidy: computeAutoDiscounts(rules, subtotal).deliverySubsidy,
+      })
+      if (effectiveDeliveryCharge < floor - 1) {
+        return Response.json({
+          error: 'The delivery charge for this order is out of date. Please choose your delivery option again and place the order.',
+          code:  'DELIVERY_CHANGED',
+        }, { status: 409 })
+      }
+    }
 
     // Reject payment methods that the admin has turned off. Resolved fresh
     // from app_settings so a flip in Admin → Settings → Payments takes effect
