@@ -25,10 +25,15 @@ export async function retrying(fn, { delays = RATE_LIMIT_DELAYS_MS, sleep = ms =
 }
 
 export function darazGet(apiPath, params = {}, opts = {}) {
-  return retrying(() => darazGetOnce(apiPath, params, opts))
+  return retrying(() => darazCall('GET', apiPath, params, opts))
 }
 
-async function darazGetOnce(apiPath, params, opts) {
+// The token endpoints only accept POST.
+export function darazPost(apiPath, params = {}, opts = {}) {
+  return retrying(() => darazCall('POST', apiPath, params, opts))
+}
+
+async function darazCall(method, apiPath, params, opts) {
   const appKey = process.env.DARAZ_APP_KEY
   const secret = process.env.DARAZ_APP_SECRET
   if (!appKey || !secret) throw new Error('DARAZ_APP_KEY / DARAZ_APP_SECRET missing from environment')
@@ -37,7 +42,9 @@ async function darazGetOnce(apiPath, params, opts) {
   if (opts.accessToken) all.access_token = opts.accessToken
   all.sign = sign(apiPath, all, secret)
 
-  const res = await fetch(`${BASE_URL}${apiPath}?${new URLSearchParams(all)}`)
+  const res = method === 'POST'
+    ? await fetch(`${BASE_URL}${apiPath}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' }, body: new URLSearchParams(all) })
+    : await fetch(`${BASE_URL}${apiPath}?${new URLSearchParams(all)}`)
   if (!res.ok) throw new Error(`Daraz ${apiPath}: HTTP ${res.status}`)
   const body = await res.json()
   if (body.code !== '0') throw new Error(`Daraz ${apiPath}: ${body.code} ${body.message ?? ''}`.trim())

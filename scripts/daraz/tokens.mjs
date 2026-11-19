@@ -3,7 +3,7 @@
 //
 // Renewing rotates the refresh token, so only ONE place may do it: the server sets DARAZ_TOKEN_RENEW=1.
 // A developer machine without that flag only ever reads, and cannot rotate production's token away.
-import { darazGet } from './api.mjs'
+import { darazPost } from './api.mjs'
 
 const RENEW_WITHIN_MS = 7 * 24 * 60 * 60 * 1000
 const keyFor = shop => `daraz.tokens.${shop}`
@@ -63,7 +63,7 @@ export async function getAccessToken(db, shop = 'trendwave', now = Date.now()) {
   if (action === 'reauthorize') throw new Error(`Daraz refresh token for "${shop}" has expired: the seller must authorize the app again`)
 
   try {
-    const renewed = parseTokenResponse(await darazGet('/auth/token/refresh', { refresh_token: tokens.refreshToken }), now)
+    const renewed = parseTokenResponse(await darazPost('/auth/token/refresh', { refresh_token: tokens.refreshToken }), now)
     await save(db, shop, renewed)
     console.log(`token renewed for ${shop}, valid until ${new Date(renewed.expiresAt).toISOString().slice(0, 10)}`)
     return renewed.accessToken
