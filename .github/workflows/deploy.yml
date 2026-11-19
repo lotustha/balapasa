@@ -47,8 +47,17 @@ jobs:
               # keeps serving the current .next untouched (no in-place rewrite →
               # no mid-deploy 500s), then swap atomically and restart. set -e
               # ensures a failed build never reaches the swap or pm2 restart.
-              rm -rf .next-build .next-old
-              NEXT_DIST_DIR=.next-build npm run build
+              # The build downloads Google Fonts, and that download fails now and
+              # then from this server. Try up to three times before giving up; the
+              # live .next is untouched until a build succeeds.
+              built=0
+              for attempt in 1 2 3; do
+                rm -rf .next-build .next-old
+                if NEXT_DIST_DIR=.next-build npm run build; then built=1; break; fi
+                echo "build attempt $attempt failed"
+                sleep 20
+              done
+              [ "$built" = 1 ]
               mv .next .next-old && mv .next-build .next
               pm2 restart "$2" --update-env
               rm -rf .next-old
