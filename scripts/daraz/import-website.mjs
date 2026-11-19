@@ -12,6 +12,7 @@ import { config } from 'dotenv'
 import pg from 'pg'
 import { createId } from '@paralleldrive/cuid2'
 import { mapProduct } from './map.mjs'
+import { mergeFamilies } from './families.mjs'
 
 config({ path: '.env.local', quiet: true })
 
@@ -29,7 +30,7 @@ const slugify = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+
 
 const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'))
 const now = new Date()
-const mapped = snapshot.products.map(p => mapProduct(p, now)).filter(Boolean)
+const mapped = mergeFamilies(snapshot.products).map(p => mapProduct(p, now)).filter(Boolean)
 
 const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/\?.*$/, '')
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
