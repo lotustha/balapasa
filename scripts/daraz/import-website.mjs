@@ -13,6 +13,7 @@ import pg from 'pg'
 import { createId } from '@paralleldrive/cuid2'
 import { mapProduct } from './map.mjs'
 import { mergeFamilies } from './families.mjs'
+import { ensureSupplier, insertProduct, slugify } from './store.mjs'
 
 config({ path: '.env.local', quiet: true })
 
@@ -22,11 +23,8 @@ const snapshotPath = args.find(a => !a.startsWith('--') && a.endsWith('.json'))
 const APPLY = args.includes('--apply')
 const confirmDb = flag('--confirm-db')
 const failAfter = flag('--fail-after') ? Number(flag('--fail-after')) : null
-const SUPPLIER = 'Daraz TrendWave'
 
 if (!snapshotPath) { console.error('usage: import-website.mjs <snapshot.json> [--apply --confirm-db <name>]'); process.exit(2) }
-
-const slugify = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 
 const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'))
 const now = new Date()
@@ -96,8 +94,7 @@ try {
   const deleted = (await client.query('DELETE FROM products')).rowCount
   await client.query(`UPDATE coupons SET product_ids = '{}' WHERE cardinality(product_ids) > 0`)
 
-  let supplier = await one('SELECT id FROM suppliers WHERE name = $1', [SUPPLIER])
-  if (!supplier) supplier = await one(`INSERT INTO suppliers (id, name, is_active, created_at, updated_at) VALUES ($1, $2, true, now(), now()) RETURNING id`, [createId(), SUPPLIER])
+  const supplierId = await ensureSupplier(client)
 
   for (const [darazId, c] of plan) {
     if (c.how === 'create') {
@@ -112,21 +109,7 @@ try {
 
   let done = 0
   for (const m of mapped) {
-    const productId = createId()
-    await client.query(
-      `INSERT INTO products (id, name, slug, description, price, sale_price, sale_price_starts_at, sale_price_expires_at,
-         stock, images, category_id, supplier_id, tags, is_active, track_inventory, brand, sku, weight, length, width, height, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}',true,false,$13,$14,$15,$16,$17,$18,now(),now())`,
-      [productId, m.name, m.slug, m.description, m.price, m.salePrice, m.salePriceStartsAt, m.salePriceExpiresAt,
-        m.stock, m.images, plan.get(m.darazCategoryId).categoryId, supplier.id, m.brand, m.sku, m.weight, m.length, m.width, m.height])
-    for (const [position, o] of m.options.entries()) {
-      await client.query('INSERT INTO product_options (id, product_id, name, position, "values") VALUES ($1,$2,$3,$4,$5)', [createId(), productId, o.name, position, o.values])
-    }
-    for (const v of m.variants) {
-      await client.query(
-        `INSERT INTO product_variants (id, product_id, title, sku, price, stock, image, options, is_active, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,now())`,
-        [createId(), productId, v.title, v.sku, v.price, v.stock, v.image, JSON.stringify(v.options)])
-    }
+    await insertProduct(client, m, plan.get(m.darazCategoryId).categoryId, supplierId)
     done++
     if (failAfter != null && done >= failAfter) throw new Error(`--fail-after ${failAfter}: forced failure for rollback test`)
   }

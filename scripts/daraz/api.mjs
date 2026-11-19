@@ -25,3 +25,25 @@ export async function darazGet(apiPath, params = {}, opts = {}) {
   if (body.code !== '0') throw new Error(`Daraz ${apiPath}: ${body.code} ${body.message ?? ''}`.trim())
   return body
 }
+
+const PAGE = 50
+
+export async function fetchProducts(accessToken) {
+  const products = []
+  for (let offset = 0; ; offset += PAGE) {
+    const res = await darazGet('/products/get', { filter: 'all', limit: String(PAGE), offset: String(offset) }, { accessToken })
+    const page = res.data?.products ?? []
+    products.push(...page)
+    if (page.length < PAGE) return products
+    await new Promise(r => setTimeout(r, 300))
+  }
+}
+
+// Daraz category id → names from the top level down to that category.
+export async function fetchCategoryPaths(accessToken) {
+  const tree = await darazGet('/category/tree/get', { language_code: 'en_US' }, { accessToken })
+  const paths = new Map()
+  const walk = (nodes, trail) => { for (const n of nodes ?? []) { const p = [...trail, n.name]; paths.set(String(n.category_id), p); walk(n.children, p) } }
+  walk(tree.data, [])
+  return paths
+}

@@ -150,6 +150,28 @@ model PageView {
   @@map("page_views")
 }
 
+// One row per price change the Daraz daily sync found. status HELD = a move over
+// the alert threshold that was logged but not applied. No FK to Product — same
+// convention as OrderItem, so history survives product deletion.
+model PriceHistory {
+  id            String   @id @default(cuid())
+  productId     String?  @map("product_id")
+  sku           String
+  name          String
+  oldPrice      Float    @map("old_price")
+  newPrice      Float    @map("new_price")
+  oldSalePrice  Float?   @map("old_sale_price")
+  newSalePrice  Float?   @map("new_sale_price")
+  changePercent Float    @map("change_percent")
+  status        String   @default("APPLIED") // APPLIED | HELD
+  source        String   @default("daraz-sync")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([productId, createdAt])
+  @@index([status, createdAt])
+  @@map("price_history")
+}
+
 model ProductOption {
   id        String   @id @default(cuid())
   productId String   @map("product_id")
