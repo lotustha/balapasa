@@ -4,6 +4,10 @@ import { createMagicToken, loginLinkUrl } from '@/lib/magic-link'
 import { sendEmailLogged } from '@/lib/email'
 import { render as renderEmail } from '@/lib/emails/registry'
 import { getSiteSettings } from '@/lib/site-settings'
+import { blockedFor, clientIp, recordAttempt, tooManyAttempts } from '@/lib/rate-limit'
+
+const LINK_WINDOW_MS = 15 * 60 * 1000
+const LINKS_PER_WINDOW = 3
 
 // POST /api/auth/magic-link/request { email }
 // Issues a 'login' magic token and emails it. Always returns success even when
@@ -21,6 +25,12 @@ export async function POST(req: NextRequest) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
   }
+
+  // Each request sends an email, so cap them per inbox and per address.
+  const key = `magic:${email}:${clientIp(req)}`
+  const wait = blockedFor(key, LINKS_PER_WINDOW)
+  if (wait > 0) return tooManyAttempts(wait)
+  recordAttempt(key, LINK_WINDOW_MS)
 
   // Fire-and-forget so timing differences between known/unknown addresses
   // don't leak signal either.

@@ -14,9 +14,18 @@ const adapter = new PrismaPg(pool)
 const prisma  = new PrismaClient({ adapter })
 
 const [argEmail, argPassword, argName] = process.argv.slice(2)
-const EMAIL    = argEmail    || process.env.ADMIN_EMAIL    || 'allthemyth@gmail.com'
-const PASSWORD = argPassword || process.env.ADMIN_PASSWORD || 'asdf1234'
+const EMAIL    = argEmail    || process.env.ADMIN_EMAIL
+const PASSWORD = argPassword || process.env.ADMIN_PASSWORD
 const NAME     = argName     || process.env.ADMIN_NAME     || 'Admin'
+
+if (!EMAIL || !PASSWORD) {
+  console.error('Usage: DATABASE_URL=... node scripts/seed-admin.mjs <email> <password> [name]')
+  process.exit(1)
+}
+if (PASSWORD.length < 12) {
+  console.error('Choose an admin password of at least 12 characters.')
+  process.exit(1)
+}
 
 async function main() {
   const hash = await bcrypt.hash(PASSWORD, 12)

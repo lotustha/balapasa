@@ -31,7 +31,7 @@ const MANAGER_API = [
   'settings', 'finance', 'import', 'suppliers', 'coupons', 'discount-rules', 'inventory', 'ai', 'brands',
   'category-mappings', 'products/bulk-delete', 'products/import', 'products/export',
 ]
-const ADMIN_API = ['team', 'danger', 'seed', 'logistics', 'whatsapp-bot', 'emails']
+const ADMIN_API = ['team', 'danger', 'logistics', 'whatsapp-bot', 'emails']
 
 export function apiMinRole(pathname: string): AdminRole {
   if (ADMIN_API.some(a => under(pathname, '/api/admin', a))) return 'ADMIN'

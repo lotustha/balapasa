@@ -5,8 +5,15 @@ import { apiMinRole, hasRole, pageMinRole } from '@/lib/admin-access'
 
 const AUTH_COOKIE = 'auth-token'
 
+// Sessions are signed with JWT_SECRET. A missing secret in production must fail loudly: falling back
+// to a value that is in the source code would let anyone mint an admin session.
 function secret() {
-  return new TextEncoder().encode(process.env.JWT_SECRET ?? 'change-me-in-production-32chars!!')
+  const value = process.env.JWT_SECRET
+  if (!value) {
+    if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET is not set')
+    return new TextEncoder().encode('development-only-secret-not-for-production')
+  }
+  return new TextEncoder().encode(value)
 }
 
 async function roleOf(token: string | undefined): Promise<string | null> {
