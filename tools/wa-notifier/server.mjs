@@ -51,6 +51,7 @@ export function normalizeNumber(input) {
 }
 
 const config = existsSync(CONFIG_FILE) ? JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) : { commanders: [] }
+config.lids ??= {} // commanding number -> WhatsApp privacy id, see resolveLids
 const saveConfig = () => writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 })
 
 let sock = null
@@ -104,6 +105,7 @@ async function connect({ pairNumber = null, linked = false } = {}) {
       pairing = null
       qrCode = null
       log(`connected as ${s.user?.id}`)
+      resolveLids().catch(err => log(`privacy id lookup failed: ${err.message}`))
     }
     if (connection === 'close') {
       connected = false
@@ -135,6 +137,28 @@ async function connect({ pairNumber = null, linked = false } = {}) {
     for (const m of messages) handleIncoming(s, m).catch(err => log(`command failed: ${err.message}`))
   })
 }
+
+// WhatsApp often delivers a chat under a privacy id ("lid") instead of the sender's phone number.
+// Ask WhatsApp for the id behind each commanding number so their messages can still be recognised.
+async function resolveLids() {
+  if (!connected || !sock) return
+  let changed = false
+  for (const number of config.commanders) {
+    if (config.lids[number]) continue
+    try {
+      const [found] = await sock.onWhatsApp(number)
+      const lid = String(found?.lid ?? '').split('@')[0].split(':')[0].replace(/\D/g, '')
+      if (lid) { config.lids[number] = lid; changed = true; log(`resolved privacy id for ${number}`) }
+      else log(`no privacy id returned for ${number}${found ? '' : ' (number is not on WhatsApp?)'}`)
+    } catch (err) {
+      log(`could not resolve privacy id for ${number}: ${err.message}`)
+    }
+  }
+  for (const number of Object.keys(config.lids)) if (!config.commanders.includes(number)) { delete config.lids[number]; changed = true }
+  if (changed) saveConfig()
+}
+
+const isCommander = ids => ids.some(id => config.commanders.includes(id) || Object.values(config.lids).includes(id))
 
 function stopSocket() {
   generation++
@@ -228,9 +252,14 @@ async function handleIncoming(s, m) {
 
   // WhatsApp may address a chat by a privacy id instead of the phone number; the number then arrives separately.
   const candidates = [jid, m.key.senderPn, m.key.participantPn, m.key.remoteJidAlt].filter(Boolean).map(j => String(j).split('@')[0].split(':')[0].replace(/\D/g, ''))
-  if (!candidates.some(n => config.commanders.includes(n))) {
-    log(`ignored message from ${candidates.join('/') || jid} (not a commanding number)`)
-    return
+  if (!isCommander(candidates)) {
+    // The id may belong to a commanding number we have not looked up yet (or whose id changed).
+    config.lids = {}
+    await resolveLids()
+    if (!isCommander(candidates)) {
+      log(`ignored message from ${candidates.join('/') || jid} (not a commanding number)`)
+      return
+    }
   }
 
   const command = text.toLowerCase().split(/\s+/)[0]
@@ -299,6 +328,7 @@ async function route(req, res) {
     if (numbers.length > MAX_COMMANDERS) return reply(res, 400, { error: `At most ${MAX_COMMANDERS} numbers` })
     config.commanders = numbers
     saveConfig()
+    await resolveLids()
     return reply(res, 200, statusBody())
   }
 
