@@ -54,3 +54,6 @@ next-env.d.ts
 balapasa-firebase-adminsdk.json
 google-services.json
 GoogleService-Info.plist
+
+.superpowers/
+scripts/daraz/snapshots/
