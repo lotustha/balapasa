@@ -4,6 +4,7 @@
  *
  *   node scripts/daraz/mirror-create.mjs --dry-run
  *   node scripts/daraz/mirror-create.mjs [--limit N]
+ *   node scripts/daraz/mirror-create.mjs --replace-own-copies   also copy products Bala Pasa already lists under its own SKUs
  *
  * Needs DARAZ_ACCESS_TOKEN (TrendWave) and DARAZ_SHOP2_ACCESS_TOKEN (Bala Pasa) in the environment.
  */
@@ -13,6 +14,7 @@ import { buildCreatePayload, missingMandatory, sellerSkuFor } from './mirror-pay
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const limit = process.argv.includes('--limit') ? Number(process.argv[process.argv.indexOf('--limit') + 1]) : Infinity
+const REPLACE_OWN = process.argv.includes('--replace-own-copies')
 const MAX_CONSECUTIVE_FAILURES = 5
 const TW = process.env.DARAZ_ACCESS_TOKEN, BP = process.env.DARAZ_SHOP2_ACCESS_TOKEN
 if (!TW || !BP) { console.error('DARAZ_ACCESS_TOKEN and DARAZ_SHOP2_ACCESS_TOKEN are required'); process.exit(2) }
@@ -44,7 +46,7 @@ const todo = [], already = [], hadBefore = []
 for (const p of tw.filter(p => p.status === 'Active' && activeSkus(p).length)) {
   if (activeSkus(p).some(s => bpSellerSkus.has(sellerSkuFor(s.SkuId)))) already.push(p)
   // Listings Bala Pasa carried before the mirror started are matched by name or picture, not by SellerSku.
-  else if (bpNames.has(norm(p.attributes.name)) || (p.images ?? []).some(i => bpImages.has(i))) hadBefore.push(p)
+  else if (!REPLACE_OWN && (bpNames.has(norm(p.attributes.name)) || (p.images ?? []).some(i => bpImages.has(i)))) hadBefore.push(p)
   else todo.push(p)
 }
 console.log(`TrendWave sellable: ${already.length + hadBefore.length + todo.length} | mirrored already: ${already.length} | Bala Pasa had its own copy: ${hadBefore.length} | to create: ${todo.length}`)
