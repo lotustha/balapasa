@@ -40,7 +40,7 @@ async function notify(text) {
 }
 
 async function loadExisting() {
-  const products = (await db.query(`SELECT id, sku, name, price, sale_price AS "salePrice", is_active AS "isActive" FROM products WHERE sku LIKE 'DZ-%'`)).rows
+  const products = (await db.query(`SELECT id, sku, name, price, sale_price AS "salePrice", sale_price_expires_at AS "salePriceExpiresAt", is_active AS "isActive" FROM products WHERE sku LIKE 'DZ-%'`)).rows
   const variants = (await db.query(
     `SELECT v.id, v.product_id AS "productId", v.sku, v.price, v.is_active AS "isActive"
        FROM product_variants v JOIN products p ON p.id = v.product_id WHERE p.sku LIKE 'DZ-%'`)).rows
@@ -94,46 +94,59 @@ try {
   const plan = planSync(mapped, existing, { applyHeld: APPLY_HELD })
   const applied = plan.priceChanges.filter(c => !c.held)
   const held = plan.priceChanges.filter(c => c.held)
-  const variantEdits = plan.variantChanges.reduce((n, v) => n + v.priceUpdates.length + v.create.length + v.deactivate.length + v.reactivate.length, 0)
+  const repriced = applied.filter(c => c.priceChanged)
+  const redated = applied.filter(c => !c.priceChanged)
+  const heldVariants = plan.variantChanges.flatMap(v => v.priceUpdates.filter(u => u.held).map(u => ({ ...u, name: v.name })))
+  const variantEdits = plan.variantChanges.reduce((n, v) => n + v.priceUpdates.filter(u => !u.held).length + v.create.length + v.deactivate.length + v.reactivate.length, 0)
 
   const lines = [
     `Daraz sync ${DRY_RUN ? '(dry run) ' : ''}${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
     `Daraz: ${mapped.length} sellable products | site: ${activeOnSite} active`,
-    `price changes: ${applied.length} applied, ${held.length} held | new: ${plan.create.length} | hidden: ${plan.deactivate.length} | restored: ${plan.reactivate.length} | variant edits: ${variantEdits}`,
-    ...applied.slice(0, 15).map(c => `  ${c.changePercent > 0 ? '+' : ''}${c.changePercent}%  ${c.name.slice(0, 60)}: ${money(c.old)} → ${money(c.new)}`),
+    `price changes: ${repriced.length} applied, ${held.length + heldVariants.length} held | sale dates: ${redated.length} | new: ${plan.create.length} | hidden: ${plan.deactivate.length} | restored: ${plan.reactivate.length} | variant edits: ${variantEdits}`,
+    ...repriced.slice(0, 15).map(c => `  ${c.changePercent > 0 ? '+' : ''}${c.changePercent}%  ${c.name.slice(0, 60)}: ${money(c.old)} → ${money(c.new)}`),
     ...held.map(c => `  HELD ${c.changePercent > 0 ? '+' : ''}${c.changePercent}%  ${c.name.slice(0, 60)}: ${money(c.old)} → ${money(c.new)}`),
+    ...heldVariants.map(u => `  HELD variant ${u.sku} of ${u.name.slice(0, 50)}: ${u.old ?? 'product price'} → ${u.new ?? 'product price'}`),
     ...plan.create.slice(0, 10).map(m => `  NEW  ${m.name.slice(0, 70)} (${money(m)})`),
     ...plan.deactivate.slice(0, 10).map(d => `  HIDDEN  ${d.name.slice(0, 70)}`),
   ]
 
   if (!DRY_RUN) {
+    const newCategoryIds = new Map()
+    const cache = {}
+    for (const m of plan.create) {
+      if (!newCategoryIds.has(m.darazCategoryId)) newCategoryIds.set(m.darazCategoryId, await categoryFor(m.darazCategoryId, accessToken, cache))
+    }
     await db.query('BEGIN')
     try {
       for (const c of applied) {
         await db.query(
           `UPDATE products SET price = $1, sale_price = $2, sale_price_starts_at = $3, sale_price_expires_at = $4, updated_at = now() WHERE id = $5`,
           [c.new.price, c.new.salePrice, c.new.salePriceStartsAt, c.new.salePriceExpiresAt, c.id])
-        await logPrice(c, 'APPLIED')
+        if (c.priceChanged) await logPrice(c, 'APPLIED')
       }
       for (const c of held) await logPrice(c, 'HELD')
       for (const d of plan.deactivate) await db.query('UPDATE products SET is_active = false, updated_at = now() WHERE id = $1', [d.id])
       for (const r of plan.reactivate) await db.query('UPDATE products SET is_active = true, updated_at = now() WHERE id = $1', [r.id])
 
       for (const vc of plan.variantChanges) {
-        for (const u of vc.priceUpdates) await db.query('UPDATE product_variants SET price = $1 WHERE id = $2', [u.new, u.id])
+        for (const u of vc.priceUpdates) if (!u.held) await db.query('UPDATE product_variants SET price = $1 WHERE id = $2', [u.new, u.id])
         for (const d of vc.deactivate) await db.query('UPDATE product_variants SET is_active = false WHERE id = $1', [d.id])
         for (const r of vc.reactivate) await db.query('UPDATE product_variants SET is_active = true WHERE id = $1', [r.id])
         for (const v of vc.create) await insertVariant(db, vc.productId, v)
-        if (vc.create.length || vc.deactivate.length || vc.reactivate.length) {
+        if (vc.structural) {
+          // Option names are derived from the full set of values, so every variant's labels are rewritten with them.
           await db.query('DELETE FROM product_options WHERE product_id = $1', [vc.productId])
           await insertOptions(db, vc.productId, vc.options)
+          for (const v of vc.all) {
+            await db.query('UPDATE product_variants SET title = $1, options = $2, image = $3 WHERE sku = $4 AND product_id = $5',
+              [v.title, JSON.stringify(v.options), v.image, v.sku, vc.productId])
+          }
         }
       }
 
       if (plan.create.length) {
         const supplierId = await ensureSupplier(db)
-        const cache = {}
-        for (const m of plan.create) await insertProduct(db, m, await categoryFor(m.darazCategoryId, accessToken, cache), supplierId)
+        for (const m of plan.create) await insertProduct(db, m, newCategoryIds.get(m.darazCategoryId), supplierId)
       }
       await db.query('COMMIT')
     } catch (err) {
@@ -143,7 +156,7 @@ try {
   }
 
   console.log(lines.join('\n'))
-  const changed = plan.priceChanges.length + plan.create.length + plan.deactivate.length + plan.reactivate.length + variantEdits
+  const changed = plan.priceChanges.length + heldVariants.length + plan.create.length + plan.deactivate.length + plan.reactivate.length + variantEdits
   if (changed > 0 && !DRY_RUN) await notify(lines.join('\n'))
 } catch (err) {
   exitCode = 1

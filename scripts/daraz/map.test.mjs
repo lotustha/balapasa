@@ -129,3 +129,9 @@ test('variant image falls back to null; uses SKU image when present', () => {
   const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: 'A', Images: ['v1'] }), sku({ SkuId: 2, color: 'B' })] }), NOW)
   assert.deepEqual(m.variants.map(v => v.image), ['v1', null])
 })
+
+test('SKUs without a positive numeric price are ignored', () => {
+  const m = mapProduct(product({ skus: [sku({ SkuId: 1, color: 'A', price: 'abc' }), sku({ SkuId: 2, color: 'B', price: 0 }), sku({ SkuId: 3, color: 'C', price: 250 })] }), NOW)
+  assert.equal(m.price, 250); assert.deepEqual(m.variants, [])
+  assert.equal(mapProduct(product({ skus: [sku({ price: null })] }), NOW), null)
+})

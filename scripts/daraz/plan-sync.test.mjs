@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { planSync } from './plan-sync.mjs'
 
 const mapped = (o = {}) => ({ sku: 'DZ-1', name: 'Item', price: 500, salePrice: null, salePriceStartsAt: null, salePriceExpiresAt: null, variants: [], options: [], ...o })
-const existing = (o = {}) => ({ id: 'p1', sku: 'DZ-1', name: 'Item', price: 500, salePrice: null, isActive: true, variants: [], ...o })
+const existing = (o = {}) => ({ id: 'p1', sku: 'DZ-1', name: 'Item', price: 500, salePrice: null, salePriceExpiresAt: null, isActive: true, variants: [], ...o })
 const empty = { create: [], priceChanges: [], deactivate: [], reactivate: [], variantChanges: [] }
 
 test('nothing changed → empty plan', () => {
@@ -70,11 +70,13 @@ test('variants: price change, removal, addition and return', () => {
   ] })
   const [vc] = planSync([m], [e]).variantChanges
   assert.equal(vc.productId, 'p1')
-  assert.deepEqual(vc.priceUpdates, [{ id: 'v10', sku: 'DZ-10', old: 100, new: 90 }])
+  assert.deepEqual(vc.priceUpdates, [{ id: 'v10', sku: 'DZ-10', old: 100, new: 90, held: false }])
   assert.deepEqual(vc.deactivate, [{ id: 'v11', sku: 'DZ-11' }])
   assert.deepEqual(vc.reactivate, [{ id: 'v13', sku: 'DZ-13' }])
   assert.deepEqual(vc.create.map(v => v.sku), ['DZ-12'])
   assert.deepEqual(vc.options, m.options)
+  assert.equal(vc.structural, true)
+  assert.deepEqual(vc.all.map(v => v.sku), ['DZ-10', 'DZ-12', 'DZ-13'])
 })
 
 test('unchanged variants produce no variant change', () => {
@@ -85,4 +87,40 @@ test('unchanged variants produce no variant change', () => {
 
 test('products not from Daraz are never touched', () => {
   assert.deepEqual(planSync([], [existing({ sku: 'OWN-1' }), existing({ id: 'p2', sku: null })]), empty)
+})
+
+test('a sale window that moves at the same prices is a change, applied and not logged as a price move', () => {
+  const until = new Date('2026-12-31T00:00:00Z')
+  const plan = planSync([mapped({ salePrice: 299, salePriceExpiresAt: until })], [existing({ salePrice: 299, salePriceExpiresAt: new Date('2026-11-25T00:00:00Z') })])
+  assert.equal(plan.priceChanges.length, 1)
+  const c = plan.priceChanges[0]
+  assert.equal(c.held, false); assert.equal(c.priceChanged, false)
+  assert.equal(c.new.salePriceExpiresAt, until)
+})
+
+test('same window as a string or a Date is not a change', () => {
+  const plan = planSync([mapped({ salePrice: 299, salePriceExpiresAt: new Date('2026-12-31T00:00:00Z') })], [existing({ salePrice: 299, salePriceExpiresAt: '2026-12-31T00:00:00.000Z' })])
+  assert.deepEqual(plan.priceChanges, [])
+})
+
+test('a held product is not restored and its variant prices are not applied', () => {
+  const m = mapped({ price: 100, variants: [{ sku: 'DZ-10', title: 'A', price: 100, stock: 1, image: null, options: {} }, { sku: 'DZ-11', title: 'B', price: 150, stock: 1, image: null, options: {} }] })
+  const e = existing({ isActive: false, variants: [{ id: 'v10', sku: 'DZ-10', price: 500, isActive: true }, { id: 'v11', sku: 'DZ-11', price: 520, isActive: true }] })
+  const plan = planSync([m], [e])
+  assert.equal(plan.priceChanges[0].held, true)
+  assert.deepEqual(plan.reactivate, [])
+  assert.ok(plan.variantChanges[0].priceUpdates.every(u => u.held))
+})
+
+test('a variant price move over 20% is held on its own; applyHeld releases it', () => {
+  const m = mapped({ variants: [{ sku: 'DZ-10', title: 'A', price: 900, stock: 1, image: null, options: {} }, { sku: 'DZ-11', title: 'B', price: 510, stock: 1, image: null, options: {} }] })
+  const e = existing({ variants: [{ id: 'v10', sku: 'DZ-10', price: 300, isActive: true }, { id: 'v11', sku: 'DZ-11', price: 500, isActive: true }] })
+  assert.deepEqual(planSync([m], [e]).variantChanges[0].priceUpdates.map(u => [u.sku, u.held]), [['DZ-10', true], ['DZ-11', false]])
+  assert.ok(planSync([m], [e], { applyHeld: true }).variantChanges[0].priceUpdates.every(u => !u.held))
+})
+
+test('a price that is not a number is held, never applied', () => {
+  const plan = planSync([mapped({ price: NaN })], [existing()])
+  assert.equal(plan.priceChanges[0].held, true)
+  assert.equal(planSync([mapped({ price: NaN })], [existing()], { applyHeld: true }).priceChanges[0].held, true)
 })

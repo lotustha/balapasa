@@ -29,3 +29,22 @@ test('retrying: other errors fail at once; rate limit gives up after the last de
   await assert.rejects(retrying(async () => { calls++; throw new Error('ApiCallLimit') }, { delays: [1, 1], sleep: async () => {} }), /ApiCallLimit/)
   assert.equal(calls, 3)
 })
+
+import { fetchProducts } from './api.mjs'
+
+const pager = pages => async (_path, params) => ({ data: pages[Number(params.offset) / 50] ?? { total_products: 120, products: [] } })
+const items = (from, n) => Array.from({ length: n }, (_, i) => ({ item_id: from + i }))
+
+test('fetchProducts: pages until total_products is reached', async () => {
+  const out = await fetchProducts('t', { get: pager([{ total_products: 120, products: items(0, 50) }, { total_products: 120, products: items(50, 50) }, { total_products: 120, products: items(100, 20) }]), pause: 0 })
+  assert.equal(out.length, 120)
+})
+
+test('fetchProducts: a short page mid-catalogue is an error, not the end', async () => {
+  await assert.rejects(fetchProducts('t', { get: pager([{ total_products: 120, products: items(0, 50) }, { total_products: 120, products: items(50, 10) }]), pause: 0 }), /expected 120/)
+})
+
+test('fetchProducts: repeated items are dropped', async () => {
+  const out = await fetchProducts('t', { get: pager([{ total_products: 60, products: items(0, 50) }, { total_products: 60, products: [...items(45, 5), ...items(50, 10)] }]), pause: 0 })
+  assert.equal(out.length, 60)
+})

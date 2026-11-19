@@ -46,15 +46,22 @@ async function darazGetOnce(apiPath, params, opts) {
 
 const PAGE = 50
 
-export async function fetchProducts(accessToken) {
-  const products = []
-  for (let offset = 0; ; offset += PAGE) {
-    const res = await darazGet('/products/get', { filter: 'all', limit: String(PAGE), offset: String(offset) }, { accessToken })
+export async function fetchProducts(accessToken, { get = darazGet, pause = 300 } = {}) {
+  const byId = new Map()
+  let total = NaN
+  for (let offset = 0; ; ) {
+    const res = await get('/products/get', { filter: 'all', limit: String(PAGE), offset: String(offset) }, { accessToken })
     const page = res.data?.products ?? []
-    products.push(...page)
-    if (page.length < PAGE) return products
-    await new Promise(r => setTimeout(r, 300))
+    total = Number(res.data?.total_products)
+    for (const p of page) byId.set(String(p.item_id), p)
+    offset += PAGE
+    if (page.length === 0) break
+    if (Number.isFinite(total) ? offset >= total : page.length < PAGE) break
+    if (pause) await new Promise(r => setTimeout(r, pause))
   }
+  // A short page mid-catalogue would otherwise look like hundreds of delisted products.
+  if (Number.isFinite(total) && byId.size < total) throw new Error(`Daraz /products/get: expected ${total} products, got ${byId.size}`)
+  return [...byId.values()]
 }
 
 // Daraz category id → names from the top level down to that category.

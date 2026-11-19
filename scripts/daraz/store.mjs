@@ -19,9 +19,12 @@ export async function insertOptions(db, productId, options) {
   }
 }
 
+// Daraz SKU ids are unique across the shop, so a variant that turns up under another product has moved there.
 export async function insertVariant(db, productId, v) {
   await db.query(
-    `INSERT INTO product_variants (id, product_id, title, sku, price, stock, image, options, is_active, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,now())`,
+    `INSERT INTO product_variants (id, product_id, title, sku, price, stock, image, options, is_active, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,now())
+     ON CONFLICT (sku) DO UPDATE SET product_id = EXCLUDED.product_id, title = EXCLUDED.title, price = EXCLUDED.price,
+       image = EXCLUDED.image, options = EXCLUDED.options, is_active = true`,
     [createId(), productId, v.title, v.sku, v.price, v.stock, v.image, JSON.stringify(v.options)])
 }
 

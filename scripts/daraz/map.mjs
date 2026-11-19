@@ -49,7 +49,7 @@ const titleCase = key => key.replace(/_/g, ' ').trim().replace(/\S+/g, w => w[0]
 
 export function mapProduct(p, now) {
   if (p.status !== 'Active') return null
-  const active = (p.skus ?? []).filter(s => s.Status === 'active')
+  const active = (p.skus ?? []).filter(s => s.Status === 'active' && Number(s.price) > 0)
   if (active.length === 0) return null
 
   const attrs = p.attributes ?? {}
