@@ -18,6 +18,8 @@ interface FooterProps {
   /** Active payment methods (e.g. ['COD','ESEWA','KHALTI']) — drives the
    *  "We accept" badge row at the bottom of the footer. */
   paymentMethods?: string[]
+  // The store's biggest categories, for the Shop column. Passed in so the links always exist.
+  shopCategories?: { slug: string; name: string }[]
 }
 
 function FacebookIcon() {
@@ -34,12 +36,6 @@ function YoutubeIcon() {
 }
 
 const LINKS = {
-  Shop: [
-    { href: '/products?category=electronics', label: 'Electronics' },
-    { href: '/products?category=gadgets',     label: 'Gadgets' },
-    { href: '/products?category=beauty',      label: 'Beauty & Skin' },
-    { href: '/products',                      label: 'All Products' },
-  ],
   Support: [
     { href: '/faq',              label: 'FAQ' },
     { href: '/deals',            label: 'Flash Deals' },
@@ -68,7 +64,15 @@ export default function Footer({
   xUrl           = '',
   youtubeUrl     = '',
   paymentMethods = ['COD', 'ESEWA', 'KHALTI'],
+  shopCategories = [],
 }: FooterProps = {}) {
+  const columns = {
+    Shop: [
+      ...shopCategories.map(c => ({ href: `/products?category=${c.slug}`, label: c.name })),
+      { href: '/products', label: 'All Products' },
+    ],
+    ...LINKS,
+  }
   const acceptCod    = paymentMethods.includes('COD')
   const acceptEsewa  = paymentMethods.includes('ESEWA')
   const acceptKhalti = paymentMethods.includes('KHALTI')
@@ -135,7 +139,7 @@ export default function Footer({
           </div>
 
           {/* Links */}
-          {Object.entries(LINKS).map(([title, links]) => (
+          {Object.entries(columns).map(([title, links]) => (
             <div key={title}>
               <h4 className="font-heading font-bold text-slate-800 text-sm uppercase tracking-wider mb-5">{title}</h4>
               <ul className="space-y-3">

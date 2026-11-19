@@ -135,3 +135,9 @@ test('SKUs without a positive numeric price are ignored', () => {
   assert.equal(m.price, 250); assert.deepEqual(m.variants, [])
   assert.equal(mapProduct(product({ skus: [sku({ price: null })] }), NOW), null)
 })
+
+test('createdAt comes from the Daraz listing date', () => {
+  const m = mapProduct({ ...product({}), created_time: '1783942466341' }, NOW)
+  assert.equal(m.createdAt.toISOString(), new Date(1783942466341).toISOString())
+  assert.equal(mapProduct(product({}), NOW).createdAt, null)
+})

@@ -33,9 +33,9 @@ export async function insertProduct(db, m, categoryId, supplierId) {
   await db.query(
     `INSERT INTO products (id, name, slug, description, price, sale_price, sale_price_starts_at, sale_price_expires_at,
        stock, images, category_id, supplier_id, tags, is_active, track_inventory, brand, sku, weight, length, width, height, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}',true,false,$13,$14,$15,$16,$17,$18,now(),now())`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}',true,false,$13,$14,$15,$16,$17,$18,COALESCE($19, now()),now())`,
     [productId, m.name, m.slug, m.description, m.price, m.salePrice, m.salePriceStartsAt, m.salePriceExpiresAt,
-      m.stock, m.images, categoryId, supplierId, m.brand, m.sku, m.weight, m.length, m.width, m.height])
+      m.stock, m.images, categoryId, supplierId, m.brand, m.sku, m.weight, m.length, m.width, m.height, m.createdAt ?? null])
   await insertOptions(db, productId, m.options)
   for (const v of m.variants) await insertVariant(db, productId, v)
   return productId

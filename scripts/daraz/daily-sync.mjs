@@ -16,6 +16,8 @@ import { notify } from './notify.mjs'
 import { mergeFamilies } from './families.mjs'
 import { mapProduct } from './map.mjs'
 import { planSync } from './plan-sync.mjs'
+import { chooseFlags } from './flags.mjs'
+import { refreshCategoryArt } from './category-art.mjs'
 import { ensureSupplier, insertOptions, insertProduct, insertVariant, slugify } from './store.mjs'
 
 config({ path: '.env.local', quiet: true })
@@ -69,6 +71,36 @@ async function logPrice(c, status) {
 }
 
 const money = p => (p.salePrice != null ? `${p.salePrice} (was ${p.price})` : `${p.price}`)
+
+// "New" and "featured" on the homepage are derived from the catalog each day (see flags.mjs).
+// Listing dates are copied from Daraz so "newly added" follows the seller's order, not the import's.
+async function refreshFlags(mapped) {
+  const listedAt = new Map(mapped.filter(m => m.createdAt).map(m => [m.sku, m.createdAt]))
+  const rows = (await db.query(
+    `SELECT id, sku, category_id AS "categoryId", price, sale_price AS "salePrice", view_count AS "viewCount", stock,
+            is_new AS "isNew", is_featured AS "isFeatured", created_at AS "createdAt"
+       FROM products WHERE sku LIKE 'DZ-%' AND is_active`)).rows
+  let redated = 0
+  for (const r of rows) {
+    const d = listedAt.get(r.sku)
+    if (d && Math.abs(new Date(r.createdAt) - d) > 86_400_000) {
+      await db.query('UPDATE products SET created_at = $1 WHERE id = $2', [d, r.id])
+      r.createdAt = d
+      redated++
+    }
+  }
+  const { newIds, featuredIds } = chooseFlags(rows)
+  const isNew = new Set(newIds), isFeatured = new Set(featuredIds)
+  let changed = 0
+  for (const r of rows) {
+    const n = isNew.has(r.id), f = isFeatured.has(r.id)
+    if (r.isNew !== n || r.isFeatured !== f) {
+      await db.query('UPDATE products SET is_new = $1, is_featured = $2 WHERE id = $3', [n, f, r.id])
+      changed++
+    }
+  }
+  return { changed, redated }
+}
 
 let exitCode = 0
 try {
@@ -144,6 +176,13 @@ try {
       await db.query('ROLLBACK')
       throw err
     }
+  }
+
+  if (!DRY_RUN) {
+    const flags = await refreshFlags(mapped)
+    if (flags.changed || flags.redated) lines.push(`homepage flags updated on ${flags.changed} products, listing dates aligned on ${flags.redated}`)
+    const art = await refreshCategoryArt(db)
+    if (art) lines.push(`category pictures, icons or colours filled in on ${art} categories`)
   }
 
   console.log(lines.join('\n'))

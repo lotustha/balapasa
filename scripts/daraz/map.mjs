@@ -101,6 +101,8 @@ export function mapProduct(p, now) {
     images: [...new Set(p.images ?? [])],
     brand: !brand || brand.toLowerCase() === 'no brand' ? null : brand,
     darazCategoryId: String(p.primary_category),
+    // When the seller listed it on Daraz; drives "newly added" ordering on the site.
+    createdAt: Number(p.created_time) > 0 ? new Date(Number(p.created_time)) : null,
     weight: dimension(base.package_weight),
     length: dimension(base.package_length),
     width: dimension(base.package_width),

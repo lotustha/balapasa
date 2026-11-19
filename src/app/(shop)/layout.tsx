@@ -12,6 +12,7 @@ import StoreBanner from '@/components/layout/StoreBanner'
 import StorePopup from '@/components/layout/StorePopup'
 import { ProductContextProvider } from '@/context/ProductContext'
 import { getSiteSettings } from '@/lib/site-settings'
+import { prisma } from '@/lib/prisma'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
 import MaintenanceGate from '@/components/layout/MaintenanceGate'
 import { getCurrentUser } from '@/lib/auth'
@@ -20,10 +21,24 @@ import {
   ordersBlocked, MAINTENANCE_FALLBACK_TITLE, MAINTENANCE_FALLBACK_MESSAGE, ORDERS_PAUSED_FALLBACK_MESSAGE,
 } from '@/lib/site-settings-shared'
 
+// The four categories with the most products, for the footer's Shop column.
+async function getFooterCategories(): Promise<{ slug: string; name: string }[]> {
+  try {
+    const rows = await prisma.category.findMany({
+      where:   { products: { some: { isActive: true } } },
+      select:  { slug: true, name: true, _count: { select: { products: { where: { isActive: true } } } } },
+    })
+    return rows.sort((a, b) => b._count.products - a._count.products).slice(0, 4).map(({ slug, name }) => ({ slug, name }))
+  } catch {
+    return []
+  }
+}
+
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
-  const [settings, paymentMethods] = await Promise.all([
+  const [settings, paymentMethods, shopCategories] = await Promise.all([
     getSiteSettings(),
     getEnabledPaymentMethods().catch(() => ['COD'] as string[]),
+    getFooterCategories(),
   ])
   const { maintenance } = settings
   // Only look at who is visiting while a switch is on: reading the login cookie makes the page
@@ -76,6 +91,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           xUrl={settings.content.contact.x}
           youtubeUrl={settings.content.contact.youtube}
           paymentMethods={paymentMethods}
+          shopCategories={shopCategories}
         />
       </div>
       <BottomNav />
