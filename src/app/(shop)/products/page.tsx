@@ -6,6 +6,7 @@ import type { Product } from '@/components/ui/ProductCard'
 import ProductSidebar from '@/components/ui/ProductSidebar'
 import CategoryChips, { type ChipCategory } from '@/components/ui/CategoryChips'
 import { prisma } from '@/lib/prisma'
+import { searchProductIds, logSearch } from '@/lib/product-search'
 import { PackageOpen, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Params> }): Promise<Metadata> {
@@ -117,13 +118,9 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
         { OR: [{ salePriceStartsAt:  null }, { salePriceStartsAt:  { lte: now } }] },
       ]
     }
-    if (params.search) {
-      where.OR = [
-        { name:        { contains: params.search, mode: 'insensitive' } },
-        { description: { contains: params.search, mode: 'insensitive' } },
-        { brand:       { contains: params.search, mode: 'insensitive' } },
-      ]
-    }
+    // Search goes through the shared ranked search; the other filters then narrow its matches.
+    const matchIds = params.search ? await searchProductIds(params.search) : null
+    if (matchIds) where.id = { in: matchIds }
     where.price = { gte: minP, lte: maxP }
 
     const orderBy: Record<string, string> =
@@ -136,10 +133,20 @@ async function getProducts(params: Params): Promise<{ products: Product[]; total
 
     const include = { category: { select: { name: true } } }
 
+    // With a search and no explicit sort, keep the search's own order (best match first).
+    if (matchIds && !params.sort) {
+      const all = await prisma.product.findMany({ where, include })
+      const rank = new Map(matchIds.map((id, i) => [id, i]))
+      all.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+      if (page === 1) logSearch(params.search!, all.length)
+      return { products: all.slice(skip, skip + PAGE_SIZE) as unknown as Product[], total: all.length }
+    }
+
     const [rows, total] = await prisma.$transaction([
       prisma.product.findMany({ where, orderBy, include, skip, take: PAGE_SIZE }),
       prisma.product.count({ where }),
     ])
+    if (matchIds && page === 1) logSearch(params.search!, total)
 
     return { products: rows as unknown as Product[], total }
   } catch {

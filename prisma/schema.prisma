@@ -172,6 +172,19 @@ model PriceHistory {
   @@map("price_history")
 }
 
+// What shoppers typed into search and how many products it found. Read by the admin "Searches"
+// report to spot things people look for that the store does not have (results = 0).
+model SearchLog {
+  id        String   @id @default(cuid())
+  query     String
+  results   Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([query])
+  @@map("search_logs")
+}
+
 model ProductOption {
   id        String   @id @default(cuid())
   productId String   @map("product_id")

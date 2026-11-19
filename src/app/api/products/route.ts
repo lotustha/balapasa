@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser, requireRole } from '@/lib/auth'
 import { hasRole } from '@/lib/admin-access'
+import { searchProductIds } from '@/lib/product-search'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -70,7 +71,10 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    if (search) {
+    // Shoppers get the shared ranked search. The admin product list keeps plain matching, because
+    // it must also find drafts, which the storefront search leaves out.
+    let matchIds: string[] | null = null
+    if (search && admin) {
       where.OR = [
         { name:        { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
@@ -78,6 +82,11 @@ export async function GET(req: NextRequest) {
         { sku:         { contains: search, mode: 'insensitive' } },
         { tags:        { hasSome: [search] } },
       ]
+    } else if (search) {
+      matchIds = await searchProductIds(search)
+      where.id = idsParam
+        ? { in: matchIds.filter(id => idsParam.split(',').map(s => s.trim()).includes(id)) }
+        : { in: matchIds }
     }
 
     const orderBy: Record<string, string> =
@@ -94,10 +103,20 @@ export async function GET(req: NextRequest) {
       ? { category: { select: { name: true, slug: true } }, supplier: { select: { id: true, name: true, email: true } } }
       : { category: { select: { name: true, slug: true } } }
 
-    const [rawProducts, total] = await Promise.all([
-      prisma.product.findMany({ where, orderBy, include, take: limit, skip }),
-      prisma.product.count({ where }),
-    ])
+    let rawProducts, total
+    if (matchIds && !searchParams.get('sort')) {
+      // No explicit sort: keep the search's own order (best match first).
+      const all = await prisma.product.findMany({ where, include })
+      const rank = new Map(matchIds.map((id, i) => [id, i]))
+      all.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+      total = all.length
+      rawProducts = all.slice(skip, skip + limit)
+    } else {
+      ;[rawProducts, total] = await Promise.all([
+        prisma.product.findMany({ where, orderBy, include, take: limit, skip }),
+        prisma.product.count({ where }),
+      ])
+    }
 
     // Null out salePrice when the sale is not currently live (expired OR
     // scheduled for the future). Admin requests with admin=true bypass this

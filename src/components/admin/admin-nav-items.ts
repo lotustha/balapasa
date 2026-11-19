@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, Ticket, Zap, MessageCircle, DollarSign, Monitor,
   ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles, RotateCcw,
-  MessageCircleQuestion, Star, Wallet, Award, Share2, Bot,
+  MessageCircleQuestion, Star, Wallet, Award, Share2, Bot, Search,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { hasRole, pageMinRole, type AdminRole } from '@/lib/admin-access'
@@ -63,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
       item('/admin/analytics', BarChart3,  'Analytics', 'traffic visitors charts'),
       item('/admin/finance',   DollarSign, 'Finance',   'money expenses cashbook profit'),
       item('/admin/invoices',  FileText,   'Invoices',  'bills receipts'),
+      item('/admin/search-terms', Search,  'Searches',  'search terms keywords not found demand'),
     ],
   },
   {
