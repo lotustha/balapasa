@@ -1,6 +1,7 @@
 // Pure mapping from a Daraz /products/get item to balapasa website rows. No I/O.
 
 const SLUG_MAX = 80
+const OPEN_ENDED_MS = 365 * 24 * 60 * 60 * 1000
 
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -21,7 +22,9 @@ function saleOf(sku, now) {
   const expiresAt = parseNepalTime(sku.special_to_time)
   if (startsAt && startsAt > now) return null
   if (expiresAt && expiresAt <= now) return null
-  return { salePrice: special, startsAt, expiresAt }
+  // Daraz "permanent" discounts end in 2099; a real end date would render a countdown.
+  const openEnded = !expiresAt || expiresAt - now > OPEN_ENDED_MS
+  return { salePrice: special, startsAt: null, expiresAt: openEnded ? null : expiresAt }
 }
 
 const effectivePrice = (sku, now) => saleOf(sku, now)?.salePrice ?? Number(sku.price)

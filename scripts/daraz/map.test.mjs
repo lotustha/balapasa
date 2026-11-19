@@ -37,11 +37,16 @@ test('long and messy names make a clean bounded slug', () => {
   assert.ok(m.slug.endsWith('-7'))
 })
 
-test('live sale', () => {
-  const m = mapProduct(product({ skus: [sku({ price: 200, special_price: 79, special_to_time: '2099-03-26 00:00:00' })] }), NOW)
+test('live sale with a near end date keeps the date (Nepal time)', () => {
+  const m = mapProduct(product({ skus: [sku({ price: 200, special_price: 79, special_to_time: '2026-12-26 00:00:00' })] }), NOW)
   assert.equal(m.price, 200); assert.equal(m.salePrice, 79)
   assert.ok(m.salePriceExpiresAt instanceof Date)
-  assert.equal(m.salePriceExpiresAt.toISOString(), '2099-03-25T18:15:00.000Z')
+  assert.equal(m.salePriceExpiresAt.toISOString(), '2026-12-25T18:15:00.000Z')
+})
+
+test('sale ending more than a year out is open-ended (no countdown)', () => {
+  const m = mapProduct(product({ skus: [sku({ price: 200, special_price: 79, special_to_time: '2099-03-26 00:00:00' })] }), NOW)
+  assert.equal(m.salePrice, 79); assert.equal(m.salePriceExpiresAt, null); assert.equal(m.salePriceStartsAt, null)
 })
 
 test('no fake sale: special equals price', () => {
