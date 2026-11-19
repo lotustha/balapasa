@@ -20,6 +20,7 @@ import {
   MAINTENANCE_DEFAULTS, parseMaintenance, MAINTENANCE_FALLBACK_TITLE, MAINTENANCE_FALLBACK_MESSAGE, ORDERS_PAUSED_FALLBACK_MESSAGE,
   type HeroBadge, type FaqItem, type StoreBanner, type StorePopup, type Maintenance,
 } from '@/lib/site-settings-shared'
+import { CONTROL_KEY, CONTROL_DEFAULTS, parseControls } from '../../../../../scripts/daraz/controls.mjs'
 import GalleryPickerModal from '@/components/admin/GalleryPickerModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ interface ContentForm {
   CONTACT_MAP_EMBED:       string
 }
 
-type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'maintenance' | 'tracking' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
+type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'maintenance' | 'daraz' | 'tracking' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -145,6 +146,7 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'content',       icon: Library,         label: 'Content',       desc: 'Legal pages, about & FAQ' },
   { id: 'notices',       icon: Megaphone,       label: 'Notices',       desc: 'Banner & popup'           },
   { id: 'maintenance',   icon: Wrench,          label: 'Maintenance',   desc: 'Close store or pause orders' },
+  { id: 'daraz',         icon: RefreshCw,       label: 'Daraz',         desc: 'Sync switches & alerts'   },
   { id: 'tracking',      icon: Activity,        label: 'Analytics',     desc: 'Google Analytics & tracking' },
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
@@ -1827,6 +1829,120 @@ function MaintenanceSection({ saving, saved, onSave }: {
   )
 }
 
+// ── Daraz ──────────────────────────────────────────────────────────────────
+// Switches read by the Daraz jobs on the server (scripts/daraz/controls.mjs) at the start of each run.
+
+type DarazControls = typeof CONTROL_DEFAULTS
+type DarazSwitch = { [K in keyof DarazControls]: DarazControls[K] extends boolean ? K : never }[keyof DarazControls]
+
+const DARAZ_WEBSITE: [DarazSwitch, string, string][] = [
+  ['websitePrices',      'Update prices and sale dates',  'Website prices follow TrendWave on Daraz. Moves bigger than the limit below are held, not applied.'],
+  ['websiteNewProducts', 'Add new products',              'A product newly listed on Daraz is added to the website.'],
+  ['websiteHideRemoved', 'Hide removed products',         'A product no longer sold on Daraz is hidden here, and shown again if it returns.'],
+  ['websiteVariants',    'Update variants',               'Variants added, removed or renamed on Daraz are changed here too.'],
+  ['homepageFlags',      'Pick Featured and New products','Refreshes the 12 Featured and 12 New products on the homepage.'],
+  ['categoryArt',        'Fill in category pictures',     'Gives a category with no picture, icon or colour one from its products.'],
+]
+const DARAZ_MIRROR: [DarazSwitch, string, string][] = [
+  ['mirrorPrices',      'Copy prices and sale dates', 'Bala Pasa listings get the same price and sale as TrendWave.'],
+  ['mirrorStock',       'Copy stock',                 'Bala Pasa listings get the same quantity as TrendWave.'],
+  ['mirrorNewListings', 'Copy new listings',          'A product newly listed by TrendWave is created in the Bala Pasa shop.'],
+  ['mirrorSoldOut',     'Mark removed products sold out', 'A listing TrendWave stopped selling is set to zero stock in the Bala Pasa shop.'],
+]
+
+function DarazSwitchRow({ title, hint, checked, onChange, first }: {
+  title: string; hint: string; checked: boolean; onChange: (v: boolean) => void; first?: boolean
+}) {
+  return (
+    <div className={`flex items-center justify-between gap-4 ${first ? '' : 'pt-5 border-t border-slate-100'}`}>
+      <div>
+        <p className="text-sm font-semibold text-slate-700">{title}</p>
+        <p className="text-[11px] text-slate-400">{hint}</p>
+      </div>
+      <ToggleSwitch checked={checked} onChange={onChange} label={title} />
+    </div>
+  )
+}
+
+function DarazSection({ saving, saved, onSave }: {
+  saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void
+}) {
+  const [c, setC] = useState<DarazControls>(CONTROL_DEFAULTS)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (s) setC(parseControls(s[CONTROL_KEY]))
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [])
+
+  const set = <K extends keyof DarazControls>(key: K, value: DarazControls[K]) => setC(x => ({ ...x, [key]: value }))
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onSave('daraz', { [CONTROL_KEY]: JSON.stringify(parseControls(JSON.stringify(c))) })
+  }
+
+  const allOff = !c.websiteSync && !c.mirrorSync
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <InfoBanner icon={RefreshCw} color={allOff ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-blue-50 border border-blue-100 text-blue-700'}>
+        {allOff ? 'Both Daraz syncs are switched off. Nothing is copied from Daraz until you switch one back on.'
+          : 'These switches control the jobs that copy from the TrendWave Daraz shop.'}
+        {' '}The jobs run once a day, early morning, so a change here takes effect on the next run. Only an admin can save this page.
+      </InfoBanner>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <DarazSwitchRow first title="Website sync" checked={c.websiteSync} onChange={v => set('websiteSync', v)}
+          hint="Master switch. Off: the website catalog stops following Daraz completely, and stays as it is now." />
+        <fieldset disabled={!c.websiteSync} className="space-y-5 pt-5 border-t border-slate-100 disabled:opacity-50">
+          <legend className="sr-only">What the website sync may do</legend>
+          {DARAZ_WEBSITE.map(([key, title, hint], i) => (
+            <DarazSwitchRow key={key} first={i === 0} title={title} hint={hint} checked={c[key]} onChange={v => set(key, v)} />
+          ))}
+          <div className="pt-5 border-t border-slate-100">
+            <Label>Hold price moves bigger than</Label>
+            <div className="flex items-center gap-2">
+              <input type="number" min={1} max={500} step={1} value={c.priceHoldPercent}
+                onChange={e => set('priceHoldPercent', Number(e.target.value))}
+                className={inputCls + ' max-w-[7rem]'} aria-label="Hold price moves bigger than, in percent" />
+              <span className="text-sm text-slate-500">%</span>
+            </div>
+            <Hint>A price that rises or falls by more than this in one day is not applied. You get it in the WhatsApp summary marked HELD.</Hint>
+          </div>
+        </fieldset>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+        <DarazSwitchRow first title="Copy product pictures to this server" checked={c.copyImages} onChange={v => set('copyImages', v)}
+          hint="New products get their pictures saved here instead of loading from Daraz. Off: new products keep Daraz picture links." />
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <DarazSwitchRow first title="Bala Pasa Daraz shop sync" checked={c.mirrorSync} onChange={v => set('mirrorSync', v)}
+          hint="Master switch. Off: your Bala Pasa shop on Daraz stops copying TrendWave, and its listings stay as they are." />
+        <fieldset disabled={!c.mirrorSync} className="space-y-5 pt-5 border-t border-slate-100 disabled:opacity-50">
+          <legend className="sr-only">What the Daraz shop sync may do</legend>
+          {DARAZ_MIRROR.map(([key, title, hint], i) => (
+            <DarazSwitchRow key={key} first={i === 0} title={title} hint={hint} checked={c[key]} onChange={v => set(key, v)} />
+          ))}
+        </fieldset>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+        <DarazSwitchRow first title="WhatsApp summary after a sync" checked={c.notifyChanges} onChange={v => set('notifyChanges', v)}
+          hint="A message listing what a sync changed. Off: only failures are reported." />
+      </div>
+
+      <div className="flex justify-end">
+        {loaded && <SaveBtn section="daraz" saving={saving} saved={saved} />}
+      </div>
+    </form>
+  )
+}
+
 // ── Tracking & Analytics ───────────────────────────────────────────────────
 
 function TrackingSection({ saving, saved, onSave }: {
@@ -2719,6 +2835,10 @@ export default function SettingsPage() {
 
           {tab === 'maintenance' && (
             <MaintenanceSection saving={saving} saved={saved} onSave={save} />
+          )}
+
+          {tab === 'daraz' && (
+            <DarazSection saving={saving} saved={saved} onSave={save} />
           )}
 
           {tab === 'tracking' && (

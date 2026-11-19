@@ -13,6 +13,7 @@ import path from 'node:path'
 import { config } from 'dotenv'
 import pg from 'pg'
 import { createId } from '@paralleldrive/cuid2'
+import { loadControls } from './controls.mjs'
 
 config({ path: '.env.local', quiet: true })
 
@@ -31,6 +32,12 @@ const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
 const db = new pg.Client({ connectionString: url })
 await db.connect()
+
+if (!DRY_RUN && !(await loadControls(db)).copyImages) {
+  console.log('image copy skipped: switched off in Settings → Daraz')
+  await db.end()
+  process.exit(0)
+}
 
 // One download per distinct address, however many products share the picture.
 const done = new Map()

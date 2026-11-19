@@ -13,6 +13,7 @@ import { getAccessToken } from './tokens.mjs'
 import { notify } from './notify.mjs'
 import { planMirror, priceQuantityXml } from './mirror-plan.mjs'
 import { createMirror } from './mirror-lib.mjs'
+import { loadControls, limitMirrorPlan } from './controls.mjs'
 
 config({ path: '.env.local', quiet: true })
 
@@ -28,6 +29,14 @@ if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) 
 const db = new pg.Client({ connectionString: url })
 await db.connect()
 
+// The switches from Settings → Daraz. A dry run always runs, so a switched-off sync can still be previewed.
+const controls = await loadControls(db)
+if (!controls.mirrorSync && !DRY_RUN) {
+  console.log(`Bala Pasa Daraz mirror ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC: skipped, switched off in Settings → Daraz`)
+  await db.end()
+  process.exit(0)
+}
+
 let exitCode = 0
 try {
   const sourceToken = await getAccessToken(db, 'trendwave')
@@ -38,12 +47,14 @@ try {
 
   const source = await fetchProducts(sourceToken)
   const mirror = await fetchProducts(targetToken)
-  const plan = planMirror(source, mirror, { skipCreate })
+  const fullPlan = planMirror(source, mirror, { skipCreate })
 
   const mirrorSkuCount = mirror.reduce((n, p) => n + p.skus.filter(s => String(s.SellerSku).startsWith('TW-')).length, 0)
-  if (mirrorSkuCount > 0 && plan.soldOut.length > mirrorSkuCount * (1 - MIN_CATALOG_RATIO)) {
-    throw new Error(`source looks incomplete: ${plan.soldOut.length} of ${mirrorSkuCount} mirrored SKUs would go sold out; refusing to sync`)
+  if (mirrorSkuCount > 0 && fullPlan.soldOut.length > mirrorSkuCount * (1 - MIN_CATALOG_RATIO)) {
+    throw new Error(`source looks incomplete: ${fullPlan.soldOut.length} of ${mirrorSkuCount} mirrored SKUs would go sold out; refusing to sync`)
   }
+
+  const { plan, off } = limitMirrorPlan(fullPlan, controls)
 
   const priced = plan.updates.filter(u => u.changed.some(c => c !== 'quantity'))
   const fmt = u => `${u.salePrice ? `${u.salePrice} (was ${u.price})` : u.price}`
@@ -57,6 +68,8 @@ try {
     ...plan.soldOut.slice(0, 10).map(s => `  SOLD OUT (no longer sold by TrendWave)  ${s.name.slice(0, 55)}`),
     ...plan.partial.slice(0, 5).map(p => `  NEEDS ATTENTION new variant not copied: ${p.name.slice(0, 50)} (${p.missing.join(', ')})`),
   ]
+
+  if (off.length) lines.push(`switched off in settings, not done: ${off.join(', ')}`)
 
   let failures = 0
   if (!DRY_RUN) {
@@ -94,7 +107,7 @@ try {
 
   console.log(lines.join('\n'))
   const changed = plan.updates.length + plan.create.length + plan.soldOut.length + plan.partial.length
-  if (changed > 0 && !DRY_RUN) await notify(lines.join('\n'))
+  if (changed > 0 && !DRY_RUN && controls.notifyChanges) await notify(lines.join('\n'))
   if (failures) exitCode = 1
 } catch (err) {
   exitCode = 1

@@ -40,7 +40,7 @@ const PUBLIC_SITE_KEYS = new Set([
   'GA_MEASUREMENT_ID', 'CUSTOM_HEAD_CODE',
 ])
 
-const ADMIN_ONLY_KEYS = ['MAINTENANCE_JSON']
+const ADMIN_ONLY_KEYS = ['MAINTENANCE_JSON', 'DARAZ_CONTROL_JSON']
 
 function mask(key: string, value: string) {
   if (!SECRET_KEYS.has(key)) return value

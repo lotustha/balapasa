@@ -17,6 +17,7 @@ import { mergeFamilies } from './families.mjs'
 import { mapProduct } from './map.mjs'
 import { planSync } from './plan-sync.mjs'
 import { chooseFlags } from './flags.mjs'
+import { loadControls, limitSitePlan } from './controls.mjs'
 import { refreshCategoryArt } from './category-art.mjs'
 import { ensureSupplier, insertOptions, insertProduct, insertVariant, slugify } from './store.mjs'
 
@@ -31,6 +32,14 @@ const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
 const db = new pg.Client({ connectionString: url })
 await db.connect()
+
+// The switches from Settings → Daraz. A dry run always runs, so a switched-off sync can still be previewed.
+const controls = await loadControls(db)
+if (!controls.websiteSync && !DRY_RUN) {
+  console.log(`Daraz sync ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC: skipped, switched off in Settings → Daraz`)
+  await db.end()
+  process.exit(0)
+}
 
 async function loadExisting() {
   const products = (await db.query(`SELECT id, sku, name, price, sale_price AS "salePrice", sale_price_expires_at AS "salePriceExpiresAt", is_active AS "isActive" FROM products WHERE sku LIKE 'DZ-%'`)).rows
@@ -114,7 +123,8 @@ try {
     throw new Error(`Daraz returned ${mapped.length} sellable products but the site has ${activeOnSite}; refusing to sync`)
   }
 
-  const plan = planSync(mapped, existing, { applyHeld: APPLY_HELD })
+  const { plan, off } = limitSitePlan(
+    planSync(mapped, existing, { applyHeld: APPLY_HELD, holdOver: controls.priceHoldPercent / 100 }), controls)
   const applied = plan.priceChanges.filter(c => !c.held)
   const held = plan.priceChanges.filter(c => c.held)
   const repriced = applied.filter(c => c.priceChanged)
@@ -132,6 +142,8 @@ try {
     ...plan.create.slice(0, 10).map(m => `  NEW  ${m.name.slice(0, 70)} (${money(m)})`),
     ...plan.deactivate.slice(0, 10).map(d => `  HIDDEN  ${d.name.slice(0, 70)}`),
   ]
+
+  if (off.length) lines.push(`switched off in settings, not done: ${off.join(', ')}`)
 
   if (!DRY_RUN) {
     const newCategoryIds = new Map()
@@ -179,15 +191,15 @@ try {
   }
 
   if (!DRY_RUN) {
-    const flags = await refreshFlags(mapped)
+    const flags = controls.homepageFlags ? await refreshFlags(mapped) : { changed: 0, redated: 0 }
     if (flags.changed || flags.redated) lines.push(`homepage flags updated on ${flags.changed} products, listing dates aligned on ${flags.redated}`)
-    const art = await refreshCategoryArt(db)
+    const art = controls.categoryArt ? await refreshCategoryArt(db) : 0
     if (art) lines.push(`category pictures, icons or colours filled in on ${art} categories`)
   }
 
   console.log(lines.join('\n'))
   const changed = plan.priceChanges.length + heldVariants.length + plan.create.length + plan.deactivate.length + plan.reactivate.length + variantEdits
-  if (changed > 0 && !DRY_RUN) await notify(lines.join('\n'))
+  if (changed > 0 && !DRY_RUN && controls.notifyChanges) await notify(lines.join('\n'))
 } catch (err) {
   exitCode = 1
   console.error(`Daraz sync FAILED: ${err.message}`)
