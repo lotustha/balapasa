@@ -10,7 +10,25 @@ export function sign(apiPath, params, secret) {
   return createHmac('sha256', secret).update(base).digest('hex').toUpperCase()
 }
 
-export async function darazGet(apiPath, params = {}, opts = {}) {
+const RATE_LIMIT_DELAYS_MS = [1500, 3000, 6000, 12000]
+
+// Daraz answers bursts with ApiCallLimit and a ban of a second or so; wait and try again.
+export async function retrying(fn, { delays = RATE_LIMIT_DELAYS_MS, sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (!/ApiCallLimit/.test(err.message) || attempt >= delays.length) throw err
+      await sleep(delays[attempt])
+    }
+  }
+}
+
+export function darazGet(apiPath, params = {}, opts = {}) {
+  return retrying(() => darazGetOnce(apiPath, params, opts))
+}
+
+async function darazGetOnce(apiPath, params, opts) {
   const appKey = process.env.DARAZ_APP_KEY
   const secret = process.env.DARAZ_APP_SECRET
   if (!appKey || !secret) throw new Error('DARAZ_APP_KEY / DARAZ_APP_SECRET missing from environment')

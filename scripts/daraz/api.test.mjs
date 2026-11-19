@@ -12,3 +12,20 @@ test('sign: sorted key+value concat, HMAC-SHA256, uppercase hex', () => {
   assert.equal(s, expected)
   assert.notEqual(s, sign('/products/get', { app_key: '124', sign_method: 'sha256', timestamp: '1700000000000' }, 'secret'))
 })
+
+import { retrying } from './api.mjs'
+
+test('retrying: retries rate-limit errors, then returns the result', async () => {
+  let calls = 0; const waits = []
+  const out = await retrying(async () => { if (++calls < 3) throw new Error('Daraz /x: ApiCallLimit too fast'); return 'ok' }, { delays: [10, 20, 30], sleep: async ms => { waits.push(ms) } })
+  assert.equal(out, 'ok'); assert.equal(calls, 3); assert.deepEqual(waits, [10, 20])
+})
+
+test('retrying: other errors fail at once; rate limit gives up after the last delay', async () => {
+  let calls = 0
+  await assert.rejects(retrying(async () => { calls++; throw new Error('Daraz /x: IllegalAccessToken') }, { delays: [1, 1], sleep: async () => {} }), /IllegalAccessToken/)
+  assert.equal(calls, 1)
+  calls = 0
+  await assert.rejects(retrying(async () => { calls++; throw new Error('ApiCallLimit') }, { delays: [1, 1], sleep: async () => {} }), /ApiCallLimit/)
+  assert.equal(calls, 3)
+})
