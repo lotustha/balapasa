@@ -360,6 +360,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     ? Math.min(p.maxPerCustomerOnSale, p.stock)
     : (p?.stock ?? 0)
   const originalPrice  = p?.price ?? 0
+  const cartName = activeVariant && p ? `${p.name} (${activeVariant.title})` : p?.name ?? ''
   const totalVariantStock = variants.reduce((s, v) => s + (v.stock ?? 0), 0)
   const useVariantStock   = variants.length > 0 && totalVariantStock > 0
   const variantStock      = useVariantStock ? (activeVariant?.stock ?? 0) : (p?.stock ?? 0)
@@ -504,7 +505,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
   }
   function handleAdd() {
     if (!p) return
-    addItem({ id: p.id, name: p.name, price: originalPrice, salePrice: effectivePrice, image: images[0], slug: p.slug, codAvailable: true }, qty)
+    addItem({ id: p.id, name: cartName, price: originalPrice, salePrice: effectivePrice, image: activeVariant?.image ?? images[0], slug: p.slug, codAvailable: true, variantId: activeVariant?.id ?? null, variantTitle: activeVariant?.title ?? null }, qty)
     setAdded(true); setTimeout(() => setAdded(false), 2000)
   }
 
@@ -1131,7 +1132,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       {added ? <><CheckCircle size={19} /> Added!</> : <><ShoppingCart size={19} /> Add to Cart</>}
                     </button>
                     <button
-                      onClick={() => { setBuyNow({ id:p.id, name:p.name, price:originalPrice, salePrice:effectivePrice, image:images[0], slug:p.slug, codAvailable:true }, qty); router.push('/checkout') }}
+                      onClick={() => { setBuyNow({ id:p.id, name:cartName, price:originalPrice, salePrice:effectivePrice, image:activeVariant?.image ?? images[0], slug:p.slug, codAvailable:true, variantId:activeVariant?.id ?? null, variantTitle:activeVariant?.title ?? null }, qty); router.push('/checkout') }}
                       disabled={variantStock===0}
                       className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-slate-800 hover:bg-white/80 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
                       style={{ background:'rgba(255,255,255,0.42)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>

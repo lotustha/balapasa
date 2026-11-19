@@ -11,7 +11,13 @@ export interface CartItem {
   quantity: number
   slug: string
   codAvailable?: boolean
+  // Set when the product has variants: two variants of one product are two cart lines.
+  variantId?: string | null
+  variantTitle?: string | null
 }
+
+// Identifies one cart line. Use this, not `id`, as the React key and when editing a line.
+export const cartLineKey = (i: { id: string; variantId?: string | null }) => (i.variantId ? `${i.id}:${i.variantId}` : i.id)
 
 interface CartContextValue {
   // ── Regular cart ─────────────────────────────────────────────────────────────
@@ -19,8 +25,10 @@ interface CartContextValue {
   count: number
   subtotal: number
   addItem: (item: Omit<CartItem, 'quantity'>, qty?: number, opts?: { silent?: boolean }) => void
-  removeItem: (id: string) => void
-  updateQty: (id: string, qty: number) => void
+  removeItem: (lineKey: string) => void
+  updateQty: (lineKey: string, qty: number) => void
+  // Applies prices the server says are current (after an order was refused for stale prices).
+  syncPrices: (lines: { id: string; variantId?: string | null; price: number }[]) => void
   clearCart: () => void
   isOpen: boolean
   openCart: () => void
@@ -61,21 +69,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback((item: Omit<CartItem, 'quantity'>, qty = 1, opts?: { silent?: boolean }) => {
     setItems(prev => {
-      const existing = prev.find(i => i.id === item.id)
-      if (existing) return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + qty } : i)
+      const key = cartLineKey(item)
+      const existing = prev.find(i => cartLineKey(i) === key)
+      // Keep the newest price: the line may have been added before a price change.
+      if (existing) return prev.map(i => cartLineKey(i) === key ? { ...i, ...item, quantity: i.quantity + qty } : i)
       return [...prev, { ...item, quantity: qty }]
     })
     if (!opts?.silent) setIsOpen(true)
   }, [])
 
-  const removeItem = useCallback((id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id))
+  const removeItem = useCallback((lineKey: string) => {
+    // A bare product id (no variant part) removes every line of that product.
+    setItems(prev => prev.filter(i => cartLineKey(i) !== lineKey && i.id !== lineKey))
   }, [])
 
-  const updateQty = useCallback((id: string, qty: number) => {
-    if (qty <= 0) { removeItem(id); return }
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: qty } : i))
+  const updateQty = useCallback((lineKey: string, qty: number) => {
+    if (qty <= 0) { removeItem(lineKey); return }
+    setItems(prev => prev.map(i => cartLineKey(i) === lineKey ? { ...i, quantity: qty } : i))
   }, [removeItem])
+
+  const syncPrices = useCallback((lines: { id: string; variantId?: string | null; price: number }[]) => {
+    const current = new Map(lines.map(l => [cartLineKey(l), l]))
+    const apply = (i: CartItem): CartItem => {
+      // A line added before variants were tracked has no variantId; match it by product.
+      const fresh = current.get(cartLineKey(i)) ?? lines.find(l => l.id === i.id)
+      if (!fresh) return i
+      return { ...i, variantId: i.variantId ?? fresh.variantId ?? null, price: Math.max(i.price, fresh.price), salePrice: fresh.price }
+    }
+    setItems(prev => prev.map(apply))
+    setBuyNowItem(prev => (prev ? apply(prev) : prev))
+  }, [])
 
   const clearCart = useCallback(() => setItems([]), [])
 
@@ -93,7 +116,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   return (
     <CartContext.Provider value={{
       items, count, subtotal,
-      addItem, removeItem, updateQty, clearCart,
+      addItem, removeItem, updateQty, syncPrices, clearCart,
       isOpen, openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false),
       buyNowItem, setBuyNow, clearBuyNow,
     }}>

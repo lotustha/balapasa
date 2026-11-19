@@ -4,6 +4,9 @@ import { esewaFormData, getEsewaPaymentUrl, khaltiInitiate } from '@/lib/payment
 import { getCurrentUser } from '@/lib/auth'
 import { pushOrderEvent, pushToStaff } from '@/lib/push'
 import { sendOrderAlert } from '@/lib/wa-bot'
+import { priceOrderLines } from '@/lib/order-pricing'
+import { computeAutoDiscounts } from '@/lib/discounts'
+import { getRules as getDiscountRules } from '@/app/api/discount-rules/route'
 import { hasRole } from '@/lib/admin-access'
 import { ordersBlocked, ORDERS_PAUSED_FALLBACK_MESSAGE } from '@/lib/site-settings-shared'
 import { validateCoupon } from '@/lib/coupons'
@@ -60,10 +63,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const {
-      items, subtotal, deliveryCharge, paymentMethod, shippingOption, shippingProvider,
+      items: clientItems, subtotal: clientSubtotal, deliveryCharge, paymentMethod, shippingOption, shippingProvider,
       name, phone, email, address, house, road, city, lat, lng,
       advancePaid, codAmount, advanceMethod,
-      couponCode: rawCouponCode, autoDiscount,
+      couponCode: rawCouponCode,
       giftCardCode: rawGiftCardCode,
       // Store-credit redemption (logged-in customers only; COD/Khalti only)
       storeCreditAmount: rawStoreCreditAmount,
@@ -74,6 +77,22 @@ export async function POST(req: NextRequest) {
       // Delivery extras (landmark is also re-extracted from structured fields above)
       deliveryNote,
     } = body
+
+    // ── Prices come from the database, never from the request ─────────────
+    // `items` and `subtotal` below are the server's own figures. The prices the client sent are only
+    // compared against them, to stop an order going through at numbers the customer did not see.
+    const priced = await priceOrderLines(clientItems)
+    if (!priced.ok) return Response.json({ error: priced.error }, { status: priced.status })
+    const items = priced.lines
+    const subtotal = priced.subtotal
+    if (clientSubtotal != null && Math.abs(Number(clientSubtotal) - subtotal) > 1) {
+      return Response.json({
+        error: 'Some prices in your cart have changed. We have updated them, please review your order and place it again.',
+        code:  'PRICE_CHANGED',
+        items: items.map(i => ({ id: i.id, variantId: i.variantId, price: i.price })),
+        subtotal,
+      }, { status: 409 })
+    }
 
     // Read DELIVERY_MODE from app_settings at order time so the value is audited
     // server-side (client can't lie about whether the store charged shipping).
@@ -99,7 +118,9 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       )
     }
-    const effectiveDeliveryCharge = expressOk ? EXPRESS_FEE : Number(deliveryCharge)
+    const effectiveDeliveryCharge = expressOk ? EXPRESS_FEE
+      : deliveryMode === 'FREE' ? 0
+      : Math.max(0, Number(deliveryCharge) || 0)
 
     // Reject payment methods that the admin has turned off. Resolved fresh
     // from app_settings so a flip in Admin → Settings → Payments takes effect
@@ -117,7 +138,7 @@ export async function POST(req: NextRequest) {
     // Products on flash sale can set maxPerCustomerOnSale. Reject the order
     // if any line item exceeds the cap. v1 enforces per-order only — historical
     // orders aren't summed.
-    const itemsForCap = items as { id: string; quantity: number }[]
+    const itemsForCap = items
     if (itemsForCap?.length) {
       const productIds = itemsForCap.map(i => i.id)
       const capped = await prisma.product.findMany({
@@ -145,11 +166,7 @@ export async function POST(req: NextRequest) {
       const result = await validateCoupon({
         code:     couponCode,
         subtotal: Number(subtotal),
-        items: (items as { id: string; price: number; salePrice?: number | null; quantity: number }[]).map(i => ({
-          productId: i.id,
-          price:     Number(i.salePrice ?? i.price),
-          quantity:  Number(i.quantity),
-        })),
+        items: items.map(i => ({ productId: i.id, price: i.price, quantity: i.quantity })),
       })
       if (!result.valid) {
         return Response.json({ error: result.error }, { status: result.status })
@@ -158,7 +175,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Recompute total from server values — never trust client `total`
-    const safeAutoDiscount = autoDiscount ? Math.max(0, Number(autoDiscount)) : 0
+    // The automatic order discount is derived from the store's own rules, not taken from the request.
+    const safeAutoDiscount = computeAutoDiscounts(await getDiscountRules(), subtotal).orderDiscount
     const totalBeforeGiftCard = Math.max(
       0,
       Number(subtotal) + effectiveDeliveryCharge - (serverCouponDiscount ?? 0) - safeAutoDiscount,
@@ -209,10 +227,7 @@ export async function POST(req: NextRequest) {
     const serverTotal = Math.max(0, totalAfterGiftCard - storeCreditUsed)
 
     // Snapshot the item list once so the tx + post-tx logging can share it.
-    const itemList = items as {
-      id: string; name: string; price: number; salePrice?: number | null;
-      image: string; quantity: number;
-    }[]
+    const itemList = items
 
     // Resolve which cart lines are BUNDLE products and their component rows, so
     // the stock decrement below deducts each component (componentQty × line qty)
@@ -374,8 +389,10 @@ export async function POST(req: NextRequest) {
           items: {
             create: itemList.map(item => ({
               productId: item.id,
+              variantId: item.variantId,
+              variantTitle: item.variantTitle,
               name: item.name,
-              price: item.salePrice ?? item.price,
+              price: item.price,
               quantity: item.quantity,
               image: item.image,
             })),
@@ -431,7 +448,7 @@ export async function POST(req: NextRequest) {
     // and we can fall back to that for display.
     let orderCode: string | null = null
     try {
-      const firstItem = (items as { id: string }[])[0]
+      const firstItem = items[0]
       const prefix = await resolveOrderCodePrefix(firstItem?.id ?? null)
       orderCode = await assignOrderCode(order.id, prefix)
     } catch (e) {
@@ -536,10 +553,10 @@ export async function POST(req: NextRequest) {
             autoDiscount:   safeAutoDiscount > 0 ? safeAutoDiscount : null,
             total,
             paymentMethod,
-            items: (items as { name: string; price: number; salePrice?: number | null; quantity: number; image?: string }[]).map(it => ({
+            items: items.map(it => ({
               name:     it.name,
               quantity: it.quantity,
-              price:    it.salePrice ?? it.price,
+              price:    it.price,
               image:    it.image,
             })),
             magicLinkUrl: claimUrl,
@@ -608,7 +625,7 @@ export async function POST(req: NextRequest) {
             customerEmail:  email || userEmail || '',
             customerPhone:  phone,
             total,
-            itemCount:      (items as unknown[]).length,
+            itemCount:      items.length,
             paymentMethod,
             shippingOption,
             adminUrl:       `${settings.storeUrl}/admin/orders/${order.id}`,
@@ -625,7 +642,7 @@ export async function POST(req: NextRequest) {
         // Vendor-app push: alert staff devices of the new order.
         await pushToStaff({
           title: expressOk ? '⚡ New EXPRESS order!' : '🛒 New order received',
-          body:  `${name} · Rs. ${Math.round(total).toLocaleString('en-IN')} · ${(items as unknown[]).length} item(s) · ${paymentMethod}`,
+          body:  `${name} · Rs. ${Math.round(total).toLocaleString('en-IN')} · ${items.length} item(s) · ${paymentMethod}`,
           data:  { orderId: order.id, screen: 'order', type: 'new_order' },
         }).catch(() => {})
 

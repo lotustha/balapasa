@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useCart } from '@/context/CartContext'
+import { useCart, cartLineKey } from '@/context/CartContext'
 import { formatPrice } from '@/lib/utils'
 import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight } from 'lucide-react'
 
@@ -116,7 +116,7 @@ export default function CartDrawer() {
           ) : (
             items.map(item => (
               <div
-                key={item.id}
+                key={cartLineKey(item)}
                 className="flex gap-3 p-3 rounded-2xl bg-white border border-slate-100 hover:border-slate-200 transition-colors"
               >
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-50 shrink-0">
@@ -134,7 +134,7 @@ export default function CartDrawer() {
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <button
-                      onClick={() => updateQty(item.id, item.quantity - 1)}
+                      onClick={() => updateQty(cartLineKey(item), item.quantity - 1)}
                       className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer"
                     >
                       <Minus size={12} className="text-slate-600" />
@@ -143,7 +143,7 @@ export default function CartDrawer() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQty(item.id, item.quantity + 1)}
+                      onClick={() => updateQty(cartLineKey(item), item.quantity + 1)}
                       className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer"
                     >
                       <Plus size={12} className="text-slate-600" />
@@ -151,7 +151,7 @@ export default function CartDrawer() {
                   </div>
                 </div>
                 <button
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => removeItem(cartLineKey(item))}
                   aria-label="Remove item"
                   className="p-1.5 text-slate-300 hover:text-red-400 transition-colors self-start cursor-pointer"
                 >

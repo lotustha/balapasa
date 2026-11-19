@@ -291,6 +291,10 @@ model OrderItem {
   id        String  @id @default(cuid())
   orderId   String  @map("order_id")
   productId String  @map("product_id")
+  // Which variant was bought, when the product has variants. No FK: orders must survive
+  // variant edits/deletions, same as productId.
+  variantId    String? @map("variant_id")
+  variantTitle String? @map("variant_title")
   quantity  Int
   price     Float
   name      String

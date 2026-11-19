@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { useCart } from '@/context/CartContext'
+import { useCart, cartLineKey } from '@/context/CartContext'
 import { formatPrice } from '@/lib/utils'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -142,7 +142,7 @@ function savedToNepalAddress(addr: SavedAddress): NepalAddress {
 
 export default function CheckoutClient({ user, initialAddresses }: CheckoutClientProps) {
   const router = useRouter()
-  const { items: cartItems, subtotal: cartSubtotal, clearCart, buyNowItem, clearBuyNow } = useCart()
+  const { items: cartItems, subtotal: cartSubtotal, clearCart, buyNowItem, clearBuyNow, syncPrices } = useCart()
 
   const isBuyNow      = buyNowItem !== null
   const hasCartItems  = cartItems.length > 0
@@ -679,6 +679,8 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
       const data = await res.json()
 
       if (!res.ok) {
+        // The server prices the order itself; when its figures differ it sends the current ones back.
+        if (data.code === 'PRICE_CHANGED' && Array.isArray(data.items)) syncPrices(data.items)
         showError(data.error ?? 'Order could not be created. Please try again.')
         setPlacing(false)
         return
@@ -1414,7 +1416,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
 
                 <div className="space-y-3 max-h-52 overflow-y-auto pr-1 mb-4">
                   {items.map(item => (
-                    <div key={item.id} className="flex items-center gap-3">
+                    <div key={cartLineKey(item)} className="flex items-center gap-3">
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-50 shrink-0">
                         <Image src={item.image} alt={item.name} fill sizes="48px" className="object-cover" />
                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center">

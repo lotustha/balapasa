@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useCart } from "@/context/CartContext";
+import { useCart, cartLineKey } from "@/context/CartContext";
 import { formatPrice, discountPercent } from "@/lib/utils";
 import { computeAutoDiscounts, type DiscountRule } from "@/lib/discounts";
 import {
@@ -334,7 +334,7 @@ export default function CartPage() {
               const isSaved = saved.has(item.id);
               return (
                 <div
-                  key={item.id}
+                  key={cartLineKey(item)}
                   className="glass-panel p-5 flex gap-4 animate-fade-in-up"
                   style={{ animationDelay: `${idx * 0.06}s` }}
                 >
@@ -379,7 +379,7 @@ export default function CartPage() {
                           />
                         </button>
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(cartLineKey(item))}
                           title="Remove"
                           className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 cursor-pointer transition-colors"
                           style={{ background: "rgba(255,255,255,0.55)" }}
@@ -413,7 +413,7 @@ export default function CartPage() {
                         style={{ background: "rgba(255,255,255,0.50)" }}
                       >
                         <button
-                          onClick={() => updateQty(item.id, item.quantity - 1)}
+                          onClick={() => updateQty(cartLineKey(item), item.quantity - 1)}
                           className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer text-slate-600"
                           style={{ background: "rgba(255,255,255,0.65)" }}
                         >
@@ -423,7 +423,7 @@ export default function CartPage() {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQty(item.id, item.quantity + 1)}
+                          onClick={() => updateQty(cartLineKey(item), item.quantity + 1)}
                           className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer text-slate-600"
                           style={{ background: "rgba(255,255,255,0.65)" }}
                         >
