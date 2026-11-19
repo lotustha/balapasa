@@ -37,21 +37,24 @@ async function save(db, shop, tokens) {
     [keyFor(shop), JSON.stringify(tokens)])
 }
 
-function fromEnv() {
-  const { DARAZ_ACCESS_TOKEN, DARAZ_REFRESH_TOKEN, DARAZ_TOKEN_EXPIRES_AT, DARAZ_REFRESH_EXPIRES_AT } = process.env
-  if (!DARAZ_ACCESS_TOKEN || !DARAZ_REFRESH_TOKEN) return null
+const ENV_PREFIX = { trendwave: 'DARAZ', balapasa: 'DARAZ_SHOP2' }
+
+function fromEnv(shop) {
+  const prefix = ENV_PREFIX[shop]
+  const env = name => process.env[`${prefix}_${name}`]
+  if (!prefix || !env('ACCESS_TOKEN') || !env('REFRESH_TOKEN')) return null
   return {
-    accessToken: DARAZ_ACCESS_TOKEN,
-    refreshToken: DARAZ_REFRESH_TOKEN,
-    expiresAt: Number(DARAZ_TOKEN_EXPIRES_AT) * 1000 || 0,
-    refreshExpiresAt: Number(DARAZ_REFRESH_EXPIRES_AT) * 1000 || 0,
+    accessToken: env('ACCESS_TOKEN'),
+    refreshToken: env('REFRESH_TOKEN'),
+    expiresAt: Number(env('TOKEN_EXPIRES_AT')) * 1000 || 0,
+    refreshExpiresAt: Number(env('REFRESH_EXPIRES_AT')) * 1000 || 0,
   }
 }
 
 // Call outside any transaction: a renewed token must be kept even if the sync later rolls back.
 export async function getAccessToken(db, shop = 'trendwave', now = Date.now()) {
   const row = (await db.query('SELECT value FROM app_settings WHERE key = $1', [keyFor(shop)])).rows[0]
-  const tokens = row ? JSON.parse(row.value) : fromEnv()
+  const tokens = row ? JSON.parse(row.value) : fromEnv(shop)
   if (!tokens) throw new Error(`No Daraz tokens for "${shop}" in app_settings or the environment`)
   if (!row) await save(db, shop, tokens)
 

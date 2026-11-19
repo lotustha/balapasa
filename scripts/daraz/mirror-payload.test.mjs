@@ -24,7 +24,7 @@ test('SKU: new SellerSku, prices, sale window, package fields and sale property;
   const [s] = buildCreatePayload(detail(), CAT).Request.Product.Skus.Sku
   assert.equal(s.SellerSku, 'TW-111'); assert.equal(sellerSkuFor(111), 'TW-111')
   assert.equal(s.price, 500); assert.equal(s.special_price, 299); assert.equal(s.quantity, 98)
-  assert.equal(s.special_from_date, '2025-01-08 12:00:01'); assert.equal(s.special_to_date, '2099-03-26 00:00:00')
+  assert.equal(s.special_from_date, '2025-01-08 14:15:01'); assert.equal(s.special_to_date, '2099-03-26 02:15:00')
   assert.equal(s.color_family, 'Gold'); assert.equal(s.package_weight, '0.1'); assert.equal(s.package_content, '1x thing')
   for (const k of ['SkuId', 'ShopSku', 'Url', 'Status', 'saleProp', 'multiWarehouseInventories', 'Images']) assert.equal(k in s, false, k)
 })

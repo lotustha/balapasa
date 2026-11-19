@@ -6,6 +6,16 @@ const SKU_FIELDS = ['package_weight', 'package_length', 'package_width', 'packag
 
 export const sellerSkuFor = sourceSkuId => `TW-${sourceSkuId}`
 
+// Daraz reads the sale times we send as UTC+8 and reports them back in Nepal time (UTC+5:45),
+// so a time must be sent 2h15m later than the value we want to read back.
+const WRITE_SHIFT_MS = 135 * 60 * 1000
+export function saleTimeForWrite(nepalTime) {
+  if (!nepalTime) return null
+  const d = new Date(`${String(nepalTime).trim().replace(' ', 'T')}Z`)
+  if (Number.isNaN(d.getTime())) return null
+  return new Date(d.getTime() + WRITE_SHIFT_MS).toISOString().slice(0, 19).replace('T', ' ')
+}
+
 // `detail` is /product/item/get data from the source shop; `categoryAttrs` is that category's attribute list
 // ([{ name, type: 'normal' | 'sku', mandatory, saleProp }]) as seen by the target shop.
 export function buildCreatePayload(detail, categoryAttrs) {
@@ -24,8 +34,8 @@ export function buildCreatePayload(detail, categoryAttrs) {
     const special = Number(s.special_price) || 0
     if (special > 0 && special < out.price) {
       out.special_price = special
-      if (s.special_from_time) out.special_from_date = s.special_from_time
-      if (s.special_to_time) out.special_to_date = s.special_to_time
+      if (s.special_from_time) out.special_from_date = saleTimeForWrite(s.special_from_time)
+      if (s.special_to_time) out.special_to_date = saleTimeForWrite(s.special_to_time)
     }
     for (const f of SKU_FIELDS) if (s[f] != null && s[f] !== '') out[f] = s[f]
     // Category-specific SKU attributes, including the sale properties that tell variants apart.

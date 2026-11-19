@@ -5,17 +5,18 @@
  *   node scripts/daraz/mirror-create.mjs --dry-run
  *   node scripts/daraz/mirror-create.mjs [--limit N]
  *   node scripts/daraz/mirror-create.mjs --replace-own-copies   also copy products Bala Pasa already lists under its own SKUs
+ *   node scripts/daraz/mirror-create.mjs --set name=value        supply a required attribute the source lacks (repeatable)
  *
  * Needs DARAZ_ACCESS_TOKEN (TrendWave) and DARAZ_SHOP2_ACCESS_TOKEN (Bala Pasa) in the environment.
  */
-import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { darazGet, darazPost, fetchProducts } from './api.mjs'
-import { buildCreatePayload, missingMandatory, sellerSkuFor } from './mirror-payload.mjs'
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { fetchProducts } from './api.mjs'
+import { sellerSkuFor } from './mirror-payload.mjs'
+import { createMirror } from './mirror-lib.mjs'
 
 const DRY_RUN = process.argv.includes('--dry-run')
-const limit = process.argv.includes('--limit') ? Number(process.argv[process.argv.indexOf('--limit') + 1]) : Infinity
 const REPLACE_OWN = process.argv.includes('--replace-own-copies')
-// --set name=value supplies a required attribute the source listing lacks (repeatable).
+const limit = process.argv.includes('--limit') ? Number(process.argv[process.argv.indexOf('--limit') + 1]) : Infinity
 const overrides = Object.fromEntries(process.argv.flatMap((a, i, all) => (a === '--set' && all[i + 1]?.includes('=') ? [all[i + 1].split(/=(.*)/s).slice(0, 2)] : [])))
 const MAX_CONSECUTIVE_FAILURES = 5
 const TW = process.env.DARAZ_ACCESS_TOKEN, BP = process.env.DARAZ_SHOP2_ACCESS_TOKEN
@@ -27,17 +28,7 @@ const activeSkus = p => (p.skus ?? []).filter(s => s.Status === 'active' && Numb
 
 mkdirSync('scripts/daraz/snapshots', { recursive: true })
 const LOG = 'scripts/daraz/snapshots/mirror-create-log.jsonl'
-const CACHE = 'scripts/daraz/snapshots/category-attrs.json'
-const catCache = existsSync(CACHE) ? JSON.parse(readFileSync(CACHE, 'utf8')) : {}
-
-async function categoryAttrs(id) {
-  if (!catCache[id] || catCache[id].some(a => a.options === undefined)) {
-    const r = await darazGet('/category/attributes/get', { primary_category_id: id, language_code: 'en_US' }, { accessToken: BP })
-    catCache[id] = (r.data ?? []).map(a => ({ name: a.name, type: a.attribute_type, mandatory: a.is_mandatory == 1, saleProp: a.is_sale_prop == 1, options: (a.options ?? []).map(o => o.name) }))
-    writeFileSync(CACHE, JSON.stringify(catCache))
-  }
-  return catCache[id]
-}
+const log = entry => appendFileSync(LOG, JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n')
 
 const [tw, bp] = [await fetchProducts(TW), await fetchProducts(BP)]
 const bpSellerSkus = new Set(bp.flatMap(p => p.skus.map(s => s.SellerSku)))
@@ -56,40 +47,22 @@ console.log(`TrendWave sellable: ${already.length + hadBefore.length + todo.leng
 let created = 0, skipped = 0, failed = 0, streak = 0
 for (const p of todo) {
   if (created >= limit) break
-  const detail = (await darazGet('/product/item/get', { item_id: String(p.item_id) }, { accessToken: TW })).data
-  const attrs = await categoryAttrs(String(detail.primary_category))
-  const payload = buildCreatePayload(detail, attrs)
-  // Fill required fields the source lacks, but only with neutral values: an explicit --set, Daraz's own
-  // "Other" choice, or a package-contents line in the form the seller already uses.
-  if (payload) {
-    const product = payload.Request.Product
-    for (const name of missingMandatory(payload, attrs)) {
-      const attr = attrs.find(a => a.name === name)
-      const value = overrides[name] ?? (attr.options.includes('Other') ? 'Other' : name === 'package_content' ? `1 x ${product.Attributes.name}`.slice(0, 250) : null)
-      if (value == null) continue
-      if (attr.type === 'sku') for (const sku of product.Skus.Sku) sku[name] ??= value
-      else product.Attributes[name] = value
-    }
-  }
-  const lacking = payload ? missingMandatory(payload, attrs) : ['active sku']
-  if (lacking.length) {
-    skipped++
-    console.log(`SKIP ${p.item_id} ${p.attributes.name.slice(0, 50)}: missing ${lacking.join(', ')}`)
-    appendFileSync(LOG, JSON.stringify({ at: new Date().toISOString(), source: p.item_id, skipped: lacking }) + '\n')
-    continue
-  }
-  if (DRY_RUN) { created++; continue }
   try {
-    const res = await darazPost('/product/create', { payload: JSON.stringify(payload) }, { accessToken: BP })
+    const res = await createMirror(p.item_id, { sourceToken: TW, targetToken: BP, overrides, dryRun: DRY_RUN })
+    if (res.skipped) {
+      skipped++
+      console.log(`SKIP ${p.item_id} ${p.attributes.name.slice(0, 50)}: missing ${res.skipped.join(', ')}`)
+      log({ source: p.item_id, skipped: res.skipped })
+      continue
+    }
     created++; streak = 0
-    appendFileSync(LOG, JSON.stringify({ at: new Date().toISOString(), source: p.item_id, created: res.data }) + '\n')
-    if (created % 25 === 0) console.log(`... ${created} created`)
+    if (!DRY_RUN) { log({ source: p.item_id, created: res.created }); if (created % 25 === 0) console.log(`... ${created} created`) }
   } catch (err) {
     failed++; streak++
     console.log(`FAIL ${p.item_id} ${p.attributes.name.slice(0, 50)}: ${err.message.slice(0, 300)}`)
-    appendFileSync(LOG, JSON.stringify({ at: new Date().toISOString(), source: p.item_id, error: err.message }) + '\n')
+    log({ source: p.item_id, error: err.message })
     if (streak >= MAX_CONSECUTIVE_FAILURES) { console.log(`stopping: ${streak} failures in a row`); break }
   }
-  await sleep(1000)
+  if (!DRY_RUN) await sleep(1000)
 }
 console.log(`${DRY_RUN ? 'would create' : 'created'}: ${created} | skipped (missing required fields): ${skipped} | failed: ${failed}`)
