@@ -3,8 +3,9 @@
  * answers a fixed set of commands from the configured "commanding numbers".
  *
  * Local-only HTTP API (127.0.0.1), every request needs `Authorization: Bearer <WA_NOTIFY_TOKEN>`:
- *   GET  /status                       { connected, me, pairing, commanders }
- *   POST /pair        { number }       link an account: returns { code } to enter on the phone
+ *   GET  /status                       { connected, me, pairing, qr, commanders }
+ *   POST /link-qr                      link an account by QR: returns { qr }, later ones arrive in /status
+ *   POST /pair        { number }       link an account by number: returns { code } to enter on the phone
  *   POST /logout                       unlink the account and forget the session
  *   PUT  /commanders  { numbers: [] }  replace the commanding numbers
  *   POST /send        { text, to? }    send to `to`, or to every commanding number
@@ -56,9 +57,12 @@ let sock = null
 let connected = false
 let generation = 0
 let pairing = null // { number, code, requestedAt }
+let qrCode = null // latest QR payload while linking by QR
 let pairWaiter = null
 
-async function connect({ pairNumber = null } = {}) {
+// `linked` = this session has been accepted by a phone before. While it is false we are in the middle of
+// linking (by QR, or by pairing code when `pairNumber` is set) and a dropped connection means "start over".
+async function connect({ pairNumber = null, linked = false } = {}) {
   const mine = ++generation
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined }))
@@ -77,21 +81,28 @@ async function connect({ pairNumber = null } = {}) {
 
   s.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (mine !== generation) return
-    if (qr && !state.creds.registered && pairNumber && !requested) {
-      requested = true
-      try {
-        const code = await s.requestPairingCode(pairNumber)
-        pairing = { number: pairNumber, code, requestedAt: new Date().toISOString() }
-        log(`pairing code issued for ${pairNumber}`)
-        pairWaiter?.resolve(code)
-      } catch (err) {
-        log(`pairing code request failed: ${err.message}`)
-        pairWaiter?.reject(err)
+    if (qr && !linked) {
+      if (!pairNumber) {
+        qrCode = qr
+        pairWaiter?.resolve(qr)
+      } else if (!requested) {
+        requested = true
+        try {
+          const code = await s.requestPairingCode(pairNumber)
+          pairing = { number: pairNumber, code, requestedAt: new Date().toISOString() }
+          log(`pairing code issued for ${pairNumber}`)
+          pairWaiter?.resolve(code)
+        } catch (err) {
+          log(`pairing code request failed: ${err.message}`)
+          pairWaiter?.reject(err)
+        }
       }
     }
     if (connection === 'open') {
       connected = true
+      linked = true
       pairing = null
+      qrCode = null
       log(`connected as ${s.user?.id}`)
     }
     if (connection === 'close') {
@@ -99,21 +110,23 @@ async function connect({ pairNumber = null } = {}) {
       const status = lastDisconnect?.error?.output?.statusCode
       if (status === DisconnectReason.loggedOut) {
         log('logged out by WhatsApp; session cleared, waiting to be linked again')
-        rmSync(AUTH_DIR, { recursive: true, force: true })
-        pairing = null
+        resetLink()
         return
       }
-      // An unused pairing code cannot be resumed: forget the half-made session and wait for a new /pair.
-      if (!state.creds.registered) {
-        if (pairNumber) log(`pairing code for ${pairNumber} was not used in time`)
-        generation++
-        sock = null
-        pairing = null
-        rmSync(AUTH_DIR, { recursive: true, force: true })
+      // Right after the phone accepts, WhatsApp asks for a reconnect with the session it just issued.
+      if (status === DisconnectReason.restartRequired) {
+        log('phone accepted the link, reconnecting')
+        connect({ linked: true }).catch(err => log(`reconnect failed: ${err.message}`))
+        return
+      }
+      // The QR or pairing code was not used in time: a half-made session cannot be resumed.
+      if (!linked) {
+        log(`linking was not completed in time (${status ?? 'unknown'})`)
+        resetLink()
         return
       }
       log(`connection closed (${status ?? 'unknown'}), reconnecting in 5s`)
-      setTimeout(() => { if (mine === generation) connect().catch(err => log(`reconnect failed: ${err.message}`)) }, 5000)
+      setTimeout(() => { if (mine === generation) connect({ linked: true }).catch(err => log(`reconnect failed: ${err.message}`)) }, 5000)
     }
   })
 
@@ -128,6 +141,26 @@ function stopSocket() {
   connected = false
   try { sock?.end?.(undefined) } catch { /* already closed */ }
   sock = null
+}
+
+function resetLink() {
+  stopSocket()
+  pairing = null
+  qrCode = null
+  rmSync(AUTH_DIR, { recursive: true, force: true })
+}
+
+// Start linking and wait for WhatsApp's first answer: a QR payload, or a pairing code when a number is given.
+async function startLinking(pairNumber) {
+  resetLink()
+  const waiting = new Promise((resolve, reject) => { pairWaiter = { resolve, reject } })
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not answer in time, try again')), 30000))
+  try {
+    await connect({ pairNumber })
+    return await Promise.race([waiting, timeout])
+  } finally {
+    pairWaiter = null
+  }
 }
 
 // ── commands ────────────────────────────────────────────────────────────────
@@ -224,7 +257,7 @@ function readBody(req) {
 }
 
 const reply = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)) }
-const statusBody = () => ({ connected, me: connected ? sock?.user?.id?.split(':')[0]?.split('@')[0] ?? null : null, pairing, commanders: config.commanders })
+const statusBody = () => ({ connected, me: connected ? sock?.user?.id?.split(':')[0]?.split('@')[0] ?? null : null, pairing, qr: qrCode, commanders: config.commanders })
 
 async function route(req, res) {
   const key = `${req.method} ${req.url}`
@@ -236,27 +269,25 @@ async function route(req, res) {
     const number = normalizeNumber((await readBody(req)).number)
     if (!number) return reply(res, 400, { error: 'Enter the WhatsApp number with country code, digits only' })
     if (connected) return reply(res, 409, { error: 'An account is already linked. Disconnect it first.' })
-    stopSocket()
-    rmSync(AUTH_DIR, { recursive: true, force: true })
-    pairing = null
-    const waiting = new Promise((resolve, reject) => { pairWaiter = { resolve, reject } })
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp did not answer in time, try again')), 30000))
-    await connect({ pairNumber: number })
     try {
-      const code = await Promise.race([waiting, timeout])
-      return reply(res, 200, { code, number })
+      return reply(res, 200, { code: await startLinking(number), number })
     } catch (err) {
       return reply(res, 502, { error: err.message })
-    } finally {
-      pairWaiter = null
+    }
+  }
+
+  if (key === 'POST /link-qr') {
+    if (connected) return reply(res, 409, { error: 'An account is already linked. Disconnect it first.' })
+    try {
+      return reply(res, 200, { qr: await startLinking(null) })
+    } catch (err) {
+      return reply(res, 502, { error: err.message })
     }
   }
 
   if (key === 'POST /logout') {
     try { await sock?.logout?.() } catch { /* already gone */ }
-    stopSocket()
-    rmSync(AUTH_DIR, { recursive: true, force: true })
-    pairing = null
+    resetLink()
     return reply(res, 200, statusBody())
   }
 
@@ -289,5 +320,5 @@ http.createServer((req, res) => {
 }).listen(PORT, '127.0.0.1', () => log(`listening on 127.0.0.1:${PORT}`))
 
 // Resume a linked session on start; an unlinked bot waits for /pair.
-if (existsSync(path.join(AUTH_DIR, 'creds.json'))) connect().catch(err => log(`startup failed: ${err.message}`))
+if (existsSync(path.join(AUTH_DIR, 'creds.json'))) connect({ linked: true }).catch(err => log(`startup failed: ${err.message}`))
 else log('no WhatsApp account linked yet')

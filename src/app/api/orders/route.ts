@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { esewaFormData, getEsewaPaymentUrl, khaltiInitiate } from '@/lib/payment'
 import { getCurrentUser } from '@/lib/auth'
 import { pushOrderEvent, pushToStaff } from '@/lib/push'
+import { sendOrderAlert } from '@/lib/wa-bot'
 import { validateCoupon } from '@/lib/coupons'
 import { validateGiftCard } from '@/lib/gift-cards'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
@@ -561,6 +562,21 @@ export async function POST(req: NextRequest) {
     ;(async () => {
       try {
         const settings = await getSiteSettings()
+
+        // WhatsApp alert to the bot's commanding numbers; independent of the email settings below.
+        void sendOrderAlert({
+          code:          orderCode ?? order.id,
+          express:       expressOk,
+          customer:      name,
+          phone,
+          total,
+          paymentMethod,
+          shipping:      shippingOption ?? null,
+          address:       [address, city].filter(Boolean).join(', '),
+          items:         stockUpdates.map(u => ({ name: u.name, quantity: u.deducted })),
+          adminUrl:      `${settings.storeUrl}/admin/orders/${order.id}`,
+        })
+
         const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
           SELECT key, value FROM app_settings
           WHERE key IN ('ORDER_NOTIFICATION_EMAIL', 'LOW_STOCK_THRESHOLD', 'LOW_STOCK_NOTIFICATION_EMAIL',

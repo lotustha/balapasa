@@ -5,6 +5,7 @@ export interface WaBotStatus {
   connected: boolean
   me: string | null
   pairing: { number: string; code: string; requestedAt: string } | null
+  qr: string | null
   commanders: string[]
 }
 
@@ -34,4 +35,41 @@ export async function waBot<T>(path: string, init: { method?: string; body?: unk
 
 export function waBotResponse<T>(result: WaBotResult<T>): Response {
   return result.ok ? Response.json(result.data) : Response.json({ error: result.error }, { status: result.status })
+}
+
+export interface OrderAlert {
+  code: string
+  express: boolean
+  customer: string
+  phone: string
+  total: number
+  paymentMethod: string
+  shipping: string | null
+  address: string
+  items: { name: string; quantity: number }[]
+  adminUrl: string
+}
+
+const MAX_ALERT_ITEMS = 8
+
+export function newOrderText(o: OrderAlert): string {
+  const shown = o.items.slice(0, MAX_ALERT_ITEMS).map(i => `- ${i.quantity} x ${i.name.slice(0, 70)}`)
+  if (o.items.length > MAX_ALERT_ITEMS) shown.push(`- and ${o.items.length - MAX_ALERT_ITEMS} more`)
+  return [
+    o.express ? `NEW EXPRESS ORDER ${o.code} (dispatch today)` : `NEW ORDER ${o.code}`,
+    `${o.customer}, ${o.phone}`,
+    `Rs. ${Math.round(o.total).toLocaleString('en-IN')} | ${o.paymentMethod}${o.shipping ? ` | ${o.shipping}` : ''}`,
+    o.address,
+    '',
+    ...shown,
+    '',
+    o.adminUrl,
+  ].join('\n')
+}
+
+// Tells the bot's commanding numbers about a new order. Never throws and never delays the checkout.
+export async function sendOrderAlert(order: OrderAlert): Promise<void> {
+  if (!waBotConfigured()) return
+  const result = await waBot('/send', { method: 'POST', body: { text: newOrderText(order) } })
+  if (!result.ok) console.warn('[orders] WhatsApp order alert not sent:', result.error)
 }

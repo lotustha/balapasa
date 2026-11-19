@@ -1,14 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 import {
-  Bot, CheckCircle2, Loader2, Plus, Send, Smartphone, Trash2, Unplug, AlertTriangle, Terminal,
+  Bot, CheckCircle2, Loader2, Plus, QrCode, Send, Smartphone, Trash2, Unplug, AlertTriangle, Terminal,
 } from 'lucide-react'
 
 interface Status {
   connected: boolean
   me: string | null
   pairing: { number: string; code: string; requestedAt: string } | null
+  qr: string | null
   commanders: string[]
 }
 
@@ -44,6 +46,20 @@ const card = 'bg-white rounded-2xl border border-slate-100 p-5 sm:p-6'
 const input = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
 const primaryBtn = 'inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
 
+// WhatsApp replaces the QR payload every few seconds; this redraws whenever a new one arrives.
+function QrImage({ payload }: { payload: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    QRCode.toDataURL(payload, { width: 288, margin: 2, errorCorrectionLevel: 'L' }).then(url => { if (alive) setSrc(url) }).catch(() => { if (alive) setSrc(null) })
+    return () => { alive = false }
+  }, [payload])
+  return src
+    // eslint-disable-next-line @next/next/no-img-element -- a generated data URL, nothing for next/image to optimise
+    ? <img src={src} width={288} height={288} alt="QR code to link WhatsApp" className="rounded-2xl border border-slate-100" />
+    : <div className="w-72 h-72 rounded-2xl bg-slate-50 flex items-center justify-center"><Loader2 size={24} className="animate-spin text-primary" /></div>
+}
+
 export default function WhatsAppBotPage() {
   const [status, setStatus] = useState<Status | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -75,6 +91,7 @@ export default function WhatsAppBotPage() {
   }
 
   const pair = () => act<{ code: string; number: string }>('pair', '/pair', { method: 'POST', body: JSON.stringify({ number }) }, () => refresh())
+  const showQr = () => act<{ qr: string }>('qr', '/qr', { method: 'POST' }, () => refresh())
   const logout = () => {
     if (!confirm('Disconnect this WhatsApp account? Alerts and commands stop until an account is connected again.')) return
     act<Status>('logout', '/logout', { method: 'POST' }, data => { setStatus(data); setNotice({ kind: 'ok', text: 'Account disconnected.' }) })
@@ -130,6 +147,17 @@ export default function WhatsAppBotPage() {
                   {busy === 'logout' ? <Loader2 size={15} className="animate-spin" /> : <Unplug size={15} />} Disconnect
                 </button>
               </div>
+            ) : status.qr ? (
+              <div>
+                <p className="text-sm text-slate-600 mb-4">Scan this with the phone whose WhatsApp the bot should send from:</p>
+                <div className="flex justify-center"><QrImage payload={status.qr} /></div>
+                <ol className="mt-4 text-sm text-slate-600 space-y-1.5 list-decimal pl-5">
+                  <li>Open WhatsApp on that phone.</li>
+                  <li>Go to <span className="font-semibold">Settings → Linked devices → Link a device</span>.</li>
+                  <li>Point the camera at this code.</li>
+                </ol>
+                <p className="mt-4 flex items-center gap-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Waiting for the scan. The code refreshes by itself for about a minute.</p>
+              </div>
             ) : status.pairing ? (
               <div>
                 <p className="text-sm text-slate-600">Enter this code on the phone that has <span className="font-bold">{prettyNumber(status.pairing.number)}</span>:</p>
@@ -145,17 +173,25 @@ export default function WhatsAppBotPage() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={e => { e.preventDefault(); pair() }}>
-                <label htmlFor="wa-number" className="block text-sm font-semibold text-slate-700 mb-1.5">Number the bot will send from</label>
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <input id="wa-number" inputMode="tel" autoComplete="off" value={number} onChange={e => setNumber(e.target.value)}
-                    placeholder="98XXXXXXXX" className={input} />
-                  <button type="submit" disabled={busy !== null || number.replace(/\D/g, '').length < 8} className={`${primaryBtn} shrink-0`}>
-                    {busy === 'pair' ? <Loader2 size={15} className="animate-spin" /> : <Smartphone size={15} />} Get pairing code
-                  </button>
-                </div>
-                <p className="text-xs text-slate-400 mt-2">A Nepali number can be typed without the country code. Use a spare number: automated accounts can be banned by WhatsApp.</p>
-              </form>
+              <div>
+                <button onClick={showQr} disabled={busy !== null} className={primaryBtn}>
+                  {busy === 'qr' ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />} Show QR code
+                </button>
+                <p className="text-xs text-slate-400 mt-2">Scan it from the phone, like WhatsApp Web. Use a spare number: automated accounts can be banned by WhatsApp.</p>
+
+                <form onSubmit={e => { e.preventDefault(); pair() }} className="mt-6 pt-5 border-t border-slate-100">
+                  <label htmlFor="wa-number" className="block text-sm font-semibold text-slate-700 mb-1.5">Or link with the phone number instead</label>
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <input id="wa-number" inputMode="tel" autoComplete="off" value={number} onChange={e => setNumber(e.target.value)}
+                      placeholder="98XXXXXXXX" className={input} />
+                    <button type="submit" disabled={busy !== null || number.replace(/\D/g, '').length < 8}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-primary border border-primary/30 rounded-xl hover:bg-primary/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0">
+                      {busy === 'pair' ? <Loader2 size={15} className="animate-spin" /> : <Smartphone size={15} />} Get pairing code
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">A Nepali number can be typed without the country code. You then type an 8-character code on the phone.</p>
+                </form>
+              </div>
             )}
           </section>
 
