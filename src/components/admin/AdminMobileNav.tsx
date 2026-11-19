@@ -1,40 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Monitor,
-  LogOut, Bell, ChevronLeft, MoreHorizontal, X,
+  LogOut, Bell, ChevronLeft, ChevronDown, MoreHorizontal, Search, Star, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { NAV_GROUPS } from './AdminNav'
+import { hasRole, pageMinRole } from '@/lib/admin-access'
+import { toggleGroup, togglePin } from '@/lib/admin-nav-prefs'
+import { ALL_NAV_ITEMS, DEFAULT_PINS, isActivePath, searchNav, type NavItem } from './admin-nav-items'
+import { DEFAULT_OPEN_GROUPS, useAdminNav } from './useAdminNav'
 
-type Role = 'STAFF' | 'MANAGER' | 'ADMIN'
-const ROLE_RANK: Record<Role, number> = { STAFF: 1, MANAGER: 2, ADMIN: 3 }
-
-interface BottomTab { href: string; icon: LucideIcon; label: string; minRole: Role }
+interface BottomTab { href: string; icon: LucideIcon; label: string }
 
 // Bottom-tab "primary" routes — kept as the daily-driver shortcuts even after
 // the More sheet was switched to the grouped IA. Order matters (POS gets the
 // raised FAB treatment when present).
 const BOTTOM_TABS: BottomTab[] = [
-  { href: '/admin',         icon: LayoutDashboard, label: 'Home',     minRole: 'STAFF' },
-  { href: '/admin/orders',  icon: ShoppingBag,     label: 'Orders',   minRole: 'STAFF' },
-  { href: '/admin/pos',     icon: Monitor,         label: 'POS',      minRole: 'STAFF' },
-  { href: '/admin/products', icon: Package,        label: 'Products', minRole: 'MANAGER' },
+  { href: '/admin',          icon: LayoutDashboard, label: 'Home'     },
+  { href: '/admin/orders',   icon: ShoppingBag,     label: 'Orders'   },
+  { href: '/admin/pos',      icon: Monitor,         label: 'POS'      },
+  { href: '/admin/products', icon: Package,         label: 'Products' },
 ]
-const BOTTOM_HREFS = new Set(BOTTOM_TABS.map(t => t.href))
-
-function canAccess(role: Role, minRole: Role) {
-  return ROLE_RANK[role] >= ROLE_RANK[minRole]
-}
-
-function activeHref(pathname: string, href: string) {
-  if (href === '/admin') return pathname === '/admin'
-  return pathname.startsWith(href)
-}
 
 interface AdminMobileNavProps {
   logoUrl:  string
@@ -43,12 +33,10 @@ interface AdminMobileNavProps {
 
 export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProps) {
   const pathname = usePathname()
-  const [role, setRole] = useState<Role>('ADMIN')
+  const { me, groups, pinned, pinnedHrefs, isGroupOpen } = useAdminNav()
+  const role = me.role
   const [moreOpen, setMoreOpen] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.role) setRole(d.role) }).catch(() => {})
-  }, [])
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     if (!moreOpen) return
@@ -57,19 +45,38 @@ export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProp
     return () => { document.body.style.overflow = prev }
   }, [moreOpen])
 
-  const primaryItems = BOTTOM_TABS.filter(t => canAccess(role, t.minRole))
+  const closeSheet = () => { setMoreOpen(false); setQuery('') }
+  const activeHref = (href: string) => isActivePath(pathname, href)
+  const primaryItems = BOTTOM_TABS.filter(t => hasRole(role, pageMinRole(t.href)))
+  const found = useMemo(() => searchNav(groups, query), [groups, query])
 
-  // Build grouped overflow: same shape as desktop NAV_GROUPS, minus items
-  // already pinned to the bottom bar, with role-filter applied.
-  const overflowGroups = NAV_GROUPS
-    .map(g => ({ ...g, items: g.items.filter(i => !BOTTOM_HREFS.has(i.href) && canAccess(role, i.minRole as Role)) }))
-    .filter(g => g.items.length > 0)
-
-  // Title for top bar — match the deepest nav entry across all groups
-  const allItems = NAV_GROUPS.flatMap(g => g.items)
-  const matched = [...allItems].sort((a, b) => b.href.length - a.href.length).find(n => activeHref(pathname, n.href))
+  // Title for top bar: the deepest nav entry that matches the current path.
+  const matched = [...ALL_NAV_ITEMS].sort((a, b) => b.href.length - a.href.length).find(n => activeHref(n.href))
   const title = matched?.label ?? 'Admin'
   const isDetailPage = pathname.split('/').filter(Boolean).length > 2
+
+  function tile(item: NavItem) {
+    const Icon = item.icon
+    const active = activeHref(item.href)
+    const isPinned = pinnedHrefs.includes(item.href)
+    return (
+      <div key={item.href}
+        className={`flex items-center rounded-2xl border transition-colors ${active ? 'bg-primary-bg border-primary/20' : 'bg-white border-slate-100'}`}>
+        <Link href={item.href} onClick={closeSheet} aria-current={active ? 'page' : undefined}
+          className="flex-1 min-w-0 flex items-center gap-3 p-3 cursor-pointer">
+          <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
+            <Icon size={17} aria-hidden="true" />
+          </span>
+          <span className={`text-sm font-bold truncate ${active ? 'text-primary' : 'text-slate-800'}`}>{item.label}</span>
+        </Link>
+        <button type="button" onClick={() => togglePin(item.href, DEFAULT_PINS)}
+          aria-label={isPinned ? `Unpin ${item.label}` : `Pin ${item.label}`} aria-pressed={isPinned}
+          className="shrink-0 w-11 h-11 flex items-center justify-center cursor-pointer">
+          <Star size={15} fill={isPinned ? 'currentColor' : 'none'} className={isPinned ? 'text-amber-400' : 'text-slate-300'} aria-hidden="true" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -127,7 +134,7 @@ export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProp
         <div className="flex items-stretch h-16 px-1">
           {primaryItems.map(item => {
             const Icon = item.icon
-            const active = activeHref(pathname, item.href)
+            const active = activeHref(item.href)
             const isPos = item.href === '/admin/pos'
             if (isPos) {
               return (
@@ -183,7 +190,7 @@ export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProp
         <>
           <button
             aria-label="Close menu"
-            onClick={() => setMoreOpen(false)}
+            onClick={closeSheet}
             className="md:hidden fixed inset-0 z-50 bg-black/50 animate-fade-in cursor-pointer"
           />
           <div
@@ -200,10 +207,10 @@ export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProp
             <div className="flex items-center justify-between px-5 pb-2">
               <div>
                 <p className="font-heading font-extrabold text-slate-900 text-lg leading-tight">All sections</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Tap to navigate</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Search, or tap a section to open it</p>
               </div>
               <button
-                onClick={() => setMoreOpen(false)}
+                onClick={closeSheet}
                 aria-label="Close"
                 className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
               >
@@ -211,35 +218,47 @@ export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProp
               </button>
             </div>
 
-            <div className="px-3 pt-1 pb-3 space-y-4 max-h-[60vh] overflow-y-auto">
-              {overflowGroups.map(group => (
-                <div key={group.label}>
-                  <p className="px-2 mb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">{group.label}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {group.items.map(item => {
-                      const Icon = item.icon
-                      const active = activeHref(pathname, item.href)
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMoreOpen(false)}
-                          className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors cursor-pointer ${
-                            active
-                              ? 'bg-primary-bg border-primary/20'
-                              : 'bg-white border-slate-100 hover:bg-slate-50 active:bg-slate-100'
-                          }`}
-                        >
-                          <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
-                            <Icon size={17} />
+            <div className="px-4 pb-2">
+              <div className="relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a page" aria-label="Find a page"
+                  className="w-full pl-10 pr-3 py-3 rounded-2xl text-sm border border-slate-200 bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" />
+              </div>
+            </div>
+
+            <div className="px-3 pt-1 pb-3 space-y-3 max-h-[58vh] overflow-y-auto">
+              {query.trim() ? (
+                found.length > 0
+                  ? <div className="grid grid-cols-1 gap-2">{found.map(tile)}</div>
+                  : <p className="px-2 py-8 text-center text-sm text-slate-400">No page matches &ldquo;{query}&rdquo;</p>
+              ) : (
+                <>
+                  {pinned.length > 0 && (
+                    <div>
+                      <p className="px-2 mb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Pinned</p>
+                      <div className="grid grid-cols-1 gap-2">{pinned.map(tile)}</div>
+                    </div>
+                  )}
+                  {groups.map(group => {
+                    const rest = group.items.filter(i => !pinnedHrefs.includes(i.href))
+                    if (rest.length === 0) return null
+                    const open = isGroupOpen(group.label)
+                    return (
+                      <div key={group.label}>
+                        <button type="button" onClick={() => toggleGroup(group.label, DEFAULT_OPEN_GROUPS)} aria-expanded={open}
+                          className="w-full flex items-center justify-between px-2 py-2.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-widest cursor-pointer">
+                          <span>{group.label}</span>
+                          <span className="flex items-center gap-1.5">
+                            {!open && <span className="font-bold normal-case tracking-normal text-slate-400">{rest.length}</span>}
+                            <ChevronDown size={15} className={`transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden="true" />
                           </span>
-                          <span className={`text-sm font-bold ${active ? 'text-primary' : 'text-slate-800'}`}>{item.label}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
+                        </button>
+                        {open && <div className="grid grid-cols-1 gap-2">{rest.map(tile)}</div>}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </div>
 
             <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-3">
@@ -257,7 +276,7 @@ export default function AdminMobileNav({ logoUrl, siteName }: AdminMobileNavProp
               </div>
               <Link
                 href="/"
-                onClick={() => setMoreOpen(false)}
+                onClick={closeSheet}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <LogOut size={13} /> Store

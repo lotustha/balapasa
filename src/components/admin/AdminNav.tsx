@@ -1,103 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Settings, BarChart3, Truck, LogOut, Ticket, Zap, MessageCircle, DollarSign, Monitor,
-  ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles, RotateCcw,
-  MessageCircleQuestion, Star, Wallet, Award, Share2, Bot,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { ChevronDown, LogOut, Search, Star } from 'lucide-react'
 import BrandText from '@/components/ui/BrandText'
+import { toggleGroup, togglePin } from '@/lib/admin-nav-prefs'
+import { DEFAULT_PINS, type NavItem } from './admin-nav-items'
+import { DEFAULT_OPEN_GROUPS, useAdminNav } from './useAdminNav'
+import AdminCommandPalette from './AdminCommandPalette'
 
-type Role = 'STAFF' | 'MANAGER' | 'ADMIN'
-const ROLE_RANK: Record<Role, number> = { STAFF: 1, MANAGER: 2, ADMIN: 3 }
-
-interface NavItem  { href: string; icon: LucideIcon; label: string; minRole: Role }
-interface NavGroup { label: string; items: NavItem[] }
-
-// Grouped IA — 7 sections, each ≤ 4 items.
-// Items are role-filtered at render. Empty groups (after filtering) are hidden.
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Operations',
-    items: [
-      { href: '/admin',         icon: LayoutDashboard, label: 'Dashboard', minRole: 'STAFF' },
-      { href: '/admin/orders',  icon: ShoppingBag,     label: 'Orders',    minRole: 'STAFF' },
-      { href: '/admin/returns', icon: RotateCcw,       label: 'Returns',   minRole: 'STAFF' },
-      { href: '/admin/pos',     icon: Monitor,         label: 'POS',       minRole: 'STAFF' },
-    ],
-  },
-  {
-    label: 'Catalog',
-    items: [
-      { href: '/admin/products',   icon: Package, label: 'Products',   minRole: 'MANAGER' },
-      { href: '/admin/inventory',  icon: Boxes,   label: 'Inventory',  minRole: 'MANAGER' },
-      { href: '/admin/categories', icon: Tag,     label: 'Categories', minRole: 'MANAGER' },
-      { href: '/admin/media',      icon: Library, label: 'Media',      minRole: 'MANAGER' },
-      { href: '/admin/suppliers',  icon: Factory, label: 'Suppliers',  minRole: 'MANAGER' },
-      { href: '/admin/plans',      icon: Repeat,  label: 'Plans',      minRole: 'MANAGER' },
-    ],
-  },
-  {
-    label: 'Customers',
-    items: [
-      { href: '/admin/customers',     icon: Users,  label: 'Customers',     minRole: 'MANAGER' },
-      { href: '/admin/subscriptions', icon: Repeat, label: 'Subscriptions', minRole: 'MANAGER' },
-      { href: '/admin/store-credit',  icon: Wallet, label: 'Store Credit',  minRole: 'MANAGER' },
-      { href: '/admin/referrals',     icon: Share2, label: 'Referrals',     minRole: 'MANAGER' },
-    ],
-  },
-  {
-    label: 'Community',
-    items: [
-      { href: '/admin/qa',      icon: MessageCircleQuestion, label: 'Questions', minRole: 'MANAGER' },
-      { href: '/admin/reviews', icon: Star,                  label: 'Reviews',   minRole: 'MANAGER' },
-    ],
-  },
-  {
-    label: 'Marketing',
-    items: [
-      { href: '/admin/promotions', icon: Zap,    label: 'Promotions', minRole: 'MANAGER' },
-      { href: '/admin/coupons',    icon: Ticket, label: 'Coupons',    minRole: 'MANAGER' },
-      { href: '/admin/gift-cards', icon: Gift,   label: 'Gift Cards', minRole: 'MANAGER' },
-      { href: '/admin/loyalty',    icon: Award,  label: 'Loyalty',    minRole: 'MANAGER' },
-    ],
-  },
-  {
-    label: 'Reports',
-    items: [
-      { href: '/admin/analytics',  icon: BarChart3,  label: 'Analytics',  minRole: 'MANAGER' },
-      { href: '/admin/finance',    icon: DollarSign, label: 'Finance',    minRole: 'MANAGER' },
-      { href: '/admin/invoices',   icon: FileText,   label: 'Invoices',   minRole: 'MANAGER' },
-      { href: '/admin/seo-tools',  icon: Sparkles,   label: 'SEO Content', minRole: 'MANAGER' },
-    ],
-  },
-  {
-    label: 'Channels',
-    items: [
-      { href: '/admin/logistics', icon: Truck,         label: 'Logistics', minRole: 'ADMIN' },
-      { href: '/admin/messaging', icon: MessageCircle, label: 'Messaging', minRole: 'STAFF' },
-      { href: '/admin/whatsapp-bot', icon: Bot, label: 'WhatsApp Bot', minRole: 'ADMIN' },
-      { href: '/admin/emails',    icon: Mail,          label: 'Emails',    minRole: 'ADMIN' },
-      { href: '/admin/import',    icon: Download,      label: 'Import',    minRole: 'MANAGER' },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      { href: '/admin/team',     icon: ShieldCheck, label: 'Team',     minRole: 'ADMIN' },
-      { href: '/admin/settings', icon: Settings,    label: 'Settings', minRole: 'ADMIN' },
-    ],
-  },
-]
-
-function canAccess(userRole: Role, minRole: Role) {
-  return ROLE_RANK[userRole] >= ROLE_RANK[minRole]
-}
+// Re-exported for the mobile nav, which shares the same menu definition.
+export { NAV_GROUPS } from './admin-nav-items'
 
 interface AdminNavProps {
   siteName:   string
@@ -106,21 +20,13 @@ interface AdminNavProps {
 }
 
 export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProps) {
-  const pathname  = usePathname()
-  const [role, setRole] = useState<Role>('ADMIN')
-  const [profileName, setProfileName] = useState('')
-  const [profileEmail, setProfileEmail] = useState('')
+  const { me, groups, pinned, pinnedHrefs, isActive, isGroupOpen } = useAdminNav()
   const [pendingReturns, setPendingReturns] = useState(0)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const canSeeReturns = groups.some(g => g.items.some(i => i.href === '/admin/returns'))
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => {
-      if (d.role) setRole(d.role)
-      if (typeof d.name  === 'string') setProfileName(d.name)
-      if (typeof d.email === 'string') setProfileEmail(d.email)
-    }).catch(() => {})
-  }, [])
-
-  useEffect(() => {
+    if (!canSeeReturns) return
     let cancelled = false
     function loadCount() {
       fetch('/api/admin/returns?status=REQUESTED', { cache: 'no-store' })
@@ -131,28 +37,58 @@ export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProp
     loadCount()
     const i = setInterval(loadCount, 60_000)
     return () => { cancelled = true; clearInterval(i) }
+  }, [canSeeReturns])
+
+  // Ctrl+K / Cmd+K from anywhere in the admin opens the "go to page" palette.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen(o => !o) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
-
-  function isActive(href: string) {
-    if (href === '/admin') return pathname === '/admin'
-    return pathname.startsWith(href)
-  }
-
-  const visibleGroups = NAV_GROUPS
-    .map(g => ({ ...g, items: g.items.filter(item => canAccess(role, item.minRole)) }))
-    .filter(g => g.items.length > 0)
 
   // Signed-in admin identity for the footer. Falls back to the email handle, then
   // a generic label, so the panel never shows a stale hardcoded name.
-  const displayName = profileName.trim() || (profileEmail ? profileEmail.split('@')[0] : 'Admin')
+  const displayName = me.name.trim() || (me.email ? me.email.split('@')[0] : 'Admin')
   const initials = (
-    profileName.trim()
-      ? profileName.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('')
-      : (profileEmail || 'A').charAt(0)
+    me.name.trim()
+      ? me.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('')
+      : (me.email || 'A').charAt(0)
   ).toUpperCase()
 
+  function row(item: NavItem) {
+    const Icon = item.icon
+    const active = isActive(item.href)
+    const isPinned = pinnedHrefs.includes(item.href)
+    const badge = item.href === '/admin/returns' && pendingReturns > 0 ? pendingReturns : null
+    return (
+      <div key={item.href} className={`group/row flex items-center rounded-xl transition-colors duration-150 ${
+        active ? 'bg-primary text-white shadow-lg shadow-primary/25' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+      }`}>
+        <Link href={item.href} aria-current={active ? 'page' : undefined}
+          className="flex-1 min-w-0 flex items-center gap-3 pl-3.5 pr-1 py-2.5 text-sm font-semibold cursor-pointer">
+          <Icon size={16} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{item.label}</span>
+          {badge !== null && (
+            <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${active ? 'bg-white/25 text-white' : 'bg-amber-500/90 text-white'}`}>
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+        </Link>
+        <button type="button" onClick={() => togglePin(item.href, DEFAULT_PINS)}
+          aria-label={isPinned ? `Unpin ${item.label}` : `Pin ${item.label}`} aria-pressed={isPinned}
+          className={`shrink-0 w-8 h-8 mr-1 flex items-center justify-center rounded-lg cursor-pointer transition-opacity focus-visible:opacity-100 ${
+            isPinned ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+          } ${active ? 'text-white/90 hover:bg-white/15' : 'text-slate-500 hover:text-amber-400 hover:bg-white/5'}`}>
+          <Star size={13} fill={isPinned ? 'currentColor' : 'none'} className={isPinned && !active ? 'text-amber-400' : ''} aria-hidden="true" />
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <aside className="w-64 shrink-0 hidden md:flex flex-col min-h-screen"
+    <aside className="w-64 shrink-0 hidden md:flex flex-col h-screen sticky top-0"
       style={{ background: '#0F172A' }}>
 
       {/* Brand */}
@@ -164,39 +100,46 @@ export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProp
         </div>
       </div>
 
+      {/* Search */}
+      <div className="px-3 pt-3">
+        <button type="button" onClick={() => setPaletteOpen(true)}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 text-slate-400 text-sm hover:bg-white/10 hover:text-slate-200 transition-colors cursor-pointer">
+          <Search size={15} aria-hidden="true" />
+          <span className="flex-1 text-left">Find a page</span>
+          <kbd className="text-[10px] font-bold text-slate-500 border border-white/10 rounded-md px-1.5 py-0.5">Ctrl K</kbd>
+        </button>
+      </div>
+
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-        {visibleGroups.map(group => (
-          <div key={group.label}>
-            <p className="px-3 mb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">{group.label}</p>
-            <div className="space-y-0.5">
-              {group.items.map(({ href, icon: Icon, label }) => {
-                const active = isActive(href)
-                const badge  = href === '/admin/returns' && pendingReturns > 0 ? pendingReturns : null
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer ${
-                      active
-                        ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <Icon size={16} className={active ? 'text-white' : ''} />
-                    {label}
-                    {badge !== null && (
-                      <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${active ? 'bg-white/25 text-white' : 'bg-amber-500/90 text-white'}`}>
-                        {badge > 99 ? '99+' : badge}
-                      </span>
-                    )}
-                    {badge === null && active && <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full opacity-70" />}
-                  </Link>
-                )
-              })}
-            </div>
+      <nav aria-label="Admin" className="flex-1 px-3 py-3 space-y-3 overflow-y-auto">
+        {pinned.length > 0 && (
+          <div>
+            <p className="px-3 mb-1 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Pinned</p>
+            <div className="space-y-0.5">{pinned.map(row)}</div>
           </div>
-        ))}
+        )}
+
+        {groups.map(group => {
+          // A pinned page lives under "Pinned" only, so nothing is listed twice.
+          const rest = group.items.filter(i => !pinnedHrefs.includes(i.href))
+          if (rest.length === 0) return null
+          const open = isGroupOpen(group.label)
+          const id = `admin-nav-${group.label.replace(/\W+/g, '-').toLowerCase()}`
+          return (
+            <div key={group.label}>
+              <button type="button" onClick={() => toggleGroup(group.label, DEFAULT_OPEN_GROUPS)}
+                aria-expanded={open} aria-controls={id}
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[10px] font-extrabold text-slate-500 uppercase tracking-widest hover:text-slate-300 hover:bg-white/5 transition-colors cursor-pointer">
+                <span>{group.label}</span>
+                <span className="flex items-center gap-1.5">
+                  {!open && <span className="font-bold normal-case tracking-normal text-slate-600">{rest.length}</span>}
+                  <ChevronDown size={13} className={`transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden="true" />
+                </span>
+              </button>
+              {open && <div id={id} className="mt-0.5 space-y-0.5">{rest.map(row)}</div>}
+            </div>
+          )
+        })}
       </nav>
 
       {/* Footer */}
@@ -208,7 +151,7 @@ export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProp
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-white truncate">{displayName}</p>
-            <p className="text-[10px] text-slate-500 truncate capitalize">{role.toLowerCase()}</p>
+            <p className="text-[10px] text-slate-500 truncate capitalize">{me.role.toLowerCase()}</p>
           </div>
         </div>
         <Link href="/"
@@ -216,6 +159,8 @@ export default function AdminNav({ siteName, logoUrl, brandSplit }: AdminNavProp
           <LogOut size={13} /> Back to Store
         </Link>
       </div>
+
+      {paletteOpen && <AdminCommandPalette groups={groups} pinned={pinned} onClose={() => setPaletteOpen(false)} />}
     </aside>
   )
 }
