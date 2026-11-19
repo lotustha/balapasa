@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { prisma }     from '@/lib/prisma'
+import { requireRole } from '@/lib/auth'
 import { invalidateEmailConfigCache } from '@/lib/email'
 import { invalidateActiveVariantCache } from '@/lib/emails/registry'
 import { invalidatePaymentConfigCache } from '@/lib/payment'
@@ -37,6 +38,8 @@ const PUBLIC_SITE_KEYS = new Set([
   'GA_MEASUREMENT_ID', 'CUSTOM_HEAD_CODE',
 ])
 
+const ADMIN_ONLY_KEYS = ['MAINTENANCE_JSON']
+
 function mask(key: string, value: string) {
   if (!SECRET_KEYS.has(key)) return value
   if (value.length <= 8) return '••••••••'
@@ -44,6 +47,9 @@ function mask(key: string, value: string) {
 }
 
 export async function GET() {
+  const guard = await requireRole('MANAGER')
+  if ('error' in guard) return guard.error
+
   try {
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM app_settings
@@ -58,8 +64,16 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireRole('MANAGER')
+  if ('error' in guard) return guard.error
+
   try {
     const body = await req.json() as Record<string, string>
+
+    // Closing the store or pausing orders is an owner decision.
+    if (ADMIN_ONLY_KEYS.some(k => k in body) && guard.user.role !== 'ADMIN') {
+      return Response.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const entries = Object.entries(body).filter(
       ([, v]) => v !== undefined && v !== '' && !v.startsWith('••'),

@@ -1,10 +1,14 @@
 import { saveFile, recordMediaAsset } from '@/lib/upload'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, requireRole } from '@/lib/auth'
 
 const IMAGE_MAX = 10  * 1024 * 1024   // 10 MB
 const VIDEO_MAX = 200 * 1024 * 1024   // 200 MB
 
 export async function POST(req: Request) {
+  // Not covered by the middleware (see its matcher), so the check lives here.
+  const guard = await requireRole('STAFF')
+  if ('error' in guard) return guard.error
+
   const form = await req.formData()
   const file = form.get('file') as File | null
   if (!file) return Response.json({ error: 'No file provided' }, { status: 400 })
