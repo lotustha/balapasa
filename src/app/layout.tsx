@@ -1,28 +1,30 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, Inter, Playfair_Display } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
 import { prisma } from '@/lib/prisma'
 import { getThemeScript } from '@/lib/themes'
 
-const jakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
+// Fonts are bundled with the site (src/fonts, Latin subset, variable weight) instead of being
+// downloaded from Google at build time: that download failed often enough to break deploys.
+const jakartaSans = localFont({
+  src: '../fonts/PlusJakartaSans-latin.woff2',
   variable: '--font-heading',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: '400 800',
   display: 'swap',
 })
 
-const inter = Inter({
-  subsets: ['latin'],
+const inter = localFont({
+  src: '../fonts/Inter-latin.woff2',
   variable: '--font-body',
-  weight: ['300', '400', '500', '600', '700'],
+  weight: '300 700',
   display: 'swap',
 })
 
-const playfair = Playfair_Display({
-  subsets: ['latin'],
+const playfair = localFont({
+  src: '../fonts/PlayfairDisplay-latin.woff2',
   variable: '--font-serif',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: '400 800',
   display: 'swap',
 })
 

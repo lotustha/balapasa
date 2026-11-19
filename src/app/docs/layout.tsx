@@ -1,22 +1,21 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { JetBrains_Mono, IBM_Plex_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 import Sidebar from './components/Sidebar'
 import ThemeToggle from './components/ThemeToggle'
 
-// JetBrains Mono is a variable font — no explicit weight array needed.
-const jetbrains = JetBrains_Mono({
-  subsets: ['latin'],
+// Bundled with the site, like the fonts in the root layout (see src/fonts).
+const jetbrains = localFont({
+  src: '../../fonts/JetBrainsMono-latin.woff2',
   variable: '--font-jetbrains',
+  weight: '100 800',
   display: 'swap',
 })
 
-// IBM Plex Sans is NOT a variable font — explicit weights are required or
-// next/font throws at build time.
-const plex = IBM_Plex_Sans({
-  subsets: ['latin'],
+const plex = localFont({
+  src: '../../fonts/IBMPlexSans-latin.woff2',
   variable: '--font-plex',
-  weight: ['300', '400', '500', '600', '700'],
+  weight: '300 700',
   display: 'swap',
 })
 
