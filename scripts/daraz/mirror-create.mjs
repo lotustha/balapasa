@@ -15,6 +15,8 @@ import { buildCreatePayload, missingMandatory, sellerSkuFor } from './mirror-pay
 const DRY_RUN = process.argv.includes('--dry-run')
 const limit = process.argv.includes('--limit') ? Number(process.argv[process.argv.indexOf('--limit') + 1]) : Infinity
 const REPLACE_OWN = process.argv.includes('--replace-own-copies')
+// --set name=value supplies a required attribute the source listing lacks (repeatable).
+const overrides = Object.fromEntries(process.argv.flatMap((a, i, all) => (a === '--set' && all[i + 1]?.includes('=') ? [all[i + 1].split(/=(.*)/s).slice(0, 2)] : [])))
 const MAX_CONSECUTIVE_FAILURES = 5
 const TW = process.env.DARAZ_ACCESS_TOKEN, BP = process.env.DARAZ_SHOP2_ACCESS_TOKEN
 if (!TW || !BP) { console.error('DARAZ_ACCESS_TOKEN and DARAZ_SHOP2_ACCESS_TOKEN are required'); process.exit(2) }
@@ -29,9 +31,9 @@ const CACHE = 'scripts/daraz/snapshots/category-attrs.json'
 const catCache = existsSync(CACHE) ? JSON.parse(readFileSync(CACHE, 'utf8')) : {}
 
 async function categoryAttrs(id) {
-  if (!catCache[id]) {
+  if (!catCache[id] || catCache[id].some(a => a.options === undefined)) {
     const r = await darazGet('/category/attributes/get', { primary_category_id: id, language_code: 'en_US' }, { accessToken: BP })
-    catCache[id] = (r.data ?? []).map(a => ({ name: a.name, type: a.attribute_type, mandatory: a.is_mandatory == 1, saleProp: a.is_sale_prop == 1 }))
+    catCache[id] = (r.data ?? []).map(a => ({ name: a.name, type: a.attribute_type, mandatory: a.is_mandatory == 1, saleProp: a.is_sale_prop == 1, options: (a.options ?? []).map(o => o.name) }))
     writeFileSync(CACHE, JSON.stringify(catCache))
   }
   return catCache[id]
@@ -57,6 +59,18 @@ for (const p of todo) {
   const detail = (await darazGet('/product/item/get', { item_id: String(p.item_id) }, { accessToken: TW })).data
   const attrs = await categoryAttrs(String(detail.primary_category))
   const payload = buildCreatePayload(detail, attrs)
+  // Fill required fields the source lacks, but only with neutral values: an explicit --set, Daraz's own
+  // "Other" choice, or a package-contents line in the form the seller already uses.
+  if (payload) {
+    const product = payload.Request.Product
+    for (const name of missingMandatory(payload, attrs)) {
+      const attr = attrs.find(a => a.name === name)
+      const value = overrides[name] ?? (attr.options.includes('Other') ? 'Other' : name === 'package_content' ? `1 x ${product.Attributes.name}`.slice(0, 250) : null)
+      if (value == null) continue
+      if (attr.type === 'sku') for (const sku of product.Skus.Sku) sku[name] ??= value
+      else product.Attributes[name] = value
+    }
+  }
   const lacking = payload ? missingMandatory(payload, attrs) : ['active sku']
   if (lacking.length) {
     skipped++
