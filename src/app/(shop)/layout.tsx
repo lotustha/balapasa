@@ -13,13 +13,25 @@ import StorePopup from '@/components/layout/StorePopup'
 import { ProductContextProvider } from '@/context/ProductContext'
 import { getSiteSettings } from '@/lib/site-settings'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
+import MaintenanceGate from '@/components/layout/MaintenanceGate'
+import { getCurrentUser } from '@/lib/auth'
+import { hasRole } from '@/lib/admin-access'
+import {
+  ordersBlocked, MAINTENANCE_FALLBACK_TITLE, MAINTENANCE_FALLBACK_MESSAGE, ORDERS_PAUSED_FALLBACK_MESSAGE,
+} from '@/lib/site-settings-shared'
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const [settings, paymentMethods] = await Promise.all([
     getSiteSettings(),
     getEnabledPaymentMethods().catch(() => ['COD'] as string[]),
   ])
-  return (
+  const { maintenance } = settings
+  // Only look at who is visiting while a switch is on: reading the login cookie makes the page
+  // uncacheable, which the normal storefront must not be.
+  const isStaff = ordersBlocked(maintenance) ? hasRole((await getCurrentUser())?.role, 'STAFF') : false
+  const closedForVisitor = maintenance.closed && !isStaff
+
+  const storefront = (
     <ProductContextProvider>
       <ThemeApplicator />
       <FacebookPixel />
@@ -33,6 +45,16 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           this element overflow-visible so sticky descendants (product gallery)
           can pin against the viewport. */}
       <main className="flex-1 min-w-0 pt-20 pb-20 md:pb-0">
+        {maintenance.closed && isStaff && (
+          <p role="status" className="bg-amber-500 text-white text-xs font-bold text-center px-4 py-2">
+            Maintenance mode is on: customers see a closed store. You see the site because you are signed in as staff.
+          </p>
+        )}
+        {!maintenance.closed && maintenance.ordersPaused && (
+          <p role="status" data-maintenance="orders-paused" className="bg-amber-100 text-amber-900 text-xs font-semibold text-center px-4 py-2">
+            {maintenance.message.trim() || ORDERS_PAUSED_FALLBACK_MESSAGE}
+          </p>
+        )}
         {/* Store announcement banner — sits below the floating navbar, in flow. */}
         <StoreBanner banner={settings.banner} />
         {children}
@@ -59,5 +81,18 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <BottomNav />
       <WhatsAppButton />
     </ProductContextProvider>
+  )
+
+  if (!closedForVisitor) return storefront
+  return (
+    <MaintenanceGate
+      title={maintenance.title.trim() || MAINTENANCE_FALLBACK_TITLE}
+      message={maintenance.message.trim() || MAINTENANCE_FALLBACK_MESSAGE}
+      backBy={maintenance.backBy}
+      siteName={settings.siteName}
+      logoUrl={settings.logoUrl}
+    >
+      {storefront}
+    </MaintenanceGate>
   )
 }

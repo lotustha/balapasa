@@ -9,14 +9,16 @@ import {
   ExternalLink, AlertCircle, RefreshCw, ChevronRight, ChevronLeft, Upload, Palette,
   MessageCircle, LayoutTemplate, ShieldCheck, Star, Zap, Trash2, Plus, Library, Info,
   AlertTriangle, X, Package, ShoppingCart, Receipt, Users, UserCog, Megaphone,
-  Activity,
+  Activity, Wrench,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { STORE_NAME } from '@/lib/config'
 import { THEMES, applyTheme } from '@/components/layout/ThemeApplicator'
 import {
   HERO_DEFAULTS, FAQ_DEFAULTS, splitBrandName, cleanBrandName,
   BANNER_DEFAULTS, POPUP_DEFAULTS, parseBanner, parsePopup,
-  type HeroBadge, type FaqItem, type StoreBanner, type StorePopup,
+  MAINTENANCE_DEFAULTS, parseMaintenance, MAINTENANCE_FALLBACK_TITLE, MAINTENANCE_FALLBACK_MESSAGE, ORDERS_PAUSED_FALLBACK_MESSAGE,
+  type HeroBadge, type FaqItem, type StoreBanner, type StorePopup, type Maintenance,
 } from '@/lib/site-settings-shared'
 import GalleryPickerModal from '@/components/admin/GalleryPickerModal'
 
@@ -62,7 +64,7 @@ interface ContentForm {
   CONTACT_MAP_EMBED:       string
 }
 
-type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'tracking' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
+type TabId = 'store' | 'homepage' | 'content' | 'notices' | 'maintenance' | 'tracking' | 'payments' | 'delivery' | 'ai' | 'notifications' | 'messaging' | 'danger'
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 
@@ -142,6 +144,7 @@ const TABS: { id: TabId; icon: typeof Settings; label: string; desc: string }[] 
   { id: 'homepage',      icon: LayoutTemplate,  label: 'Homepage',      desc: 'Hero, headline & CTAs'    },
   { id: 'content',       icon: Library,         label: 'Content',       desc: 'Legal pages, about & FAQ' },
   { id: 'notices',       icon: Megaphone,       label: 'Notices',       desc: 'Banner & popup'           },
+  { id: 'maintenance',   icon: Wrench,          label: 'Maintenance',   desc: 'Close store or pause orders' },
   { id: 'tracking',      icon: Activity,        label: 'Analytics',     desc: 'Google Analytics & tracking' },
   { id: 'payments',      icon: CreditCard, label: 'Payments',      desc: 'eSewa & Khalti keys'       },
   { id: 'delivery',      icon: Truck,      label: 'Delivery',      desc: 'Pathao & logistics'        },
@@ -1750,6 +1753,80 @@ function NoticesSection({ saving, saved, onSave }: {
   )
 }
 
+// ── Maintenance ────────────────────────────────────────────────────────────
+
+function MaintenanceSection({ saving, saved, onSave }: {
+  saving: string | null; saved: string | null; onSave: (s: string, d: Record<string, string>) => void
+}) {
+  const [m, setM] = useState<Maintenance>(MAINTENANCE_DEFAULTS)
+
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (s) setM(parseMaintenance(s.MAINTENANCE_JSON))
+    }).catch(() => {})
+  }, [])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onSave('maintenance', { MAINTENANCE_JSON: JSON.stringify(m) })
+  }
+
+  const state = m.closed ? 'closed' : m.ordersPaused ? 'paused' : 'open'
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <InfoBanner icon={Wrench} color={state === 'open' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-amber-50 border border-amber-200 text-amber-800'}>
+        {state === 'open' && 'The store is open and taking orders.'}
+        {state === 'paused' && 'Ordering will be paused: customers can browse, but checkout is blocked.'}
+        {state === 'closed' && 'The store will be closed: customers see only the maintenance screen. Signed-in staff still see the site, and this admin panel keeps working.'}
+        {' '}Changes apply when you save, and can take up to a minute to reach every visitor.
+      </InfoBanner>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Close the store</p>
+            <p className="text-[11px] text-slate-400">Every storefront page shows the maintenance screen. No browsing, no ordering.</p>
+          </div>
+          <ToggleSwitch checked={m.closed} onChange={v => setM(x => ({ ...x, closed: v }))} label="Close the store" />
+        </div>
+        <div className="flex items-center justify-between gap-4 pt-5 border-t border-slate-100">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Pause ordering only</p>
+            <p className="text-[11px] text-slate-400">The store stays browsable. Checkout shows your message, and carts are kept.</p>
+          </div>
+          <ToggleSwitch checked={m.ordersPaused || m.closed} onChange={v => setM(x => ({ ...x, ordersPaused: v }))} label="Pause ordering only" />
+        </div>
+        {m.closed && <p className="text-[11px] text-slate-400 -mt-2">Ordering is always paused while the store is closed.</p>}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <div>
+          <Label>Title <span className="normal-case font-normal text-slate-400">(maintenance screen)</span></Label>
+          <input value={m.title} onChange={e => setM(x => ({ ...x, title: e.target.value }))}
+            placeholder={MAINTENANCE_FALLBACK_TITLE} className={inputCls} maxLength={80} />
+        </div>
+        <div>
+          <Label>Message</Label>
+          <textarea value={m.message} onChange={e => setM(x => ({ ...x, message: e.target.value }))} rows={3}
+            placeholder={m.closed ? MAINTENANCE_FALLBACK_MESSAGE : ORDERS_PAUSED_FALLBACK_MESSAGE} className={inputCls} maxLength={400} />
+          <Hint>Shown on the maintenance screen, and at checkout while ordering is paused. Leave empty for the default text.</Hint>
+        </div>
+        <div>
+          <Label>Back by <span className="normal-case font-normal text-slate-400">(optional)</span></Label>
+          <input type="datetime-local" value={m.backBy} onChange={e => setM(x => ({ ...x, backBy: e.target.value }))}
+            className={inputCls + ' sm:max-w-xs'} />
+          <Hint>Shown to customers as when to come back. The store does not reopen by itself: switch it back on here.</Hint>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <SaveBtn section="maintenance" saving={saving} saved={saved} />
+      </div>
+    </form>
+  )
+}
+
 // ── Tracking & Analytics ───────────────────────────────────────────────────
 
 function TrackingSection({ saving, saved, onSave }: {
@@ -2081,6 +2158,8 @@ export default function SettingsPage() {
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
+  const router = useRouter()
+
   async function save(section: string, data: Record<string, string>) {
     setSaving(section); setSaved(null); setSaveError(null)
     try {
@@ -2090,6 +2169,8 @@ export default function SettingsPage() {
       const json = await res.json()
       if (!res.ok || json.error) { setSaveError(json.error ?? `HTTP ${res.status}`); setSaving(null); return }
       setSaved(section); setTimeout(() => setSaved(null), 3000)
+      // The reminder strip above every admin page is rendered on the server; redraw it now.
+      if (section === 'maintenance') router.refresh()
     } catch (e) { setSaveError(e instanceof Error ? e.message : 'Network error') }
     setSaving(null)
   }
@@ -2634,6 +2715,10 @@ export default function SettingsPage() {
           {/* ── Notices tab ───────────────────────────────────────── */}
           {tab === 'notices' && (
             <NoticesSection saving={saving} saved={saved} onSave={save} />
+          )}
+
+          {tab === 'maintenance' && (
+            <MaintenanceSection saving={saving} saved={saved} onSave={save} />
           )}
 
           {tab === 'tracking' && (

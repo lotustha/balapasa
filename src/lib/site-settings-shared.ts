@@ -75,6 +75,16 @@ export interface StorePopup {
   frequency:   'always' | 'session' | 'once'  // how often to re-show after a dismissal
 }
 
+// Maintenance switches. `closed` shows a maintenance screen instead of the storefront (staff still see
+// the site); `ordersPaused` keeps the storefront open but refuses new orders. Closed implies paused.
+export interface Maintenance {
+  closed:       boolean
+  ordersPaused: boolean
+  title:        string
+  message:      string
+  backBy:       string   // optional 'YYYY-MM-DDTHH:mm' shown to customers as the expected return time
+}
+
 export interface SiteSettings {
   siteName:   string  // Clean brand name (no | marker). Use everywhere except the
                       //  footer/logo wordmark where a gradient-accent half is wanted.
@@ -95,6 +105,7 @@ export interface SiteSettings {
   content:    ContentSettings
   banner:     StoreBanner
   popup:      StorePopup
+  maintenance: Maintenance
 }
 
 export const HERO_DEFAULTS: HeroSettings = {
@@ -254,6 +265,30 @@ export const BANNER_DEFAULTS: StoreBanner = {
   enabled: false, message: '', linkLabel: '', linkUrl: '', dismissible: true,
 }
 
+export const MAINTENANCE_DEFAULTS: Maintenance = {
+  closed: false, ordersPaused: false, title: '', message: '', backBy: '',
+}
+
+export const MAINTENANCE_FALLBACK_TITLE = "We'll be back soon"
+export const MAINTENANCE_FALLBACK_MESSAGE = 'The store is closed for a short while for maintenance. Please check back shortly.'
+export const ORDERS_PAUSED_FALLBACK_MESSAGE = 'We are not taking new orders right now. Please check back shortly.'
+
+export function parseMaintenance(json?: string | null): Maintenance {
+  if (!json) return MAINTENANCE_DEFAULTS
+  try {
+    const o = JSON.parse(json) as Partial<Maintenance>
+    return {
+      closed:       !!o.closed,
+      ordersPaused: !!o.ordersPaused,
+      title:        typeof o.title   === 'string' ? o.title   : '',
+      message:      typeof o.message === 'string' ? o.message : '',
+      backBy:       typeof o.backBy  === 'string' ? o.backBy  : '',
+    }
+  } catch { return MAINTENANCE_DEFAULTS }
+}
+
+export const ordersBlocked = (m: Maintenance) => m.closed || m.ordersPaused
+
 export const POPUP_DEFAULTS: StorePopup = {
   enabled: false, image: '', title: '', description: '', buttonLabel: '', buttonUrl: '', frequency: 'session',
 }
@@ -322,6 +357,7 @@ export const SITE_DEFAULTS: SiteSettings = {
   },
   banner: BANNER_DEFAULTS,
   popup:  POPUP_DEFAULTS,
+  maintenance: MAINTENANCE_DEFAULTS,
 }
 
 function splitDefault(name: string): { primary: string; accent: string } {
@@ -357,7 +393,7 @@ export const SITE_SETTING_KEYS = [
   'ABOUT_TITLE', 'ABOUT_BODY',
   'CONTACT_INSTAGRAM', 'CONTACT_X', 'CONTACT_YOUTUBE', 'CONTACT_HOURS', 'CONTACT_MAP_EMBED',
   'FAQ_JSON',
-  'STORE_BANNER_JSON', 'STORE_POPUP_JSON',
+  'STORE_BANNER_JSON', 'STORE_POPUP_JSON', 'MAINTENANCE_JSON',
 ] as const
 
 /**

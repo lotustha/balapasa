@@ -78,7 +78,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description: seo.description,
       images: ['/logo.png'],
     },
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+    robots: settings.maintenance.closed
+      ? { index: false, follow: false }
+      : { index: true, follow: true, googleBot: { index: true, follow: true } },
   }
 }
 

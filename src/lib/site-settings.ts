@@ -5,7 +5,7 @@ import {
   HERO_DEFAULTS, SITE_DEFAULTS, SEO_DEFAULTS,
   LEGAL_DEFAULTS, ABOUT_DEFAULTS, CONTACT_DEFAULTS,
   HERO_SETTING_KEYS, SITE_SETTING_KEYS,
-  parseBadges, parseFaq, parseBanner, parsePopup, splitBrandName, cleanBrandName,
+  parseBadges, parseFaq, parseBanner, parsePopup, parseMaintenance, splitBrandName, cleanBrandName,
   type SiteSettings,
 } from '@/lib/site-settings-shared'
 
@@ -87,6 +87,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
       },
       banner: parseBanner(map.STORE_BANNER_JSON),
       popup:  parsePopup(map.STORE_POPUP_JSON),
+      maintenance: parseMaintenance(map.MAINTENANCE_JSON),
     }
   } catch {
     return SITE_DEFAULTS

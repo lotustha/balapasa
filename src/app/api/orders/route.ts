@@ -4,6 +4,8 @@ import { esewaFormData, getEsewaPaymentUrl, khaltiInitiate } from '@/lib/payment
 import { getCurrentUser } from '@/lib/auth'
 import { pushOrderEvent, pushToStaff } from '@/lib/push'
 import { sendOrderAlert } from '@/lib/wa-bot'
+import { hasRole } from '@/lib/admin-access'
+import { ordersBlocked, ORDERS_PAUSED_FALLBACK_MESSAGE } from '@/lib/site-settings-shared'
 import { validateCoupon } from '@/lib/coupons'
 import { validateGiftCard } from '@/lib/gift-cards'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
@@ -34,6 +36,18 @@ class StoreCreditRaceError extends Error {
 }
 
 export async function POST(req: NextRequest) {
+  // Maintenance: no new orders while the store is closed or ordering is paused. Staff may still place
+  // one, so they can test the checkout before reopening.
+  {
+    const { maintenance } = await getSiteSettings()
+    if (ordersBlocked(maintenance)) {
+      const visitor = await getCurrentUser()
+      if (!hasRole(visitor?.role, 'STAFF')) {
+        return Response.json({ error: maintenance.message.trim() || ORDERS_PAUSED_FALLBACK_MESSAGE, maintenance: true }, { status: 503 })
+      }
+    }
+  }
+
   try {
     let userId: string | null = null
     let userEmail: string | null = null

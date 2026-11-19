@@ -60,7 +60,12 @@ async function siteChecks() {
     slug = body.products[0]?.slug ?? null
     return null
   })
-  const html = marker => async res => ((await res.text()).includes(marker) ? null : 'page loaded but its content is missing')
+  // A closed store serves the maintenance screen on purpose; that is reported once by maintenanceCheck.
+  const html = marker => async res => {
+    const body = await res.text()
+    if (body.includes('data-maintenance="closed"')) { closed = true; return null }
+    return body.includes(marker) ? null : 'page loaded but its content is missing'
+  }
   const pages = await Promise.all([
     fetchCheck('Homepage', `${SITE}/`, html('</html>')),
     fetchCheck('Products page', `${SITE}/products`, html('Product categories')),
@@ -68,6 +73,8 @@ async function siteChecks() {
   ])
   return [api, ...pages.filter(Boolean)]
 }
+
+let closed = false
 
 function certificateCheck() {
   const { hostname, protocol } = new URL(SITE)
@@ -116,6 +123,8 @@ function diskCheck() {
 }
 
 const results = [...await siteChecks(), await certificateCheck(), ...syncChecks(), await botCheck(), diskCheck()].filter(Boolean)
+// Reported as a note, not a failure: nobody should be paged because the owner closed the store.
+if (closed) results.push(result('Store', true, 'closed for maintenance (switched on in Settings)'))
 
 if (REPORT_ONLY) {
   for (const r of results) console.log(`${r.ok ? 'OK  ' : 'FAIL'} ${r.name}: ${r.detail}`)
