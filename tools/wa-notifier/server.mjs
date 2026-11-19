@@ -14,7 +14,6 @@
  *   WA_DATA_DIR      session + config (default /root/.balapasa-wa)
  *   WA_PORT          default 3099
  *   WA_APP_DIR       where the sync scripts live (default /www/wwwroot/balapasa)
- *   WA_SITE_URL      site checked by the `status` command (default https://balapasa.com.np)
  */
 import http from 'node:http'
 import { spawn } from 'node:child_process'
@@ -34,7 +33,6 @@ const AUTH_DIR = path.join(DATA_DIR, 'auth')
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json')
 const PORT = Number(process.env.WA_PORT ?? 3099)
 const APP_DIR = process.env.WA_APP_DIR ?? '/www/wwwroot/balapasa'
-const SITE_URL = (process.env.WA_SITE_URL ?? 'https://balapasa.com.np').replace(/\/$/, '')
 const MAX_TEXT = 3500
 const MAX_COMMANDERS = 10
 const COMMAND_TIMEOUT_MS = 5 * 60 * 1000
@@ -105,10 +103,17 @@ async function connect({ pairNumber = null } = {}) {
         pairing = null
         return
       }
-      // Not linked and nobody is pairing: stay idle instead of spinning on QR timeouts.
-      if (!state.creds.registered && !pairNumber) return
+      // An unused pairing code cannot be resumed: forget the half-made session and wait for a new /pair.
+      if (!state.creds.registered) {
+        if (pairNumber) log(`pairing code for ${pairNumber} was not used in time`)
+        generation++
+        sock = null
+        pairing = null
+        rmSync(AUTH_DIR, { recursive: true, force: true })
+        return
+      }
       log(`connection closed (${status ?? 'unknown'}), reconnecting in 5s`)
-      setTimeout(() => { if (mine === generation) connect({ pairNumber: state.creds.registered ? null : pairNumber }).catch(err => log(`reconnect failed: ${err.message}`)) }, 5000)
+      setTimeout(() => { if (mine === generation) connect().catch(err => log(`reconnect failed: ${err.message}`)) }, 5000)
     }
   })
 
@@ -142,7 +147,7 @@ function run(script, args = []) {
   return new Promise(resolve => {
     // The child's own alert would duplicate the reply we are about to send.
     const env = { ...process.env, WA_NOTIFY_URL: '', DISCORD_WEBHOOK_URL: '' }
-    const child = spawn(process.execPath, [path.join('scripts', 'daraz', script), ...args], { cwd: APP_DIR, env })
+    const child = spawn(process.execPath, [path.join('scripts', script), ...args], { cwd: APP_DIR, env })
     let out = ''
     const timer = setTimeout(() => child.kill(), COMMAND_TIMEOUT_MS)
     child.stdout.on('data', d => { out += d })
@@ -156,35 +161,26 @@ function tail(file, lines) {
   try { return readFileSync(file, 'utf8').trim().split('\n').slice(-lines).join('\n') } catch { return '(no log yet)' }
 }
 
-async function siteLine() {
-  try {
-    const started = Date.now()
-    const res = await fetch(`${SITE_URL}/api/products?limit=1`, { signal: AbortSignal.timeout(15000) })
-    const body = await res.json().catch(() => ({}))
-    return res.ok ? `Site: UP (${Date.now() - started} ms), ${body.total ?? '?'} products` : `Site: PROBLEM, HTTP ${res.status}`
-  } catch (err) {
-    return `Site: DOWN (${err.message})`
-  }
-}
-
 async function execute(command) {
   switch (command) {
     case 'help': case 'hi': case 'hello': case 'menu':
       return HELP
-    case 'status':
-      return [await siteLine(), '', 'Last website sync:', tail('/var/log/balapasa-daraz-sync.log', 3), '', 'Last Daraz shop sync:', tail('/var/log/balapasa-daraz-mirror.log', 3)].join('\n')
+    case 'status': {
+      const checks = await run('monitor/site-check.mjs', ['--report'])
+      return [checks.out, '', 'Last website sync:', tail('/var/log/balapasa-daraz-sync.log', 3), '', 'Last Daraz shop sync:', tail('/var/log/balapasa-daraz-mirror.log', 3)].join('\n')
+    }
     case 'sync': {
-      const site = await run('daily-sync.mjs')
-      const shop = await run('mirror-sync.mjs')
+      const site = await run('daraz/daily-sync.mjs')
+      const shop = await run('daraz/mirror-sync.mjs')
       return [site.out, '', shop.out].join('\n')
     }
     case 'held': {
-      const { out } = await run('daily-sync.mjs', ['--dry-run'])
+      const { out } = await run('daraz/daily-sync.mjs', ['--dry-run'])
       const held = out.split('\n').filter(l => l.includes('HELD'))
       return held.length ? ['Held price changes (send "approve" to apply):', ...held].join('\n') : 'No price changes are being held.'
     }
     case 'approve':
-      return (await run('daily-sync.mjs', ['--apply-held'])).out
+      return (await run('daraz/daily-sync.mjs', ['--apply-held'])).out
     default:
       return `Unknown command "${command}".\n\n${HELP}`
   }
@@ -205,7 +201,7 @@ async function handleIncoming(s, m) {
   }
 
   const command = text.toLowerCase().split(/\s+/)[0]
-  const slow = ['sync', 'held', 'approve'].includes(command)
+  const slow = ['status', 'sync', 'held', 'approve'].includes(command)
   if (slow && busy) { await s.sendMessage(jid, { text: 'Still working on the previous command, try again in a minute.' }); return }
   if (slow) { busy = true; await s.sendMessage(jid, { text: 'Working on it...' }) }
   try {
@@ -228,7 +224,7 @@ function readBody(req) {
 }
 
 const reply = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)) }
-const statusBody = () => ({ connected, me: sock?.user?.id?.split(':')[0]?.split('@')[0] ?? null, pairing, commanders: config.commanders })
+const statusBody = () => ({ connected, me: connected ? sock?.user?.id?.split(':')[0]?.split('@')[0] ?? null : null, pairing, commanders: config.commanders })
 
 async function route(req, res) {
   const key = `${req.method} ${req.url}`

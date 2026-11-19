@@ -139,7 +139,7 @@ export default function WhatsAppBotPage() {
                   <li>Go to <span className="font-semibold">Settings → Linked devices → Link a device</span>.</li>
                   <li>Tap <span className="font-semibold">Link with phone number instead</span> and type the code.</li>
                 </ol>
-                <p className="mt-4 flex items-center gap-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Waiting for the phone. This page updates on its own.</p>
+                <p className="mt-4 flex items-center gap-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Waiting for the phone. The code works for about 2 minutes; this page updates on its own.</p>
                 <button onClick={pair} disabled={busy !== null} className="mt-3 text-xs font-bold text-primary hover:underline cursor-pointer disabled:opacity-50">
                   Code expired? Get a new one
                 </button>
