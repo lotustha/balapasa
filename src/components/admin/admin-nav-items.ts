@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Settings, BarChart3, Truck, Ticket, Zap, MessageCircle, DollarSign, Monitor,
   ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles, RotateCcw,
-  MessageCircleQuestion, Star, Wallet, Award, Share2, Bot, Search,
+  MessageCircleQuestion, Star, Wallet, Award, Share2, Bot, Search, RefreshCw,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { hasRole, pageMinRole, type AdminRole } from '@/lib/admin-access'
@@ -72,6 +72,7 @@ export const NAV_GROUPS: NavGroup[] = [
       item('/admin/logistics',    Truck,         'Logistics',    'shipping delivery pathao couriers'),
       item('/admin/messaging',    MessageCircle, 'Messaging',    'chat inbox whatsapp messenger customers'),
       item('/admin/whatsapp-bot', Bot,           'WhatsApp Bot', 'alerts notifications commands link qr'),
+      item('/admin/daraz',        RefreshCw,     'Daraz',        'sync orders prices held approve trendwave marketplace'),
       item('/admin/emails',       Mail,          'Emails',       'templates smtp resend'),
       item('/admin/import',       Download,      'Import',       'daraz bulk upload excel'),
     ],

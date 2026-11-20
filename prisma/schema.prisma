@@ -46,13 +46,13 @@ model MediaAsset {
 }
 
 model Category {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  icon      String?
-  image     String?
-  color     String    @default("#16A34A")
-  seoIntro  String?   @db.Text @map("seo_intro")
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  icon             String?
+  image            String?
+  color            String            @default("#16A34A")
+  seoIntro         String?           @map("seo_intro") @db.Text
   products         Product[]
   categoryMappings CategoryMapping[]
 
@@ -60,16 +60,16 @@ model Category {
 }
 
 model Supplier {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  contactName String?   @map("contact_name")
+  contactName String?  @map("contact_name")
   email       String?
   phone       String?
   address     String?
-  notes       String?   @db.Text
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  notes       String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   products Product[]
 
@@ -77,58 +77,58 @@ model Supplier {
 }
 
 model Product {
-  id                String   @id @default(cuid())
-  name              String
-  slug              String   @unique
-  description       String   @db.Text
-  price             Float
-  salePrice            Float?    @map("sale_price")
-  salePriceStartsAt    DateTime? @map("sale_price_starts_at")     // null = active immediately
-  salePriceExpiresAt   DateTime? @map("sale_price_expires_at")
-  saleInitialStock     Int?      @map("sale_initial_stock")        // captured on sale activation; null = legacy
-  maxPerCustomerOnSale Int?      @map("max_per_customer_on_sale")  // null = no cap
-  isDealOfTheDay       Boolean   @default(false) @map("is_deal_of_the_day")
-  costPrice         Float?   @map("cost_price")
-  stock             Int      @default(0)
-  lowStockThreshold Int      @default(10) @map("low_stock_threshold")
-  images            String[]
-  categoryId        String   @map("category_id")
-  supplierId        String?  @map("supplier_id")
-  tags              String[]
-  isActive          Boolean  @default(true) @map("is_active")
-  isFeatured        Boolean  @default(false) @map("is_featured")
-  isNew             Boolean  @default(false) @map("is_new")
-  isTaxable         Boolean  @default(false) @map("is_taxable")
-  trackInventory    Boolean  @default(true) @map("track_inventory")
-  freeDelivery      Boolean  @default(false) @map("free_delivery")
-  brand             String?
-  sku               String?  @unique
-  barcode           String?
-  weight            Float?   // kilograms
-  length            Float?   // centimetres — for carrier package sizing
-  width             Float?   // centimetres
-  height            Float?   // centimetres
-  videoUrl          String?  @map("video_url")
-  aiFaqJson         Json?    @map("ai_faq_json")   // [{ q, a }, ...] — Gemini-generated FAQ
-  aiDescAt          DateTime? @map("ai_desc_at")   // last time AI rewrote description
-  aiFaqAt           DateTime? @map("ai_faq_at")    // last time AI generated FAQ
-  kind                ProductKind @default(PHYSICAL)
-  digitalDeliveryNote String?     @db.Text @map("digital_delivery_note")
-  planId              String?     @map("plan_id")
-  boughtTogetherIds String[] @default([]) @map("bought_together_ids")
-  viewCount         Int      @default(0) @map("view_count")
-  rating            Float    @default(0)
-  reviewCount       Int      @default(0) @map("review_count")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                   String      @id @default(cuid())
+  name                 String
+  slug                 String      @unique
+  description          String      @db.Text
+  price                Float
+  salePrice            Float?      @map("sale_price")
+  salePriceStartsAt    DateTime?   @map("sale_price_starts_at") // null = active immediately
+  salePriceExpiresAt   DateTime?   @map("sale_price_expires_at")
+  saleInitialStock     Int?        @map("sale_initial_stock") // captured on sale activation; null = legacy
+  maxPerCustomerOnSale Int?        @map("max_per_customer_on_sale") // null = no cap
+  isDealOfTheDay       Boolean     @default(false) @map("is_deal_of_the_day")
+  costPrice            Float?      @map("cost_price")
+  stock                Int         @default(0)
+  lowStockThreshold    Int         @default(10) @map("low_stock_threshold")
+  images               String[]
+  categoryId           String      @map("category_id")
+  supplierId           String?     @map("supplier_id")
+  tags                 String[]
+  isActive             Boolean     @default(true) @map("is_active")
+  isFeatured           Boolean     @default(false) @map("is_featured")
+  isNew                Boolean     @default(false) @map("is_new")
+  isTaxable            Boolean     @default(false) @map("is_taxable")
+  trackInventory       Boolean     @default(true) @map("track_inventory")
+  freeDelivery         Boolean     @default(false) @map("free_delivery")
+  brand                String?
+  sku                  String?     @unique
+  barcode              String?
+  weight               Float? // kilograms
+  length               Float? // centimetres — for carrier package sizing
+  width                Float? // centimetres
+  height               Float? // centimetres
+  videoUrl             String?     @map("video_url")
+  aiFaqJson            Json?       @map("ai_faq_json") // [{ q, a }, ...] — Gemini-generated FAQ
+  aiDescAt             DateTime?   @map("ai_desc_at") // last time AI rewrote description
+  aiFaqAt              DateTime?   @map("ai_faq_at") // last time AI generated FAQ
+  kind                 ProductKind @default(PHYSICAL)
+  digitalDeliveryNote  String?     @map("digital_delivery_note") @db.Text
+  planId               String?     @map("plan_id")
+  boughtTogetherIds    String[]    @default([]) @map("bought_together_ids")
+  viewCount            Int         @default(0) @map("view_count")
+  rating               Float       @default(0)
+  reviewCount          Int         @default(0) @map("review_count")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  category       Category        @relation(fields: [categoryId], references: [id])
-  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
-  plan           Plan?           @relation(fields: [planId], references: [id])
-  reviews        Review[]
-  inventoryLogs  InventoryLog[]
-  options        ProductOption[]
-  variants       ProductVariant[]
+  category      Category         @relation(fields: [categoryId], references: [id])
+  supplier      Supplier?        @relation(fields: [supplierId], references: [id])
+  plan          Plan?            @relation(fields: [planId], references: [id])
+  reviews       Review[]
+  inventoryLogs InventoryLog[]
+  options       ProductOption[]
+  variants      ProductVariant[]
 
   @@map("products")
 }
@@ -140,8 +140,8 @@ model PageView {
   id        String   @id @default(cuid())
   path      String
   referrer  String?
-  visitorId String   @map("visitor_id")   // anonymous bp_vid cookie
-  userId    String?  @map("user_id")       // set when the visitor is signed in
+  visitorId String   @map("visitor_id") // anonymous bp_vid cookie
+  userId    String?  @map("user_id") // set when the visitor is signed in
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
@@ -230,57 +230,57 @@ model InventoryLog {
 }
 
 enum InventoryType {
-  PURCHASE    // Received from supplier — stock in
-  SALE        // Deducted by order — stock out
-  ADJUSTMENT  // Manual correction
-  RETURN      // Customer return — stock in
-  DAMAGE      // Written off — stock out
+  PURCHASE // Received from supplier — stock in
+  SALE // Deducted by order — stock out
+  ADJUSTMENT // Manual correction
+  RETURN // Customer return — stock in
+  DAMAGE // Written off — stock out
 }
 
 model Order {
-  id             String        @id @default(cuid())
+  id               String        @id @default(cuid())
   // Human-readable order code (e.g. `BLP-AIRP-123-0001`). Generated post-create
   // from the first item's product SKU + per-prefix sequence counter. Nullable
   // for back-compat with orders placed before this column existed.
-  orderCode      String?       @unique @map("order_code")
-  userId         String?       @map("user_id")
-  status         OrderStatus   @default(PENDING)
-  total          Float
-  subtotal       Float
-  deliveryCharge Float         @default(0) @map("delivery_charge")
-  name           String
-  phone          String
-  email          String?
-  address        String
-  house          String?
-  road           String?
-  city           String        @default("Kathmandu")
-  lat            Float?
-  lng            Float?
-  paymentMethod  PaymentMethod @map("payment_method")
-  paymentStatus  PaymentStatus @default(UNPAID) @map("payment_status")
-  transactionId  String?       @map("transaction_id")
-  advancePaid    Float?        @map("advance_paid")
-  codAmount      Float?        @map("cod_amount")
-  advanceMethod  String?       @map("advance_method")    // 'ESEWA' | 'KHALTI'
-  pathaoOrderId  String?       @map("pathao_order_id")
-  pathaoHash     String?       @map("pathao_hash")
-  pndOrderId     String?       @map("pnd_order_id")
-  pndAttempts    Int           @default(0) @map("pnd_attempts")  // count of PnD dispatch attempts → unique vendor ref suffix
-  trackingUrl    String?       @map("tracking_url")
-  shippingOption   String?  @map("shipping_option")
-  shippingProvider String?  @map("shipping_provider")
-  expressDelivery  Boolean  @default(false) @map("express_delivery")  // paid same-day (PnD express_delivery:1, inside valley)
-  source         String        @default("ONLINE") // ONLINE | POS
-  couponCode     String?       @map("coupon_code")
-  couponDiscount Float?        @map("coupon_discount")
-  autoDiscount   Float?        @map("auto_discount")
-  storeCreditUsed Float?       @map("store_credit_used")   // store credit redeemed at checkout (COD/Khalti only)
-  deliveryNote   String?       @db.Text @map("delivery_note")
-  deliveryMode   String        @default("PAID") @map("delivery_mode")
-  notes          String?
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  orderCode        String?       @unique @map("order_code")
+  userId           String?       @map("user_id")
+  status           OrderStatus   @default(PENDING)
+  total            Float
+  subtotal         Float
+  deliveryCharge   Float         @default(0) @map("delivery_charge")
+  name             String
+  phone            String
+  email            String?
+  address          String
+  house            String?
+  road             String?
+  city             String        @default("Kathmandu")
+  lat              Float?
+  lng              Float?
+  paymentMethod    PaymentMethod @map("payment_method")
+  paymentStatus    PaymentStatus @default(UNPAID) @map("payment_status")
+  transactionId    String?       @map("transaction_id")
+  advancePaid      Float?        @map("advance_paid")
+  codAmount        Float?        @map("cod_amount")
+  advanceMethod    String?       @map("advance_method") // 'ESEWA' | 'KHALTI'
+  pathaoOrderId    String?       @map("pathao_order_id")
+  pathaoHash       String?       @map("pathao_hash")
+  pndOrderId       String?       @map("pnd_order_id")
+  pndAttempts      Int           @default(0) @map("pnd_attempts") // count of PnD dispatch attempts → unique vendor ref suffix
+  trackingUrl      String?       @map("tracking_url")
+  shippingOption   String?       @map("shipping_option")
+  shippingProvider String?       @map("shipping_provider")
+  expressDelivery  Boolean       @default(false) @map("express_delivery") // paid same-day (PnD express_delivery:1, inside valley)
+  source           String        @default("ONLINE") // ONLINE | POS
+  couponCode       String?       @map("coupon_code")
+  couponDiscount   Float?        @map("coupon_discount")
+  autoDiscount     Float?        @map("auto_discount")
+  storeCreditUsed  Float?        @map("store_credit_used") // store credit redeemed at checkout (COD/Khalti only)
+  deliveryNote     String?       @map("delivery_note") @db.Text
+  deliveryMode     String        @default("PAID") @map("delivery_mode")
+  notes            String?
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
   // userId stored for reference — no FK relation so guest orders (null) and
   // deleted-profile orders don't break
@@ -293,25 +293,25 @@ model Order {
 // Each prefix (typically a product SKU) gets its own row; `upsert` with
 // `increment` is race-safe under concurrent checkouts.
 model OrderCodeCounter {
-  prefix    String @id
-  nextValue Int    @default(1) @map("next_value")
+  prefix    String   @id
+  nextValue Int      @default(1) @map("next_value")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("order_code_counters")
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String  @map("order_id")
-  productId String  @map("product_id")
+  id           String  @id @default(cuid())
+  orderId      String  @map("order_id")
+  productId    String  @map("product_id")
   // Which variant was bought, when the product has variants. No FK: orders must survive
   // variant edits/deletions, same as productId.
   variantId    String? @map("variant_id")
   variantTitle String? @map("variant_title")
-  quantity  Int
-  price     Float
-  name      String
-  image     String?
+  quantity     Int
+  price        Float
+  name         String
+  image        String?
 
   order Order @relation(fields: [orderId], references: [id])
   // productId is stored for reference but has no FK constraint —
@@ -367,7 +367,7 @@ model Address {
 
 model PathaoToken {
   id          String   @id @default(cuid())
-  accessToken String   @db.Text @map("access_token")
+  accessToken String   @map("access_token") @db.Text
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -375,13 +375,13 @@ model PathaoToken {
 }
 
 model CategoryMapping {
-  id             String   @id @default(cuid())
-  source         String                          // "daraz" | "amazon" | etc.
-  externalName   String   @map("external_name") // "Home Decor"
-  externalId     String?  @map("external_id")   // "10000426"
-  categoryId     String   @map("category_id")
-  category       Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  source       String // "daraz" | "amazon" | etc.
+  externalName String   @map("external_name") // "Home Decor"
+  externalId   String?  @map("external_id") // "10000426"
+  categoryId   String   @map("category_id")
+  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@unique([source, externalName])
   @@map("category_mappings")
@@ -396,24 +396,24 @@ model AppSetting {
 }
 
 model LogisticsSettings {
-  id           String   @id @default(cuid())
-  provider     String   @unique  // 'PATHAO' | 'PICKNDROP'
-  isActive     Boolean  @default(true)  @map("is_active")
-  isMock       Boolean  @default(true)  @map("is_mock")
+  id       String  @id @default(cuid())
+  provider String  @unique // 'PATHAO' | 'PICKNDROP'
+  isActive Boolean @default(true) @map("is_active")
+  isMock   Boolean @default(true) @map("is_mock")
 
   // Auth credentials
-  clientId     String?  @map("client_id")
-  clientSecret String?  @map("client_secret") @db.Text
-  apiKey       String?  @map("api_key")
-  apiSecret    String?  @map("api_secret") @db.Text
+  clientId     String? @map("client_id")
+  clientSecret String? @map("client_secret") @db.Text
+  apiKey       String? @map("api_key")
+  apiSecret    String? @map("api_secret") @db.Text
 
   // Store / pickup details
-  storeId      String?  @map("store_id")
-  storeName    String?  @map("store_name")
-  storePhone   String?  @map("store_phone")
-  storeAddress String?  @map("store_address")
-  storeLat     Float?   @map("store_lat")
-  storeLng     Float?   @map("store_lng")
+  storeId      String? @map("store_id")
+  storeName    String? @map("store_name")
+  storePhone   String? @map("store_phone")
+  storeAddress String? @map("store_address")
+  storeLat     Float?  @map("store_lat")
+  storeLng     Float?  @map("store_lng")
 
   // Pick & Drop pickup defaults — used as `pickup_branch`/`city_area`/`location` on rate + create_order calls
   pickupBranch   String? @map("pickup_branch")
@@ -421,26 +421,26 @@ model LogisticsSettings {
   pickupLocation String? @map("pickup_location")
 
   // Cap on surge price passed through to customer (NPR). null/0 = no cap.
-  maxSurgeNpr    Float?  @map("max_surge_npr")
+  maxSurgeNpr Float? @map("max_surge_npr")
 
   // Per-provider parcel limits. A null value means "use the code default".
   // Used to warn on the product form and hide an over-limit carrier on the
   // admin order-assignment UI.
-  maxWeightKg  Float? @map("max_weight_kg")
-  maxLengthCm  Float? @map("max_length_cm")
-  maxWidthCm   Float? @map("max_width_cm")
-  maxHeightCm  Float? @map("max_height_cm")
+  maxWeightKg Float? @map("max_weight_kg")
+  maxLengthCm Float? @map("max_length_cm")
+  maxWidthCm  Float? @map("max_width_cm")
+  maxHeightCm Float? @map("max_height_cm")
 
   // Base URL override
-  baseUrl      String?  @map("base_url")
+  baseUrl String? @map("base_url")
 
   // Inbound webhook secret used to validate signatures on PnD events. Per
   // provider; rotated by the admin "Register Webhook" button.
-  webhookSecret      String?   @map("webhook_secret") @db.Text
+  webhookSecret       String?   @map("webhook_secret") @db.Text
   webhookRegisteredAt DateTime? @map("webhook_registered_at")
 
-  notes        String?  @db.Text
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  notes     String?  @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("logistics_settings")
 }
@@ -451,12 +451,12 @@ model LogisticsSettings {
 model OrderStatusLog {
   id           String   @id @default(cuid())
   orderId      String   @map("order_id")
-  source       String                                  // 'PICKNDROP' | 'PATHAO' | 'ADMIN' | 'SYSTEM'
-  rawStatus    String   @map("raw_status")             // PnD status string verbatim, or admin action name
-  mappedStatus String?  @map("mapped_status")          // Our OrderStatus enum value when applicable
-  comment      String?  @db.Text                       // PnD `comments` field, admin note, etc.
-  epodUrl      String?  @map("epod_url")               // PnD proof-of-delivery image when present
-  payload      Json?                                   // full raw event for audit
+  source       String // 'PICKNDROP' | 'PATHAO' | 'ADMIN' | 'SYSTEM'
+  rawStatus    String   @map("raw_status") // PnD status string verbatim, or admin action name
+  mappedStatus String?  @map("mapped_status") // Our OrderStatus enum value when applicable
+  comment      String?  @db.Text // PnD `comments` field, admin note, etc.
+  epodUrl      String?  @map("epod_url") // PnD proof-of-delivery image when present
+  payload      Json? // full raw event for audit
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([orderId, createdAt])
@@ -467,12 +467,12 @@ model OrderStatusLog {
 // physical-return action; many ReturnRequestItems for the line items the
 // customer wants to send back.
 enum ReturnStatus {
-  REQUESTED                 // Customer filed; awaiting admin review
-  APPROVED                  // Admin OK'd; customer ships items back
-  REJECTED                  // Admin denied (terminal)
-  RECEIVED                  // Items physically received at store
-  REFUNDED                  // Refund issued; terminal happy path
-  CANCELLED_BY_CUSTOMER     // Customer withdrew before APPROVED (terminal)
+  REQUESTED // Customer filed; awaiting admin review
+  APPROVED // Admin OK'd; customer ships items back
+  REJECTED // Admin denied (terminal)
+  RECEIVED // Items physically received at store
+  REFUNDED // Refund issued; terminal happy path
+  CANCELLED_BY_CUSTOMER // Customer withdrew before APPROVED (terminal)
 }
 
 enum ReturnReason {
@@ -484,20 +484,20 @@ enum ReturnReason {
 }
 
 model ReturnRequest {
-  id            String         @id @default(cuid())
-  orderId       String         @map("order_id")
-  userId        String?        @map("user_id")
-  status        ReturnStatus   @default(REQUESTED)
-  reason        ReturnReason
-  customerNote  String?        @db.Text @map("customer_note")
-  adminNote     String?        @db.Text @map("admin_note")
-  refundAmount  Float          @default(0) @map("refund_amount")
-  refundedAt    DateTime?      @map("refunded_at")
-  approvedAt    DateTime?      @map("approved_at")
-  receivedAt    DateTime?      @map("received_at")
-  rejectedAt    DateTime?      @map("rejected_at")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt      @map("updated_at")
+  id           String       @id @default(cuid())
+  orderId      String       @map("order_id")
+  userId       String?      @map("user_id")
+  status       ReturnStatus @default(REQUESTED)
+  reason       ReturnReason
+  customerNote String?      @map("customer_note") @db.Text
+  adminNote    String?      @map("admin_note") @db.Text
+  refundAmount Float        @default(0) @map("refund_amount")
+  refundedAt   DateTime?    @map("refunded_at")
+  approvedAt   DateTime?    @map("approved_at")
+  receivedAt   DateTime?    @map("received_at")
+  rejectedAt   DateTime?    @map("rejected_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
   items ReturnRequestItem[]
 
@@ -508,11 +508,11 @@ model ReturnRequest {
 }
 
 model ReturnRequestItem {
-  id               String        @id @default(cuid())
-  returnRequestId  String        @map("return_request_id")
-  orderItemId      String        @map("order_item_id")
+  id               String @id @default(cuid())
+  returnRequestId  String @map("return_request_id")
+  orderItemId      String @map("order_item_id")
   quantity         Int
-  lineRefundAmount Float         @map("line_refund_amount")
+  lineRefundAmount Float  @map("line_refund_amount")
 
   request ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
 
@@ -523,27 +523,29 @@ model ReturnRequestItem {
 model Expense {
   id          String   @id @default(cuid())
   amount      Float
-  category    String   // RENT | SALARY | SUPPLIER | UTILITIES | MARKETING | TRANSPORT | OTHER
+  category    String // RENT | SALARY | SUPPLIER | UTILITIES | MARKETING | TRANSPORT | OTHER
   description String?  @db.Text
   paidTo      String?  @map("paid_to")
   supplierId  String?  @map("supplier_id")
   date        DateTime @default(now())
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
   @@map("expenses")
 }
 
 model Conversation {
   id            String    @id @default(cuid())
-  platform      String    // WHATSAPP | MESSENGER
+  platform      String // WHATSAPP | MESSENGER
   customerId    String    @map("customer_id")
   customerName  String?   @map("customer_name")
   customerPhone String?   @map("customer_phone")
-  status        String    @default("OPEN")       // OPEN | CLOSED
+  status        String    @default("OPEN") // OPEN | CLOSED
   lastMessageAt DateTime? @map("last_message_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   messages      Message[]
+
   @@unique([platform, customerId])
   @@map("conversations")
 }
@@ -551,26 +553,28 @@ model Conversation {
 model Message {
   id             String       @id @default(cuid())
   conversationId String       @map("conversation_id")
-  direction      String       // IN | OUT
+  direction      String // IN | OUT
   content        String       @db.Text
-  mediaUrl       String?      @map("media_url")   // relative /uploads path when message carries media
-  mediaType      String?      @map("media_type")  // image | video
+  mediaUrl       String?      @map("media_url") // relative /uploads path when message carries media
+  mediaType      String?      @map("media_type") // image | video
   mediaMime      String?      @map("media_mime")
   externalId     String?      @map("external_id")
-  status         String       @default("SENT")  // SENT | DELIVERED | READ | FAILED
+  status         String       @default("SENT") // SENT | DELIVERED | READ | FAILED
   createdAt      DateTime     @default(now()) @map("created_at")
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
   @@map("messages")
 }
 
 model NotificationLog {
   id        String   @id @default(cuid())
   orderId   String   @map("order_id")
-  type      String   // ORDER_CONFIRMED | ORDER_SHIPPED | ORDER_DELIVERED | ABANDONED_CART
+  type      String // ORDER_CONFIRMED | ORDER_SHIPPED | ORDER_DELIVERED | ABANDONED_CART
   phone     String
-  status    String   // SENT | FAILED
+  status    String // SENT | FAILED
   error     String?
   createdAt DateTime @default(now()) @map("created_at")
+
   @@map("notification_logs")
 }
 
@@ -578,10 +582,11 @@ model CartAbandonment {
   id        String   @id @default(cuid())
   phone     String   @unique
   name      String?
-  cartJson  String   @db.Text @map("cart_json")
+  cartJson  String   @map("cart_json") @db.Text
   reminded  Boolean  @default(false)
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
+
   @@map("cart_abandonments")
 }
 
@@ -589,7 +594,7 @@ model CartAbandonment {
 model ProductQuestion {
   id         String   @id @default(cuid())
   productId  String   @map("product_id")
-  userId     String?  @map("user_id")           // null = guest
+  userId     String?  @map("user_id") // null = guest
   authorName String   @map("author_name")
   body       String   @db.Text
   isApproved Boolean  @default(true) @map("is_approved")
@@ -605,10 +610,10 @@ model ProductQuestion {
 model ProductAnswer {
   id         String   @id @default(cuid())
   questionId String   @map("question_id")
-  userId     String?  @map("user_id")           // null = system/anonymous
+  userId     String?  @map("user_id") // null = system/anonymous
   authorName String   @map("author_name")
   body       String   @db.Text
-  isOfficial Boolean  @default(false) @map("is_official")  // true = answered by store
+  isOfficial Boolean  @default(false) @map("is_official") // true = answered by store
   createdAt  DateTime @default(now()) @map("created_at")
 
   question ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -638,7 +643,7 @@ model BackInStockSubscription {
   id         String    @id @default(cuid())
   productId  String    @map("product_id")
   email      String
-  userId     String?   @map("user_id")   // set when the subscriber is signed in
+  userId     String?   @map("user_id") // set when the subscriber is signed in
   createdAt  DateTime  @default(now()) @map("created_at")
   notifiedAt DateTime? @map("notified_at")
 
@@ -651,9 +656,9 @@ model BackInStockSubscription {
 // FCM push notification tokens for the Flutter mobile app
 model DeviceToken {
   id        String   @id @default(cuid())
-  userId    String?  @map("user_id")        // null = guest device
-  token     String   @unique                 // FCM registration token
-  platform  String   @default("android")    // android | ios
+  userId    String?  @map("user_id") // null = guest device
+  token     String   @unique // FCM registration token
+  platform  String   @default("android") // android | ios
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -667,12 +672,12 @@ model Coupon {
   type        CouponType
   value       Float
   minOrder    Float?     @map("min_order")
-  maxDiscount Float?     @map("max_discount")   // cap on a PERCENT coupon's discount (NPR); null = uncapped
+  maxDiscount Float?     @map("max_discount") // cap on a PERCENT coupon's discount (NPR); null = uncapped
   maxUses     Int?       @map("max_uses")
   usedCount   Int        @default(0) @map("used_count")
   expiresAt   DateTime?  @map("expires_at")
   isActive    Boolean    @default(true) @map("is_active")
-  scope       String     @default("ALL")  // ALL | CATEGORY | PRODUCT
+  scope       String     @default("ALL") // ALL | CATEGORY | PRODUCT
   categoryIds String[]   @default([]) @map("category_ids")
   productIds  String[]   @default([]) @map("product_ids")
   createdAt   DateTime   @default(now()) @map("created_at")
@@ -687,31 +692,31 @@ enum CouponType {
 }
 
 model GiftCard {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  initialValue    Float    @map("initial_value")  // What it was issued for
-  balance         Float                            // Current remaining (drops on redemption)
-  expiresAt       DateTime? @map("expires_at")
-  isActive        Boolean  @default(true) @map("is_active")
-  issuedToEmail   String?  @map("issued_to_email")
-  issuedToUserId  String?  @map("issued_to_user_id")
-  note            String?  @db.Text
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(cuid())
+  code           String    @unique
+  initialValue   Float     @map("initial_value") // What it was issued for
+  balance        Float // Current remaining (drops on redemption)
+  expiresAt      DateTime? @map("expires_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  issuedToEmail  String?   @map("issued_to_email")
+  issuedToUserId String?   @map("issued_to_user_id")
+  note           String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  redemptions     GiftCardRedemption[]
+  redemptions GiftCardRedemption[]
 
   @@map("gift_cards")
 }
 
 model GiftCardRedemption {
-  id          String   @id @default(cuid())
-  giftCardId  String   @map("gift_card_id")
-  orderId     String   @map("order_id")
-  amount      Float
-  redeemedAt  DateTime @default(now()) @map("redeemed_at")
+  id         String   @id @default(cuid())
+  giftCardId String   @map("gift_card_id")
+  orderId    String   @map("order_id")
+  amount     Float
+  redeemedAt DateTime @default(now()) @map("redeemed_at")
 
-  giftCard    GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  giftCard GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
 
   @@index([giftCardId])
   @@index([orderId])
@@ -719,10 +724,10 @@ model GiftCardRedemption {
 }
 
 enum Role {
-  CUSTOMER  // Shoppers — account, orders, wishlist
-  STAFF     // View/update orders, customer support only
-  MANAGER   // Products + orders + customers + analytics
-  ADMIN     // Full access including settings & logistics
+  CUSTOMER // Shoppers — account, orders, wishlist
+  STAFF // View/update orders, customer support only
+  MANAGER // Products + orders + customers + analytics
+  ADMIN // Full access including settings & logistics
 }
 
 enum OrderStatus {
@@ -875,11 +880,11 @@ model StoreCredit {
 model StoreCreditTransaction {
   id           String             @id @default(cuid())
   creditId     String             @map("credit_id")
-  amount       Float                                    // + = added, − = spent
+  amount       Float // + = added, − = spent
   balanceAfter Float              @map("balance_after")
   type         StoreCreditTxnType
   reason       String
-  orderId      String?            @map("order_id")      // set when spent on / refunded from an order
+  orderId      String?            @map("order_id") // set when spent on / refunded from an order
   createdAt    DateTime           @default(now()) @map("created_at")
 
   credit StoreCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
@@ -889,10 +894,10 @@ model StoreCreditTransaction {
 }
 
 enum StoreCreditTxnType {
-  GRANT       // issued by staff
-  REDEMPTION  // spent at checkout
-  REFUND      // credited back from a refund/cancellation
-  ADJUSTMENT  // manual correction (can be negative)
+  GRANT // issued by staff
+  REDEMPTION // spent at checkout
+  REFUND // credited back from a refund/cancellation
+  ADJUSTMENT // manual correction (can be negative)
 }
 
 // Loyalty points — earned on delivered orders, redeemed into store credit.
@@ -903,7 +908,7 @@ model LoyaltyAccount {
   id             String   @id @default(cuid())
   userId         String   @unique @map("user_id")
   pointsBalance  Int      @default(0) @map("points_balance")
-  lifetimePoints Int      @default(0) @map("lifetime_points")  // total ever earned (never decremented)
+  lifetimePoints Int      @default(0) @map("lifetime_points") // total ever earned (never decremented)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -915,11 +920,11 @@ model LoyaltyAccount {
 model LoyaltyTransaction {
   id           String         @id @default(cuid())
   accountId    String         @map("account_id")
-  points       Int                                  // + earned, − redeemed
+  points       Int // + earned, − redeemed
   balanceAfter Int            @map("balance_after")
   type         LoyaltyTxnType
   reason       String
-  orderId      String?        @map("order_id")      // set on EARN (the order) / REDEEM context
+  orderId      String?        @map("order_id") // set on EARN (the order) / REDEEM context
   createdAt    DateTime       @default(now()) @map("created_at")
 
   account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -929,9 +934,9 @@ model LoyaltyTransaction {
 }
 
 enum LoyaltyTxnType {
-  EARN    // earned from a delivered order
-  REDEEM  // converted to store credit
-  ADJUST  // manual correction (can be negative)
+  EARN // earned from a delivered order
+  REDEEM // converted to store credit
+  ADJUST // manual correction (can be negative)
 }
 
 // Referral program — each customer gets a code; when a referred customer's
@@ -947,21 +952,87 @@ model ReferralCode {
 }
 
 model Referral {
-  id          String         @id @default(cuid())
-  referrerId  String         @map("referrer_id")
-  refereeId   String         @unique @map("referee_id")   // a customer can be referred only once
-  code        String                                       // the code used at signup
-  status      ReferralStatus @default(PENDING)
-  orderId     String?        @map("order_id")              // the qualifying first order
-  rewardAmount Float         @default(0) @map("reward_amount") // total credited (both sides) when rewarded
-  createdAt   DateTime       @default(now()) @map("created_at")
-  rewardedAt  DateTime?      @map("rewarded_at")
+  id           String         @id @default(cuid())
+  referrerId   String         @map("referrer_id")
+  refereeId    String         @unique @map("referee_id") // a customer can be referred only once
+  code         String // the code used at signup
+  status       ReferralStatus @default(PENDING)
+  orderId      String?        @map("order_id") // the qualifying first order
+  rewardAmount Float          @default(0) @map("reward_amount") // total credited (both sides) when rewarded
+  createdAt    DateTime       @default(now()) @map("created_at")
+  rewardedAt   DateTime?      @map("rewarded_at")
 
   @@index([referrerId, createdAt])
   @@map("referrals")
 }
 
 enum ReferralStatus {
-  PENDING   // referee signed up with the code, hasn't qualified yet
-  REWARDED  // referee's first order delivered; both sides credited
+  PENDING // referee signed up with the code, hasn't qualified yet
+  REWARDED // referee's first order delivered; both sides credited
+}
+
+// One row per run of a Daraz job (website sync, shop mirror, orders), written by the job itself.
+// Read by the admin Daraz page to show when each job last ran and what it did.
+model SyncRun {
+  id         String    @id @default(cuid())
+  job        String // website | mirror | orders
+  status     String // RUNNING | OK | FAILED | SKIPPED
+  trigger    String    @default("schedule") // schedule | manual
+  changes    Int       @default(0)
+  summary    String    @default("") @db.Text
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+
+  @@index([job, startedAt])
+  @@map("sync_runs")
+}
+
+// Orders placed on Daraz (in the Bala Pasa shop and the TrendWave shop), copied here read-only.
+// Kept apart from `orders` on purpose: that table drives customer emails, pushes, stock and
+// courier actions, none of which apply to an order Daraz fulfils.
+model MarketplaceOrder {
+  id            String   @id @default(cuid())
+  shop          String // balapasa | trendwave
+  externalId    String   @map("external_id")
+  status        String
+  itemsCount    Int      @default(0) @map("items_count")
+  total         Float    @default(0)
+  shippingFee   Float    @default(0) @map("shipping_fee")
+  paymentMethod String   @default("") @map("payment_method")
+  customerName  String   @default("") @map("customer_name")
+  phone         String   @default("")
+  city          String   @default("")
+  address       String   @default("") @db.Text
+  placedAt      DateTime @map("placed_at")
+  changedAt     DateTime @map("changed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  items MarketplaceOrderItem[]
+
+  @@unique([shop, externalId])
+  @@index([placedAt])
+  @@index([shop, status])
+  @@map("marketplace_orders")
+}
+
+model MarketplaceOrderItem {
+  id             String  @id @default(cuid())
+  orderId        String  @map("order_id")
+  externalItemId String  @unique @map("external_item_id")
+  name           String
+  sku            String  @default("")
+  variation      String  @default("")
+  image          String?
+  itemPrice      Float   @default(0) @map("item_price")
+  paidPrice      Float   @default(0) @map("paid_price")
+  status         String  @default("")
+  trackingCode   String  @default("") @map("tracking_code")
+  cancelReason   String  @default("") @map("cancel_reason")
+  productUrl     String? @map("product_url")
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("marketplace_order_items")
 }

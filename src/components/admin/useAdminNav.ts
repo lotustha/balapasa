@@ -25,7 +25,15 @@ export function useAdminNav() {
     }).catch(() => {})
   }, [])
 
-  const groups = useMemo(() => groupsFor(me.role), [me.role])
+  // Settings → Daraz can hide the Daraz page from the menu.
+  const [showDaraz, setShowDaraz] = useState(true)
+  useEffect(() => {
+    fetch('/api/admin/daraz-menu').then(r => (r.ok ? r.json() : null)).then(d => { if (d && d.show === false) setShowDaraz(false) }).catch(() => {})
+  }, [])
+
+  const groups = useMemo(() => groupsFor(me.role)
+    .map(g => (showDaraz ? g : { ...g, items: g.items.filter(i => i.href !== '/admin/daraz') }))
+    .filter(g => g.items.length > 0), [me.role, showDaraz])
   const items  = useMemo(() => groups.flatMap(g => g.items), [groups])
 
   const pinnedHrefs = prefs.pins ?? DEFAULT_PINS

@@ -23,6 +23,13 @@ export const CONTROL_DEFAULTS = {
   mirrorStock: true,
   mirrorNewListings: true,
   mirrorSoldOut: true,
+  // Daraz orders copied into the admin panel (scripts/daraz/orders-sync.mjs)
+  ordersSync: true,
+  ordersBalapasa: true,
+  ordersTrendwave: true,
+  ordersAlert: true,
+  // Show the Daraz page in the admin menu.
+  showDarazMenu: true,
   // WhatsApp summary after a run that changed something. Failure alerts are always sent.
   notifyChanges: true,
 }

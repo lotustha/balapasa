@@ -7,6 +7,7 @@
  *
  * Every price change is written to price_history. Alerts go to WhatsApp and/or Discord when configured (see notify.mjs).
  */
+import { useUtc } from './utc.mjs'
 import { config } from 'dotenv'
 import pg from 'pg'
 import { createId } from '@paralleldrive/cuid2'
@@ -18,6 +19,7 @@ import { mapProduct } from './map.mjs'
 import { planSync } from './plan-sync.mjs'
 import { chooseFlags } from './flags.mjs'
 import { loadControls, limitSitePlan } from './controls.mjs'
+import { recordRun } from './runs.mjs'
 import { refreshCategoryArt } from './category-art.mjs'
 import { ensureSupplier, insertOptions, insertProduct, insertVariant, slugify } from './store.mjs'
 
@@ -32,10 +34,13 @@ const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
 const db = new pg.Client({ connectionString: url })
 await db.connect()
+await useUtc(db)
 
 // The switches from Settings → Daraz. A dry run always runs, so a switched-off sync can still be previewed.
+const startedAt = new Date()
 const controls = await loadControls(db)
 if (!controls.websiteSync && !DRY_RUN) {
+  await recordRun(db, { job: 'website', status: 'SKIPPED', summary: 'Switched off in Settings → Daraz', startedAt })
   console.log(`Daraz sync ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC: skipped, switched off in Settings → Daraz`)
   await db.end()
   process.exit(0)
@@ -69,7 +74,7 @@ async function categoryFor(darazCategoryId, accessToken, cache) {
 async function logPrice(c, status) {
   if (status === 'HELD') {
     const dup = (await db.query(
-      `SELECT 1 FROM price_history WHERE sku = $1 AND status = 'HELD' AND new_price = $2 AND new_sale_price IS NOT DISTINCT FROM $3 LIMIT 1`,
+      `SELECT 1 FROM price_history WHERE sku = $1 AND status IN ('HELD', 'REJECTED') AND new_price = $2 AND new_sale_price IS NOT DISTINCT FROM $3 LIMIT 1`,
       [c.sku, c.new.price, c.new.salePrice])).rows[0]
     if (dup) return
   }
@@ -149,7 +154,11 @@ try {
   const { plan, off } = limitSitePlan(
     planSync(mapped, existing, { applyHeld: APPLY_HELD, holdOver: controls.priceHoldPercent / 100 }), controls)
   const applied = plan.priceChanges.filter(c => !c.held)
-  const held = plan.priceChanges.filter(c => c.held)
+  // Prices an admin rejected on the Daraz page stay unapplied and are not reported again.
+  const rejected = new Set((await db.query(
+    `SELECT sku, new_price, new_sale_price FROM price_history WHERE status = 'REJECTED'`)).rows
+    .map(r => `${r.sku}|${r.new_price}|${r.new_sale_price ?? ''}`))
+  const held = plan.priceChanges.filter(c => c.held && !rejected.has(`${c.sku}|${c.new.price}|${c.new.salePrice ?? ''}`))
   const repriced = applied.filter(c => c.priceChanged)
   const redated = applied.filter(c => !c.priceChanged)
   const heldVariants = plan.variantChanges.flatMap(v => v.priceUpdates.filter(u => u.held).map(u => ({ ...u, name: v.name })))
@@ -224,10 +233,12 @@ try {
 
   console.log(lines.join('\n'))
   const changed = plan.priceChanges.length + heldVariants.length + plan.create.length + plan.deactivate.length + plan.reactivate.length + variantEdits
+  if (!DRY_RUN) await recordRun(db, { job: 'website', status: 'OK', changes: changed, summary: lines.join('\n'), startedAt })
   if (changed > 0 && !DRY_RUN && controls.notifyChanges) await notify(lines.join('\n'))
 } catch (err) {
   exitCode = 1
   console.error(`Daraz sync FAILED: ${err.message}`)
+  if (!DRY_RUN) await recordRun(db, { job: 'website', status: 'FAILED', summary: err.message, startedAt })
   await notify(`Daraz sync FAILED: ${err.message}`)
 }
 

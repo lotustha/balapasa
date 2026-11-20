@@ -6,6 +6,7 @@
  *
  * Tokens for both shops come from app_settings (see tokens.mjs). Alerts go to WhatsApp and/or Discord when configured (see notify.mjs).
  */
+import { useUtc } from './utc.mjs'
 import { config } from 'dotenv'
 import pg from 'pg'
 import { darazPost, fetchProducts } from './api.mjs'
@@ -14,6 +15,7 @@ import { notify } from './notify.mjs'
 import { planMirror, priceQuantityXml } from './mirror-plan.mjs'
 import { createMirror } from './mirror-lib.mjs'
 import { loadControls, limitMirrorPlan } from './controls.mjs'
+import { recordRun } from './runs.mjs'
 
 config({ path: '.env.local', quiet: true })
 
@@ -28,10 +30,13 @@ const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
 const db = new pg.Client({ connectionString: url })
 await db.connect()
+await useUtc(db)
 
 // The switches from Settings → Daraz. A dry run always runs, so a switched-off sync can still be previewed.
+const startedAt = new Date()
 const controls = await loadControls(db)
 if (!controls.mirrorSync && !DRY_RUN) {
+  await recordRun(db, { job: 'mirror', status: 'SKIPPED', summary: 'Switched off in Settings → Daraz', startedAt })
   console.log(`Bala Pasa Daraz mirror ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC: skipped, switched off in Settings → Daraz`)
   await db.end()
   process.exit(0)
@@ -103,16 +108,18 @@ try {
       `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
       [SKIP_KEY, JSON.stringify([...skipCreate])])
   }
+  const changed = plan.updates.length + plan.create.length + plan.soldOut.length + plan.partial.length
+  if (!DRY_RUN) await recordRun(db, { job: 'mirror', status: failures ? 'FAILED' : 'OK', changes: changed, summary: lines.join('\n'), startedAt })
   await db.end()
 
   console.log(lines.join('\n'))
-  const changed = plan.updates.length + plan.create.length + plan.soldOut.length + plan.partial.length
   if (changed > 0 && !DRY_RUN && controls.notifyChanges) await notify(lines.join('\n'))
   if (failures) exitCode = 1
 } catch (err) {
   exitCode = 1
   console.error(`Bala Pasa mirror sync FAILED: ${err.message}`)
   await notify(`Bala Pasa mirror sync FAILED: ${err.message}`)
+  if (!DRY_RUN) await recordRun(db, { job: 'mirror', status: 'FAILED', summary: err.message, startedAt })
   await db.end().catch(() => {})
 }
 process.exit(exitCode)

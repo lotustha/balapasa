@@ -1851,6 +1851,12 @@ const DARAZ_MIRROR: [DarazSwitch, string, string][] = [
   ['mirrorSoldOut',     'Mark removed products sold out', 'A listing TrendWave stopped selling is set to zero stock in the Bala Pasa shop.'],
 ]
 
+const DARAZ_ORDERS: [DarazSwitch, string, string][] = [
+  ['ordersBalapasa',  'Bala Pasa shop orders',  'Copy and show orders placed in your Bala Pasa shop on Daraz.'],
+  ['ordersTrendwave', 'TrendWave shop orders',  'Copy and show orders placed in the TrendWave shop on Daraz.'],
+  ['ordersAlert',     'WhatsApp message for a new Daraz order', 'One message when new orders arrive. Off: orders still appear on the Daraz page.'],
+]
+
 function DarazSwitchRow({ title, hint, checked, onChange, first }: {
   title: string; hint: string; checked: boolean; onChange: (v: boolean) => void; first?: boolean
 }) {
@@ -1892,7 +1898,7 @@ function DarazSection({ saving, saved, onSave }: {
       <InfoBanner icon={RefreshCw} color={allOff ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-blue-50 border border-blue-100 text-blue-700'}>
         {allOff ? 'Both Daraz syncs are switched off. Nothing is copied from Daraz until you switch one back on.'
           : 'These switches control the jobs that copy from the TrendWave Daraz shop.'}
-        {' '}The jobs run once a day, early morning, so a change here takes effect on the next run. Only an admin can save this page.
+        {' '}The syncs run once a day, early morning, and orders are checked every 15 minutes, so a change here takes effect on the next run. Only an admin can save this page.
       </InfoBanner>
 
       <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
@@ -1930,6 +1936,22 @@ function DarazSection({ saving, saved, onSave }: {
             <DarazSwitchRow key={key} first={i === 0} title={title} hint={hint} checked={c[key]} onChange={v => set(key, v)} />
           ))}
         </fieldset>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+        <DarazSwitchRow first title="Daraz orders" checked={c.ordersSync} onChange={v => set('ordersSync', v)}
+          hint="Master switch. Off: no Daraz orders are copied, for either shop. Orders already copied stay." />
+        <fieldset disabled={!c.ordersSync} className="space-y-5 pt-5 border-t border-slate-100 disabled:opacity-50">
+          <legend className="sr-only">Which Daraz orders to copy</legend>
+          {DARAZ_ORDERS.map(([key, title, hint], i) => (
+            <DarazSwitchRow key={key} first={i === 0} title={title} hint={hint} checked={c[key]} onChange={v => set(key, v)} />
+          ))}
+        </fieldset>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+        <DarazSwitchRow first title="Show Daraz in the admin menu" checked={c.showDarazMenu} onChange={v => set('showDarazMenu', v)}
+          hint="The Daraz page (runs, held prices, orders). Off: hidden from the menu for everyone. The jobs keep running." />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 p-6">

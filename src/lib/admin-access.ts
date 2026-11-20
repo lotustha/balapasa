@@ -29,7 +29,7 @@ export function pageMinRole(pathname: string): AdminRole {
 // requireRole() check can be stricter still.
 const MANAGER_API = [
   'settings', 'finance', 'import', 'suppliers', 'coupons', 'discount-rules', 'inventory', 'ai', 'brands',
-  'category-mappings', 'products/bulk-delete', 'products/import', 'products/export',
+  'category-mappings', 'products/bulk-delete', 'products/import', 'products/export', 'daraz', 'search-terms',
 ]
 const ADMIN_API = ['team', 'danger', 'logistics', 'whatsapp-bot', 'emails']
 

@@ -8,6 +8,7 @@
  * Files go to <cwd>/uploads/images/ and are served at /uploads/images/<file>, the same place and
  * naming the admin uploader uses (src/lib/upload.ts).
  */
+import { useUtc } from './utc.mjs'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { config } from 'dotenv'
@@ -32,6 +33,7 @@ const url = (process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '').replace(/
 if (!url) { console.error('DIRECT_URL / DATABASE_URL not set'); process.exit(2) }
 const db = new pg.Client({ connectionString: url })
 await db.connect()
+await useUtc(db)
 
 if (!DRY_RUN && !(await loadControls(db)).copyImages) {
   console.log('image copy skipped: switched off in Settings → Daraz')
