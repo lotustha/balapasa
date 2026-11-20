@@ -145,10 +145,11 @@ export async function esewaVerifyCallback(dataB64: string): Promise<{
     .join(',')
 
   const expected = esewaHmac(cfg.esewa.secretKey, message)
-  const valid    = crypto.timingSafeEqual(
-    Buffer.from(signature, 'base64'),
-    Buffer.from(expected, 'base64'),
-  )
+  // timingSafeEqual throws when the lengths differ, which a tampered callback easily causes:
+  // that is simply an invalid signature, not a server error.
+  const given    = Buffer.from(String(signature ?? ''), 'base64')
+  const wanted   = Buffer.from(expected, 'base64')
+  const valid    = given.length === wanted.length && crypto.timingSafeEqual(given, wanted)
   return { valid, decoded }
 }
 
