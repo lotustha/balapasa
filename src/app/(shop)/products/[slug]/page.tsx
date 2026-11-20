@@ -92,6 +92,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
     // For a bundle, `stock` is the derived availability so the existing
     // out-of-stock / add-to-cart gating works unchanged.
     salePrice: product.salePrice, stock: product.kind === 'BUNDLE' ? bundleStock : product.stock,
+    // A bundle's availability is derived from its parts, so it always counts as tracked.
+    trackInventory: product.kind === 'BUNDLE' ? true : product.trackInventory,
     images: product.images, brand: product.brand, sku: product.sku,
     rating: product.rating, reviewCount: product.reviewCount,
     isNew: product.isNew, isTaxable: product.isTaxable,
@@ -144,7 +146,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       '@type': 'Offer', priceCurrency: 'NPR',
       price: product.salePrice ?? product.price,
       highPrice: product.price, lowPrice: product.salePrice ?? product.price,
-      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      availability: (!product.trackInventory || product.stock > 0) ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       url: `${appUrl}/products/${slug}`,
       seller: { '@type': 'Organization', name: STORE_NAME, url: appUrl },
     },

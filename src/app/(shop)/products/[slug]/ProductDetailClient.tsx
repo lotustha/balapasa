@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { UNTRACKED_MAX_QTY } from '@/lib/stock'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -356,14 +357,17 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     && (!p.salePriceStartsAt  || new Date(p.salePriceStartsAt)  <= new Date())
     && (!p.salePriceExpiresAt || new Date(p.salePriceExpiresAt) >  new Date())
   const effectivePrice = activeVariant?.price ?? (saleActive ? p?.salePrice : null) ?? p?.price ?? 0
+  // Stock not tracked: always orderable, with a plain upper limit instead of a stock figure.
+  const untracked = p?.trackInventory === false
+  const productStock = untracked ? UNTRACKED_MAX_QTY : (p?.stock ?? 0)
   const qtyMax = saleActive && p?.maxPerCustomerOnSale
-    ? Math.min(p.maxPerCustomerOnSale, p.stock)
-    : (p?.stock ?? 0)
+    ? Math.min(p.maxPerCustomerOnSale, productStock)
+    : productStock
   const originalPrice  = p?.price ?? 0
   const cartName = activeVariant && p ? `${p.name} (${activeVariant.title})` : p?.name ?? ''
   const totalVariantStock = variants.reduce((s, v) => s + (v.stock ?? 0), 0)
-  const useVariantStock   = variants.length > 0 && totalVariantStock > 0
-  const variantStock      = useVariantStock ? (activeVariant?.stock ?? 0) : (p?.stock ?? 0)
+  const useVariantStock   = !untracked && variants.length > 0 && totalVariantStock > 0
+  const variantStock      = useVariantStock ? (activeVariant?.stock ?? 0) : productStock
   const discount       = originalPrice > effectivePrice ? discountPercent(originalPrice, effectivePrice) : 0
 
   // ── Cart ────────────────────────────────────────────────────────────────
@@ -613,7 +617,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
     if (dims.length === 3) rows.push(['Dimensions', `${p.length} × ${p.width} × ${p.height} cm`])
     if (p.tags.length) rows.push(['Tags', p.tags.join(', ')])
     if (options.length) options.forEach(o => { rows.push([o.name, o.values.join(', ')]) })
-    rows.push(['Availability', variantStock > 0 ? `${variantStock} in stock` : 'Out of stock'])
+    rows.push(['Availability', untracked ? 'In stock' : variantStock > 0 ? `${variantStock} in stock` : 'Out of stock'])
     if (p.isTaxable) rows.push(['Tax', 'Inclusive of VAT'])
     return rows
   }, [p, options, variantStock])

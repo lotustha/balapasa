@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Heart, ShoppingCart, Star, Zap } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { formatPrice, discountPercent } from '@/lib/utils'
+import { isSoldOut } from '@/lib/stock'
 
 export interface Product {
   id: string
@@ -24,6 +25,7 @@ export interface Product {
 }
 
 export default function ProductCard({ product: p }: { product: Product }) {
+  const soldOut = isSoldOut(p as { stock: number; trackInventory?: boolean })
   const { addItem } = useCart()
   const [wished, setWished] = useState(false)
   const [added, setAdded]   = useState(false)
@@ -70,7 +72,7 @@ export default function ProductCard({ product: p }: { product: Product }) {
                 New
               </span>
             )}
-            {p.stock === 0 && (
+            {soldOut && (
               <span className="px-2 py-0.5 glass-md text-slate-600 text-[10px] font-bold rounded-lg">
                 Sold Out
               </span>
@@ -91,15 +93,15 @@ export default function ProductCard({ product: p }: { product: Product }) {
           <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
             <button
               onClick={handleAdd}
-              disabled={p.stock === 0}
+              disabled={soldOut}
               className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-xs transition-all duration-200 cursor-pointer shadow-lg ${
                 added
                   ? 'bg-primary text-white'
-                  : p.stock === 0
+                  : soldOut
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   : 'text-slate-800 hover:bg-primary hover:text-white'
               }`}
-              style={!added && p.stock > 0 ? { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)' } : {}}
+              style={!added && !soldOut ? { background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)' } : {}}
             >
               {added ? <><Zap size={13} /> Added!</> : <><ShoppingCart size={13} /> Add to Cart</>}
             </button>

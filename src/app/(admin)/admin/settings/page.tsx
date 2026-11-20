@@ -1840,6 +1840,7 @@ const DARAZ_WEBSITE: [DarazSwitch, string, string][] = [
   ['websiteNewProducts', 'Add new products',              'A product newly listed on Daraz is added to the website.'],
   ['websiteHideRemoved', 'Hide removed products',         'A product no longer sold on Daraz is hidden here, and shown again if it returns.'],
   ['websiteVariants',    'Update variants',               'Variants added, removed or renamed on Daraz are changed here too.'],
+  ['websiteStock',       'Follow Daraz stock',            'Stock here matches Daraz, so what is sold out there shows Sold Out here. Off: imported products can always be ordered.'],
   ['homepageFlags',      'Pick Featured and New products','Refreshes the 12 Featured and 12 New products on the homepage.'],
   ['categoryArt',        'Fill in category pictures',     'Gives a category with no picture, icon or colour one from its products.'],
 ]

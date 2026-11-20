@@ -1,5 +1,7 @@
 'use client'
 
+import { isSoldOut } from '@/lib/stock'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
@@ -166,7 +168,7 @@ export default function WishlistPage() {
             {items.map((p, i) => {
               const effectivePrice = p.salePrice ?? p.price
               const discount = p.salePrice ? discountPercent(p.price, p.salePrice) : 0
-              const soldOut = p.stock === 0
+              const soldOut = isSoldOut(p as { stock: number; trackInventory?: boolean })
               return (
                 <div
                   key={p.id}

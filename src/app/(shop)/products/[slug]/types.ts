@@ -1,6 +1,8 @@
 export interface ClientProduct {
   id: string; name: string; slug: string; description: string
   price: number; salePrice: number | null; stock: number
+  /** false = stock is not tracked: always orderable, whatever `stock` says. */
+  trackInventory?: boolean
   images: string[]; brand: string | null; sku: string | null
   rating: number; reviewCount: number; isNew: boolean; isTaxable: boolean
   videoUrl: string | null

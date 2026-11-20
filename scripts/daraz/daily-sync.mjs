@@ -111,6 +111,29 @@ async function refreshFlags(mapped) {
   return { changed, redated }
 }
 
+// Website stock follows Daraz: products and variants take the Daraz quantity and become tracked, so
+// what is sold out there is sold out here. Switched off, imported products go back to untracked
+// (always orderable) rather than being left blocked by a stale figure.
+async function syncStock(mapped, follow) {
+  if (!follow) {
+    return (await db.query(`UPDATE products SET track_inventory = false, updated_at = now() WHERE sku LIKE 'DZ-%' AND track_inventory`)).rowCount
+  }
+  const skus = [], qty = [], vSkus = [], vQty = []
+  for (const m of mapped) {
+    skus.push(m.sku); qty.push(Math.max(0, Math.trunc(m.stock) || 0))
+    for (const v of m.variants ?? []) { vSkus.push(v.sku); vQty.push(Math.max(0, Math.trunc(v.stock) || 0)) }
+  }
+  const products = await db.query(
+    `UPDATE products p SET stock = d.stock, track_inventory = true, updated_at = now()
+       FROM unnest($1::text[], $2::int[]) AS d(sku, stock)
+      WHERE p.sku = d.sku AND (p.stock <> d.stock OR NOT p.track_inventory)`, [skus, qty])
+  const variants = await db.query(
+    `UPDATE product_variants v SET stock = d.stock
+       FROM unnest($1::text[], $2::int[]) AS d(sku, stock), products p
+      WHERE v.sku = d.sku AND p.id = v.product_id AND p.sku LIKE 'DZ-%' AND v.stock <> d.stock`, [vSkus, vQty])
+  return products.rowCount + variants.rowCount
+}
+
 let exitCode = 0
 try {
   const accessToken = await getAccessToken(db)
@@ -191,6 +214,8 @@ try {
   }
 
   if (!DRY_RUN) {
+    const stockChanges = await syncStock(mapped, controls.websiteStock)
+    if (stockChanges) lines.push(controls.websiteStock ? `stock updated on ${stockChanges} products and variants` : `stock tracking switched off on ${stockChanges} products`)
     const flags = controls.homepageFlags ? await refreshFlags(mapped) : { changed: 0, redated: 0 }
     if (flags.changed || flags.redated) lines.push(`homepage flags updated on ${flags.changed} products, listing dates aligned on ${flags.redated}`)
     const art = controls.categoryArt ? await refreshCategoryArt(db) : 0

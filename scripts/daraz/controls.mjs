@@ -11,6 +11,8 @@ export const CONTROL_DEFAULTS = {
   websiteNewProducts: true,
   websiteHideRemoved: true,
   websiteVariants: true,
+  // Copy Daraz quantities and sell out with them. Off: imported products are always orderable.
+  websiteStock: true,
   priceHoldPercent: 20,
   homepageFlags: true,
   categoryArt: true,
