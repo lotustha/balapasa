@@ -19,6 +19,14 @@ const COMMANDS: [string, string][] = [
   ['sync', 'Run the website and Daraz shop sync now'],
   ['held', 'Price changes waiting for approval'],
   ['approve', 'Apply the held price changes'],
+  ['orders', 'Today and recent website orders'],
+  ['order <code>', 'One order in full'],
+  ['sales', 'Sales today, last 7 and 30 days'],
+  ['stock <name>', 'Stock of matching products'],
+  ['daraz', 'Daraz orders, held prices and failed jobs'],
+  ['confirm / ship / deliver / cancel <code>', 'Change an order. The bot shows it and waits for "yes"'],
+  ['maintenance on / pause / off', 'Close, pause or reopen the store. Waits for "yes"'],
+  ['summary', 'The daily summary now. "summary off" stops the 8 pm message'],
   ['help', 'List the commands'],
 ]
 

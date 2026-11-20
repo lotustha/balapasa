@@ -21,6 +21,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import pino from 'pino'
+import { parseMessage, createPending, summaryDue } from './bot-logic.mjs'
 import * as baileysModule from '@whiskeysockets/baileys'
 
 // The package is CommonJS: depending on the Node version its exports arrive on the namespace or under `default`.
@@ -34,6 +35,8 @@ const AUTH_DIR = path.join(DATA_DIR, 'auth')
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json')
 const PORT = Number(process.env.WA_PORT ?? 3099)
 const APP_DIR = process.env.WA_APP_DIR ?? '/www/wwwroot/balapasa'
+// The store itself answers the order, sales, stock and maintenance commands (/api/internal/bot).
+const SITE_URL = (process.env.WA_SITE_URL ?? 'http://127.0.0.1:3002').replace(/\/$/, '')
 const MAX_TEXT = 3500
 const MAX_COMMANDERS = 10
 const COMMAND_TIMEOUT_MS = 5 * 60 * 1000
@@ -199,6 +202,25 @@ const HELP = [
 ].join('\n')
 
 let busy = false
+const pending = createPending()
+
+// Asks the store. Returns { text, confirm } on an answer, null when the store does not know the command.
+async function site(body) {
+  try {
+    const res = await fetch(`${SITE_URL}/api/internal/bot`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60_000),
+    })
+    if (res.status === 404) return null
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { text: `The store did not answer that (${data.error ?? res.status}).` }
+    return data
+  } catch (err) {
+    return { text: `Could not reach the store: ${err.message}` }
+  }
+}
 
 function run(script, args = []) {
   return new Promise(resolve => {
@@ -218,10 +240,20 @@ function tail(file, lines) {
   try { return readFileSync(file, 'utf8').trim().split('\n').slice(-lines).join('\n') } catch { return '(no log yet)' }
 }
 
-async function execute(command) {
+async function execute(command, arg, chat) {
+  // "yes" releases whatever this chat was asked to confirm; any other message drops it.
+  if (command === 'yes') {
+    const action = pending.take(chat)
+    if (!action) return 'Nothing is waiting for a yes. Send the command again.'
+    return (await site({ ...action, confirmed: true }))?.text ?? 'The store did not answer.'
+  }
+  pending.clear(chat)
+
   switch (command) {
-    case 'help': case 'hi': case 'hello': case 'menu':
-      return HELP
+    case 'help': case 'hi': case 'hello': case 'menu': {
+      const more = await site({ command: 'help' })
+      return more?.text && !/^Could not|^The store did not/.test(more.text) ? `${HELP}\n${more.text}` : HELP
+    }
     case 'status': {
       const checks = await run('monitor/site-check.mjs', ['--report'])
       return [checks.out, '', 'Last website sync:', tail('/var/log/balapasa-daraz-sync.log', 3), '', 'Last Daraz shop sync:', tail('/var/log/balapasa-daraz-mirror.log', 3)].join('\n')
@@ -238,8 +270,12 @@ async function execute(command) {
     }
     case 'approve':
       return (await run('daraz/daily-sync.mjs', ['--apply-held'])).out
-    default:
-      return `Unknown command "${command}".\n\n${HELP}`
+    default: {
+      const answer = await site({ command, arg })
+      if (!answer) return `Unknown command "${command}". Send "help" for the list.`
+      if (answer.confirm) pending.set(chat, { command, arg })
+      return answer.text
+    }
   }
 }
 
@@ -262,12 +298,12 @@ async function handleIncoming(s, m) {
     }
   }
 
-  const command = text.toLowerCase().split(/\s+/)[0]
+  const { command, arg } = parseMessage(text)
   const slow = ['status', 'sync', 'held', 'approve'].includes(command)
   if (slow && busy) { await s.sendMessage(jid, { text: 'Still working on the previous command, try again in a minute.' }); return }
   if (slow) { busy = true; await s.sendMessage(jid, { text: 'Working on it...' }) }
   try {
-    const answer = await execute(command)
+    const answer = await execute(command, arg, jid)
     await s.sendMessage(jid, { text: (answer || '(no output)').slice(0, MAX_TEXT) })
   } finally {
     if (slow) busy = false
@@ -348,6 +384,29 @@ async function route(req, res) {
 http.createServer((req, res) => {
   route(req, res).catch(err => { log(`request failed: ${err.message}`); reply(res, 500, { error: err.message }) })
 }).listen(PORT, '127.0.0.1', () => log(`listening on 127.0.0.1:${PORT}`))
+
+// Daily summary at 8 pm Nepal time, to every commanding number. The store decides whether it is
+// switched on ("summary off" / "summary on"); a day is marked done only once the store has answered.
+setInterval(async () => {
+  const date = summaryDue(new Date(), config.lastSummaryDate)
+  if (!date || !connected || !sock || config.commanders.length === 0) return
+  config.lastSummaryDate = date
+  saveConfig()
+  const answer = await site({ command: 'summary', scheduled: true })
+  if (!answer) return
+  if (/^Could not reach the store|^The store did not answer/.test(answer.text ?? '')) {
+    // Try again on the next tick rather than skipping the day.
+    config.lastSummaryDate = null
+    saveConfig()
+    return
+  }
+  if (!answer.text) return
+  for (const number of config.commanders) {
+    try { await sock.sendMessage(`${number}@s.whatsapp.net`, { text: answer.text.slice(0, MAX_TEXT) }) }
+    catch (err) { log(`daily summary to ${number} failed: ${err.message}`) }
+  }
+  log(`daily summary sent for ${date}`)
+}, 60_000).unref()
 
 // Resume a linked session on start; an unlinked bot waits for /pair.
 if (existsSync(path.join(AUTH_DIR, 'creds.json'))) connect({ linked: true }).catch(err => log(`startup failed: ${err.message}`))
