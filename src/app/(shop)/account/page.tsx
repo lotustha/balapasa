@@ -106,13 +106,13 @@ export default async function AccountPage() {
   return (
     <div
       className="min-h-screen py-8 relative"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#F4F6FF 40%,#FFF5FB 70%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-7) 40%,var(--th-wash-5) 70%,var(--th-wash-4) 100%)' }}
     >
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-32 w-[500px] h-[500px]"
-          style={{ background: '#8B5CF6', opacity: 0.08 }} />
+          style={{ background:'#8B5CF6', opacity: 0.08 }} />
         <div className="blob animate-blob-morph animate-blob-float-b absolute -bottom-20 -right-20 w-[400px] h-[400px]"
-          style={{ background: '#06B6D4', opacity: 0.07, animationDelay: '2s' }} />
+          style={{ background:'#06B6D4', opacity: 0.07, animationDelay: '2s' }} />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
@@ -132,7 +132,7 @@ export default async function AccountPage() {
               <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
                 <div
                   className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 shadow-lg overflow-hidden"
-                  style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}
+                  style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)' }}
                 >
                   {signedIn && profile?.avatar ? (
                     <Image src={profile.avatar} alt={displayName} width={80} height={80} className="w-full h-full object-cover" />
@@ -211,9 +211,9 @@ export default async function AccountPage() {
                     href="/account/loyalty"
                     aria-label={`Loyalty points: ${points} points, worth ${formatPrice(pointsAsCredit)}`}
                     className="group relative overflow-hidden rounded-3xl p-5 text-white shadow-lg shadow-violet-500/25 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg,#7C3AED 0%,#6366F1 55%,#4F46E5 100%)' }}
+                    style={{ background:'linear-gradient(135deg,#7C3AED 0%,#6366F1 55%,#4F46E5 100%)' }}
                   >
-                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none th-decor" />
                     <div className="relative z-10">
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/85">
@@ -232,7 +232,7 @@ export default async function AccountPage() {
                       ) : (
                         <div className="mt-3.5">
                           <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
-                            <div className="h-full rounded-full bg-white transition-all" style={{ width: `${redeemPct}%` }} />
+                            <div className="h-full rounded-full bg-surface transition-all" style={{ width: `${redeemPct}%` }} />
                           </div>
                           <p className="text-[10px] text-white/75 mt-1.5">
                             {points > 0 ? `${(minRedeem - points).toLocaleString()} pts to your first redemption` : `Earn ${minRedeem.toLocaleString()} pts to redeem`}
@@ -252,9 +252,9 @@ export default async function AccountPage() {
                   href="/account/store-credit"
                   aria-label={`Store credit balance: ${formatPrice(creditBalance)}`}
                   className={`group relative overflow-hidden rounded-3xl p-5 text-white shadow-lg shadow-emerald-500/25 cursor-pointer ${showLoyalty ? '' : 'sm:col-span-1'}`}
-                  style={{ background: 'linear-gradient(135deg,#059669 0%,#10B981 60%,#14B8A6 100%)' }}
+                  style={{ background:'linear-gradient(135deg,#059669 0%,#10B981 60%,#14B8A6 100%)' }}
                 >
-                  <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                  <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none th-decor" />
                   <div className="relative z-10">
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/85">

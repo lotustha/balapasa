@@ -32,7 +32,7 @@ export default function ProductFilters() {
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
             activeCategory === 'all'
               ? 'bg-primary text-white'
-              : 'bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
+              : 'bg-surface border border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
           }`}
         >
           All
@@ -44,7 +44,7 @@ export default function ProductFilters() {
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
               activeCategory === cat
                 ? 'bg-primary text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
+                : 'bg-surface border border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
             }`}
           >
             {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -55,7 +55,7 @@ export default function ProductFilters() {
       <div className="flex items-center gap-2">
         <SlidersHorizontal size={16} className="text-gray-400" />
         <select
-          className="text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl px-3 py-2 outline-none cursor-pointer"
+          className="text-sm font-semibold text-gray-700 bg-surface border border-gray-200 rounded-xl px-3 py-2 outline-none cursor-pointer"
           value={activeSort}
           onChange={e => navigate('sort', e.target.value)}
         >

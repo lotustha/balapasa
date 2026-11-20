@@ -23,14 +23,14 @@ export default function CheckoutFailedPage({
   return (
     <div
       className="min-h-[70vh] flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #FFF5F5 0%, #FFF0F0 50%, #F4F6FF 100%)' }}
+      style={{ background:'linear-gradient(135deg, var(--th-wash-13) 0%, var(--th-wash-14) 50%, var(--th-wash-7) 100%)' }}
     >
       {/* Subtle blobs */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="blob absolute -top-16 -right-16 w-64 h-64 animate-blob-morph animate-blob-float-b"
-          style={{ background: '#EF4444', opacity: 0.10 }} />
+          style={{ background:'#EF4444', opacity: 0.10 }} />
         <div className="blob absolute bottom-10 left-0 w-56 h-56 animate-blob-morph animate-blob-float-c"
-          style={{ background: '#8B5CF6', opacity: 0.08, animationDelay: '2s' }} />
+          style={{ background:'#8B5CF6', opacity: 0.08, animationDelay: '2s' }} />
       </div>
 
       <div className="relative text-center max-w-md w-full glass-panel p-10 animate-fade-in-up">
@@ -54,7 +54,7 @@ export default function CheckoutFailedPage({
             <RefreshCw size={16} /> Try Again
           </Link>
           <Link href="/cart"
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 glass-card text-slate-700 font-semibold rounded-2xl hover:bg-white/90 transition-colors cursor-pointer">
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 glass-card text-slate-700 font-semibold rounded-2xl hover:bg-surface/90 transition-colors cursor-pointer">
             <ArrowLeft size={16} /> Back to Cart
           </Link>
         </div>

@@ -129,8 +129,8 @@ export default function SearchableSelect({
           ${disabled || isEmpty
             ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
             : open
-            ? 'bg-white border-primary ring-2 ring-primary/15 shadow-sm'
-            : 'bg-white border-slate-200 text-slate-800 hover:border-primary/40 hover:shadow-sm'
+            ? 'bg-surface border-primary ring-2 ring-primary/15 shadow-sm'
+            : 'bg-surface border-slate-200 text-slate-800 hover:border-primary/40 hover:shadow-sm'
           }
         `}
       >
@@ -167,9 +167,9 @@ export default function SearchableSelect({
         <div
           className="rounded-2xl overflow-hidden"
           style={{
-            background:     'rgba(255,255,255,0.97)',
+            background:'rgba(var(--th-surface-rgb),0.97)',
             backdropFilter: 'blur(20px)',
-            border:         '1px solid rgba(99,102,241,0.15)',
+            border:'1px solid rgba(99,102,241,0.15)',
             boxShadow:      '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(99,102,241,0.08)',
           }}
         >
@@ -183,7 +183,7 @@ export default function SearchableSelect({
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder={`Search ${label.toLowerCase()}…`}
-                className="w-full pl-8 pr-3 py-2 text-sm bg-slate-50 text-slate-800 placeholder-slate-400 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                className="w-full pl-8 pr-3 py-2 text-sm bg-slate-50 text-slate-800 placeholder-slate-400 rounded-xl outline-none focus:bg-surface focus:ring-2 focus:ring-primary/20 transition-all"
               />
               {query && (
                 <button

@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Settings, BarChart3, Truck, Ticket, Zap, MessageCircle, DollarSign, Monitor,
+  Tag, Settings, Palette, BarChart3, Truck, Ticket, Zap, MessageCircle, DollarSign, Monitor,
   ShieldCheck, Gift, Boxes, Factory, Repeat, FileText, Download, Mail, Library, Sparkles, RotateCcw,
   MessageCircleQuestion, Star, Wallet, Award, Share2, Bot, Search, RefreshCw,
 } from 'lucide-react'
@@ -81,6 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Administration',
     items: [
       item('/admin/team',     ShieldCheck, 'Team',     'staff users roles permissions'),
+      item('/admin/appearance', Palette,   'Appearance', 'theme colours layout design look fonts homepage'),
       item('/admin/settings', Settings,    'Settings', 'store maintenance payments delivery notices configuration'),
     ],
   },

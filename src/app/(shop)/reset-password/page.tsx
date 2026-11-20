@@ -32,7 +32,7 @@ function ResetForm() {
     }
   }
 
-  const inputCls = 'w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10'
+  const inputCls = 'w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-surface text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10'
 
   if (!token) {
     return (
@@ -84,7 +84,7 @@ function ResetForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="min-h-[70vh] bg-gray-50 flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
+      <div className="w-full max-w-md bg-surface rounded-3xl shadow-xl p-8">
         <Suspense fallback={<div className="flex justify-center py-10"><Loader2 size={24} className="animate-spin text-primary" /></div>}>
           <ResetForm />
         </Suspense>

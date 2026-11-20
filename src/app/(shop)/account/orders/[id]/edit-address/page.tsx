@@ -32,7 +32,7 @@ export default async function EditAddressPage({ params }: PageProps) {
   const code     = order.orderCode ?? order.id.slice(0, 8).toUpperCase()
 
   return (
-    <div className="min-h-screen pt-6 pb-16" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)' }}>
+    <div className="min-h-screen pt-6 pb-16" style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 35%, var(--th-wash-3) 65%, var(--th-wash-4) 100%)' }}>
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
 
         <div className="mb-6">

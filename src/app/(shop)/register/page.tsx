@@ -50,7 +50,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-xl p-8 animate-fade-in-up">
+        <div className="bg-surface rounded-3xl shadow-xl p-8 animate-fade-in-up">
           <div className="flex flex-col items-center mb-8">
             <Image src="/logo.png" alt={STORE_NAME} width={56} height={56} className="rounded-2xl mb-3" />
             <BrandText name={STORE_NAME} className="font-heading font-bold text-xl text-slate-800 mb-2" />

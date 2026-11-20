@@ -89,11 +89,11 @@ export default function DealsSection() {
   if (deals.length === 0) return null
 
   return (
-    <section className="relative py-24 overflow-hidden" style={{ background: 'linear-gradient(180deg, #FFF0FC 0%, #EEF2FF 50%, #F0FDF4 100%)' }}>
+    <section className="relative py-24 overflow-hidden" style={{ background:'linear-gradient(180deg, var(--th-wash-8) 0%, var(--th-wash-1) 50%, var(--th-wash-4) 100%)' }}>
       {/* Blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 left-1/4 w-96 h-96" style={{ background: '#EC4899', opacity: 0.18, animationDelay: '0s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-b absolute bottom-0 right-1/4 w-80 h-80" style={{ background: '#8B5CF6', opacity: 0.15, animationDelay: '2s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 left-1/4 w-96 h-96" style={{ background:'#EC4899', opacity: 0.18, animationDelay: '0s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-b absolute bottom-0 right-1/4 w-80 h-80" style={{ background:'#8B5CF6', opacity: 0.15, animationDelay: '2s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
@@ -139,13 +139,13 @@ export default function DealsSection() {
                 style={{ animationDelay: `${i * 0.1}s` }}
               >
                 {/* Internal blobs */}
-                <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full blur-2xl opacity-35 pointer-events-none" style={{ background: blob.a }} />
-                <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full blur-2xl opacity-25 pointer-events-none" style={{ background: blob.b }} />
+                <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full blur-2xl opacity-35 pointer-events-none th-decor" style={{ background: blob.a }} />
+                <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full blur-2xl opacity-25 pointer-events-none th-decor" style={{ background: blob.b }} />
 
                 {/* Badges */}
                 <div className="absolute top-4 left-4 z-10 px-3 py-1 glass-md rounded-xl text-slate-700 text-xs font-bold shadow-sm">Flash Sale</div>
                 <div className="absolute top-4 right-4 z-10 px-3 py-1 text-white text-xs font-extrabold rounded-xl"
-                  style={{ background: `linear-gradient(135deg, ${blob.a}, ${blob.b})` }}>
+                  style={{ background:`linear-gradient(135deg, ${blob.a}, ${blob.b})` }}>
                   -{pct}%
                 </div>
 
@@ -158,7 +158,7 @@ export default function DealsSection() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"
-                      style={{ background: `linear-gradient(135deg, ${blob.a}20, ${blob.b}30)` }}>
+                      style={{ background:`linear-gradient(135deg, ${blob.a}20, ${blob.b}30)` }}>
                       <ShoppingBag size={40} className="text-slate-300" />
                     </div>
                   )}
@@ -188,7 +188,7 @@ export default function DealsSection() {
                           <div className="h-full rounded-full transition-all duration-1000"
                             style={{
                               width: `${pct}%`,
-                              background: `linear-gradient(90deg, ${blob.a}, ${blob.b})`,
+                              background:`linear-gradient(90deg, ${blob.a}, ${blob.b})`,
                             }}
                           />
                         </div>

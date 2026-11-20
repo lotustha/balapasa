@@ -77,18 +77,18 @@ export default async function OrderDetailPage({ params }: PageProps) {
   return (
     <div
       className="min-h-screen pt-6 pb-16 relative"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#F4F6FF 40%,#FFF5FB 70%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-7) 40%,var(--th-wash-5) 70%,var(--th-wash-4) 100%)' }}
     >
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-32 w-[500px] h-[500px]"
-          style={{ background: '#8B5CF6', opacity: 0.07 }} />
+          style={{ background:'#8B5CF6', opacity: 0.07 }} />
       </div>
 
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3 animate-fade-in-up">
           <Link href="/account/orders"
-            className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors shadow-sm">
+            className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div className="min-w-0">
@@ -135,14 +135,14 @@ export default async function OrderDetailPage({ params }: PageProps) {
               href={`/api/account/orders/${order.id}/invoice`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
             >
               <Download size={13} /> Download invoice
             </a>
             {canEdit && (
               <Link
                 href={`/account/orders/${order.id}/edit-address`}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
               >
                 <Pencil size={13} /> Edit address
               </Link>
@@ -150,7 +150,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             {canReturn && (
               <Link
                 href={`/account/orders/${order.id}/return`}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
               >
                 <RotateCcw size={13} /> Request return
               </Link>

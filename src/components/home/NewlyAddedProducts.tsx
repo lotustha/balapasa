@@ -20,15 +20,15 @@ export default async function NewlyAddedProducts() {
   return (
     <section
       className="relative py-20 overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #FFF7ED 0%, #FEF3C7 50%, #FAF5FF 100%)' }}
+      style={{ background:'linear-gradient(180deg, var(--th-wash-10) 0%, var(--th-wash-11) 50%, var(--th-wash-2) 100%)' }}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="blob absolute -top-20 -left-16 w-[440px] h-[440px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#F59E0B', opacity: 0.10, animationDelay: '0s' }} />
+          style={{ background:'#F59E0B', opacity: 0.10, animationDelay: '0s' }} />
         <div className="blob absolute -bottom-20 -right-16 w-[380px] h-[380px] animate-blob-morph animate-blob-float-b"
-          style={{ background: '#EC4899', opacity: 0.09, animationDelay: '2s' }} />
+          style={{ background:'#EC4899', opacity: 0.09, animationDelay: '2s' }} />
         <div className="blob absolute top-1/2 right-1/3 w-[300px] h-[300px] animate-blob-morph animate-blob-float-c"
-          style={{ background: '#8B5CF6', opacity: 0.07, animationDelay: '1.5s' }} />
+          style={{ background:'#8B5CF6', opacity: 0.07, animationDelay: '1.5s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
@@ -36,9 +36,9 @@ export default async function NewlyAddedProducts() {
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-3 shadow-sm"
               style={{
-                background: 'rgba(255,255,255,0.72)',
+                background:'rgba(var(--th-surface-rgb),0.72)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.85)',
+                border:'1px solid rgba(var(--th-surface-rgb),0.85)',
               }}>
               <Sparkles size={13} className="text-amber-500" />
               <span className="text-xs font-bold text-slate-700 tracking-wide">Just Arrived</span>
@@ -56,7 +56,7 @@ export default async function NewlyAddedProducts() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="th-grid th-grid-fill">
           {products.map((p, i) => (
             <div key={p.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 0.05, 0.3)}s` }}>
               <ProductCard product={{
@@ -80,9 +80,9 @@ export default async function NewlyAddedProducts() {
           <Link href="/products?sort=newest"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-slate-700 hover:text-primary transition-colors cursor-pointer"
             style={{
-              background: 'rgba(255,255,255,0.72)',
+              background:'rgba(var(--th-surface-rgb),0.72)',
               backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.85)',
+              border:'1px solid rgba(var(--th-surface-rgb),0.85)',
             }}>
             View all new arrivals <ArrowRight size={14} />
           </Link>

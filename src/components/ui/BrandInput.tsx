@@ -42,7 +42,7 @@ export default function BrandInput({ value, onChange, suggestions }: Props) {
           onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           placeholder="e.g. Apple, Samsung…"
-          className="w-full pl-8 pr-8 py-2.5 rounded-xl text-sm border border-slate-200 bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+          className="w-full pl-8 pr-8 py-2.5 rounded-xl text-sm border border-slate-200 bg-surface text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
         />
         {query && (
           <button type="button" onClick={() => { onChange(''); setQuery(''); setOpen(false) }}
@@ -54,7 +54,7 @@ export default function BrandInput({ value, onChange, suggestions }: Props) {
 
       {open && filtered.length > 0 && (
         <div className="absolute left-0 right-0 top-full mt-1 z-40 rounded-2xl overflow-hidden shadow-xl"
-          style={{ background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', border: '1px solid rgba(99,102,241,0.15)' }}>
+          style={{ background:'rgba(var(--th-surface-rgb),0.98)', backdropFilter: 'blur(16px)', border:'1px solid rgba(99,102,241,0.15)' }}>
           <p className="px-3 pt-2 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Existing brands</p>
           {filtered.slice(0, 8).map(s => (
             <button key={s} type="button" onMouseDown={() => pick(s)}

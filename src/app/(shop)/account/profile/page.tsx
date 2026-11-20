@@ -127,18 +127,18 @@ export default function ProfilePage() {
   return (
     <div
       className="min-h-screen pt-6 pb-16 relative"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#F4F6FF 40%,#FFF5FB 70%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-7) 40%,var(--th-wash-5) 70%,var(--th-wash-4) 100%)' }}
     >
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 -right-20 w-[350px] h-[350px]"
-          style={{ background: '#F59E0B', opacity: 0.07 }} />
+          style={{ background:'#F59E0B', opacity: 0.07 }} />
       </div>
 
       <div className="relative z-10 max-w-xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
           <Link href="/account"
-            className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors cursor-pointer shadow-sm">
+            className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors cursor-pointer shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div>
@@ -156,7 +156,7 @@ export default function ProfilePage() {
           <div className="glass-card p-6 flex flex-col items-center text-center mb-4 animate-fade-in-up">
             <div className="relative mb-4">
               <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg"
-                style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
+                style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
                 <User size={34} className="text-white" />
               </div>
             </div>
@@ -173,7 +173,7 @@ export default function ProfilePage() {
             <div className="glass-card p-6 flex flex-col items-center text-center mb-4 animate-fade-in-up">
               <div className="relative mb-4">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden"
-                  style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
+                  style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
                   {form.avatar ? (
                     <Image src={form.avatar} alt={form.name || profile.email}
                       width={80} height={80}
@@ -187,7 +187,7 @@ export default function ProfilePage() {
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
                   aria-label="Upload avatar"
-                  className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-white border border-slate-200 rounded-xl flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+                  className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-surface border border-slate-200 rounded-xl flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
                   {uploading ? <Loader2 size={12} className="animate-spin text-primary" /> : <Camera size={12} className="text-slate-500" />}
                 </button>
               </div>
@@ -214,7 +214,7 @@ export default function ProfilePage() {
                     type="text" value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="Your full name"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm border border-slate-200 bg-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm border border-slate-200 bg-surface/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                   />
                 </div>
               </div>
@@ -239,7 +239,7 @@ export default function ProfilePage() {
                     type="tel" inputMode="numeric" value={form.phone}
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="98XXXXXXXX"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm border border-slate-200 bg-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm border border-slate-200 bg-surface/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                   />
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function ProfilePage() {
                   type="password" value={currentPwd}
                   onChange={e => setCurrentPwd(e.target.value)}
                   placeholder="Required to change your password"
-                  className="w-full px-4 py-3 rounded-xl text-sm border border-slate-200 bg-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+                  className="w-full px-4 py-3 rounded-xl text-sm border border-slate-200 bg-surface/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                 />
               </div>
 
@@ -288,7 +288,7 @@ export default function ProfilePage() {
                     onChange={e => setNewPwd(e.target.value)}
                     placeholder="Min 8 characters"
                     minLength={8}
-                    className="w-full pl-4 pr-10 py-3 rounded-xl text-sm border border-slate-200 bg-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+                    className="w-full pl-4 pr-10 py-3 rounded-xl text-sm border border-slate-200 bg-surface/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                   />
                   <button
                     type="button" onClick={() => setShowPwd(s => !s)}

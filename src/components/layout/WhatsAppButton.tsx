@@ -103,7 +103,7 @@ export default function WhatsAppButton() {
           visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
         }`}
         style={{
-          background: '#25D366',
+          background:'#25D366',
           bottom: buttonBottom,
           boxShadow: '0 10px 30px rgba(37,211,102,0.40)',
         }}

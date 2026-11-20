@@ -136,7 +136,7 @@ export default function ReturnForm({ orderId, items, existing, eligibility }: Pr
 
         {existing.status === 'REQUESTED' && (
           <button type="button" onClick={cancelExisting} disabled={cancelling}
-            className="w-full py-3 rounded-xl bg-white border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 cursor-pointer disabled:opacity-50">
+            className="w-full py-3 rounded-xl bg-surface border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 cursor-pointer disabled:opacity-50">
             {cancelling ? 'Cancelling…' : 'Cancel this return request'}
           </button>
         )}
@@ -148,7 +148,7 @@ export default function ReturnForm({ orderId, items, existing, eligibility }: Pr
         )}
 
         <Link href="/account/orders"
-          className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
+          className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-surface border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
           <ArrowLeft size={14} /> Back to orders
         </Link>
       </div>
@@ -169,7 +169,7 @@ export default function ReturnForm({ orderId, items, existing, eligibility }: Pr
           </div>
         </div>
         <Link href="/account/orders"
-          className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
+          className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-surface border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
           <ArrowLeft size={14} /> Back to orders
         </Link>
       </div>
@@ -224,7 +224,7 @@ export default function ReturnForm({ orderId, items, existing, eligibility }: Pr
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Reason</label>
           <select value={reason} onChange={e => setReason(e.target.value as typeof reason)}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer">
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-surface text-sm font-medium text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer">
             {REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </div>
@@ -232,7 +232,7 @@ export default function ReturnForm({ orderId, items, existing, eligibility }: Pr
           <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Notes <span className="text-slate-400 font-normal normal-case tracking-normal">(optional)</span></label>
           <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 1000))} rows={3}
             placeholder="Anything we should know? (e.g. which side was damaged)"
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 resize-none" />
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-surface text-sm text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 resize-none" />
         </div>
       </div>
 
@@ -252,7 +252,7 @@ export default function ReturnForm({ orderId, items, existing, eligibility }: Pr
 
       <div className="flex items-center gap-3">
         <Link href="/account/orders"
-          className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
+          className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-surface border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
           <ArrowLeft size={14} /> Back
         </Link>
         <button

@@ -2,7 +2,8 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import BottomNav from '@/components/layout/BottomNav'
 import ScrollReset from '@/components/layout/ScrollReset'
-import ThemeApplicator from '@/components/layout/ThemeApplicator'
+import ThemeProvider from '@/components/theme/ThemeProvider'
+import { getThemeSetting } from '@/lib/theme/server'
 import FacebookPixel from '@/components/layout/FacebookPixel'
 import GoogleAnalytics from '@/components/layout/GoogleAnalytics'
 import CustomHeadCode from '@/components/layout/CustomHeadCode'
@@ -35,8 +36,9 @@ async function getFooterCategories(): Promise<{ slug: string; name: string }[]> 
 }
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
-  const [settings, paymentMethods, shopCategories] = await Promise.all([
+  const [settings, themeSetting, paymentMethods, shopCategories] = await Promise.all([
     getSiteSettings(),
+    getThemeSetting(),
     getEnabledPaymentMethods().catch(() => ['COD'] as string[]),
     getFooterCategories(),
   ])
@@ -47,8 +49,8 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
   const closedForVisitor = maintenance.closed && !isStaff
 
   const storefront = (
+    <ThemeProvider theme={themeSetting.published}>
     <ProductContextProvider>
-      <ThemeApplicator />
       <FacebookPixel />
       <GoogleAnalytics gaId={settings.gaMeasurementId} />
       <CustomHeadCode code={settings.customHeadCode} />
@@ -97,6 +99,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <BottomNav />
       <WhatsAppButton />
     </ProductContextProvider>
+    </ThemeProvider>
   )
 
   if (!closedForVisitor) return storefront

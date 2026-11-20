@@ -142,8 +142,8 @@ export default function CreatableSelect({
         aria-haspopup="listbox" aria-expanded={open}
         className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-left border transition-all duration-200 cursor-pointer
           ${disabled ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
-            : open ? 'bg-white border-primary ring-2 ring-primary/15 shadow-sm'
-            : 'bg-white border-slate-200 text-slate-800 hover:border-primary/40'}`}
+            : open ? 'bg-surface border-primary ring-2 ring-primary/15 shadow-sm'
+            : 'bg-surface border-slate-200 text-slate-800 hover:border-primary/40'}`}
       >
         <span className={`flex-1 truncate ${selected ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>
           {selected?.name ?? placeholder}
@@ -161,7 +161,7 @@ export default function CreatableSelect({
       <div className="absolute left-0 right-0 z-50 mt-1.5"
         style={{ opacity: open ? 1 : 0, transform: open ? 'translateY(0)' : 'translateY(-8px)', pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.15s, transform 0.15s' }}>
         <div className="rounded-2xl overflow-hidden shadow-xl"
-          style={{ background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(20px)', border: '1px solid rgba(99,102,241,0.15)' }}>
+          style={{ background:'rgba(var(--th-surface-rgb),0.98)', backdropFilter: 'blur(20px)', border:'1px solid rgba(99,102,241,0.15)' }}>
 
           {!creating ? (
             <>
@@ -171,7 +171,7 @@ export default function CreatableSelect({
                   <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input ref={searchRef} type="text" value={query} onChange={e => setQuery(e.target.value)}
                     placeholder={`Search ${label.toLowerCase()}…`}
-                    className="w-full pl-7 pr-3 py-2 text-sm bg-slate-50 text-slate-800 placeholder-slate-400 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all" />
+                    className="w-full pl-7 pr-3 py-2 text-sm bg-slate-50 text-slate-800 placeholder-slate-400 rounded-xl outline-none focus:bg-surface focus:ring-2 focus:ring-primary/20 transition-all" />
                   {query && <button onClick={() => setQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"><X size={10} /></button>}
                 </div>
               </div>
@@ -244,7 +244,7 @@ export default function CreatableSelect({
                       value={createForm[field.key] ?? ''}
                       onChange={e => setCreateForm(f => ({ ...f, [field.key]: e.target.value }))}
                       placeholder={field.placeholder ?? ''}
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
                   )}
                   {field.hint && <p className="text-[10px] text-slate-400 mt-1">{field.hint}</p>}
                 </div>

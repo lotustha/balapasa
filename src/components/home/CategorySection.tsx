@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, LayoutGrid } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useTheme } from '@/components/theme/ThemeProvider'
 
 interface DbCategory {
   id: string; name: string; slug: string; color: string
@@ -36,7 +37,7 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
       className="group relative flex flex-col gap-3 p-3 rounded-2xl border border-white/70 shadow-sm transition-all duration-300 hover:-translate-y-1 cursor-pointer animate-fade-in-up overflow-hidden"
       style={{
         animationDelay: `${idx * 0.05}s`,
-        background:    'rgba(255,255,255,0.78)',
+        background:'rgba(var(--th-surface-rgb),0.78)',
         backdropFilter: 'blur(12px)',
       }}
     >
@@ -49,11 +50,11 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
       {/* 2x2 preview collage */}
       <div
         className="relative grid grid-cols-2 gap-1.5 rounded-xl overflow-hidden aspect-square"
-        style={{ background: `rgba(${rgb},0.06)` }}
+        style={{ background:`rgba(${rgb},0.06)` }}
       >
         {cells.map((src, i) =>
           src ? (
-            <div key={i} className="relative bg-white/60 rounded-md overflow-hidden">
+            <div key={i} className="relative bg-surface/60 rounded-md overflow-hidden">
               <Image
                 src={src}
                 alt=""
@@ -67,7 +68,7 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
               key={i}
               className="col-span-2 row-span-2 flex items-center justify-center rounded-md"
               style={{
-                background: `linear-gradient(135deg, rgba(${rgb},0.15), rgba(${rgb},0.30))`,
+                background:`linear-gradient(135deg, rgba(${rgb},0.15), rgba(${rgb},0.30))`,
               }}
             >
               <span style={{ fontSize: 42, lineHeight: 1 }}>{cat.icon}</span>
@@ -76,7 +77,7 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
             <div
               key={i}
               className="rounded-md"
-              style={{ background: `rgba(${rgb},0.10)` }}
+              style={{ background:`rgba(${rgb},0.10)` }}
             />
           ),
         )}
@@ -103,6 +104,8 @@ function CategoryTile({ cat, idx }: { cat: DbCategory; idx: number }) {
 
 export default function CategorySection() {
   const [categories, setCategories] = useState<DbCategory[]>([])
+  // Tiles (large collage cards), circles (one scrolling row) or chips: chosen by the theme.
+  const variant = useTheme().layout.categories
 
   useEffect(() => {
     fetch('/api/categories?sort=sales&limit=8')
@@ -111,24 +114,70 @@ export default function CategorySection() {
       .catch(() => {})
   }, [])
 
+  if (variant === 'circles' || variant === 'strip') {
+    return (
+      <section className="py-8 sm:py-10" data-categories={variant}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-end justify-between gap-4 mb-5">
+            <h2 className="font-heading font-bold text-xl sm:text-2xl text-slate-900">Shop by category</h2>
+            <Link href="/products" className="shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+              See all <ArrowRight size={14} />
+            </Link>
+          </div>
+          {variant === 'circles' ? (
+            <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-2 chip-scroller">
+              {(categories.length ? categories : Array.from({ length: 8 }, () => null)).map((cat, i) => cat ? (
+                <Link key={cat.id} href={`/products?category=${cat.slug}`} className="group shrink-0 w-20 sm:w-24 text-center">
+                  <span className="relative block w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-slate-100 ring-2 ring-transparent group-hover:ring-primary transition-all"
+                    style={{ boxShadow: '0 0 0 4px var(--th-surface)' }}>
+                    {(cat.image ?? cat.previewImages?.[0]) && (
+                      <Image src={(cat.image ?? cat.previewImages?.[0]) as string} alt="" fill className="object-cover" sizes="96px" />
+                    )}
+                  </span>
+                  <span className="mt-2.5 block text-xs font-semibold text-slate-700 group-hover:text-primary line-clamp-2 leading-tight">{cat.name}</span>
+                </Link>
+              ) : (
+                <div key={i} className="shrink-0 w-20 sm:w-24">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full skeleton" />
+                  <div className="h-2.5 rounded skeleton mt-3 mx-3" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2.5">
+              {categories.map(cat => (
+                <Link key={cat.id} href={`/products?category=${cat.slug}`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface text-sm font-semibold text-slate-700 hover:bg-primary hover:text-white transition-colors"
+                  style={{ border:'1px solid rgba(var(--th-ink-rgb),0.14)' }}>
+                  {cat.name}
+                  {cat._count?.products ? <span className="text-[11px] font-medium opacity-60">{cat._count.products}</span> : null}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section
       className="relative py-24 overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #F4F6FF 0%, #FAF5FF 100%)' }}
+      style={{ background:'linear-gradient(180deg, var(--th-wash-7) 0%, var(--th-wash-2) 100%)' }}
     >
       {/* Decorative blobs — keep the section feeling generous and prominent */}
-      <div className="absolute top-10 left-0 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: '#8B5CF6', opacity: 0.10 }} />
-      <div className="absolute bottom-10 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: '#06B6D4', opacity: 0.10 }} />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none" style={{ background: '#EC4899', opacity: 0.05 }} />
+      <div className="absolute top-10 left-0 w-96 h-96 rounded-full blur-3xl pointer-events-none th-decor" style={{ background:'#8B5CF6', opacity: 0.10 }} />
+      <div className="absolute bottom-10 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none th-decor" style={{ background:'#06B6D4', opacity: 0.10 }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none th-decor" style={{ background:'#EC4899', opacity: 0.05 }} />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
         {/* Generous, prominent header */}
         <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-4 shadow-sm"
             style={{
-              background: 'rgba(255,255,255,0.78)',
+              background:'rgba(var(--th-surface-rgb),0.78)',
               backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.85)',
+              border:'1px solid rgba(var(--th-surface-rgb),0.85)',
             }}>
             <LayoutGrid size={13} className="text-primary" />
             <span className="text-xs font-bold text-slate-700 tracking-wide">Browse All Categories</span>
@@ -145,7 +194,7 @@ export default function CategorySection() {
         {categories.length === 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {[1,2,3,4,5,6,7,8].map(i => (
-              <div key={i} className="rounded-2xl border border-white/70 p-3" style={{ background: 'rgba(255,255,255,0.78)' }}>
+              <div key={i} className="rounded-2xl border border-white/70 p-3" style={{ background:'rgba(var(--th-surface-rgb),0.78)' }}>
                 <div className="aspect-square rounded-xl skeleton mb-3" />
                 <div className="h-3 rounded skeleton w-2/3 mb-1.5" />
                 <div className="h-2 rounded skeleton w-1/3" />

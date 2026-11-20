@@ -18,7 +18,7 @@ export default function SaveMyInfoCheckbox({ checked, onChange, hasEmail }: Prop
           ? 'border-slate-100 bg-slate-50/50 cursor-not-allowed opacity-60'
           : checked
           ? 'border-primary bg-primary-bg cursor-pointer'
-          : 'border-slate-100 bg-white/70 hover:border-slate-200 cursor-pointer'
+          : 'border-slate-100 bg-surface/70 hover:border-slate-200 cursor-pointer'
       }`}
       style={{ backdropFilter: 'blur(8px)' }}
     >
@@ -27,7 +27,7 @@ export default function SaveMyInfoCheckbox({ checked, onChange, hasEmail }: Prop
         className={`shrink-0 mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
           checked && !disabled
             ? 'bg-primary border-primary'
-            : 'border-slate-300 bg-white'
+            : 'border-slate-300 bg-surface'
         }`}
       >
         {checked && !disabled && <Check size={12} strokeWidth={3} className="text-white" />}

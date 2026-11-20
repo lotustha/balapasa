@@ -53,7 +53,7 @@ export default function CartDrawer() {
         onClick={closeCart}
         className="fixed inset-0 z-50"
         style={{
-          background: 'rgba(0,0,0,0.20)',
+          background:'rgba(0,0,0,0.20)',
           backdropFilter: isOpen ? 'blur(4px)' : 'blur(0px)',
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? 'auto' : 'none',
@@ -68,10 +68,10 @@ export default function CartDrawer() {
       <div
         className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md flex flex-col will-change-transform"
         style={{
-          background: 'rgba(255,255,255,0.90)',
+          background:'rgba(var(--th-surface-rgb),0.90)',
           backdropFilter: 'blur(28px) saturate(180%)',
           WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-          borderLeft: '1px solid rgba(255,255,255,0.9)',
+          borderLeft:'1px solid rgba(var(--th-surface-rgb),0.9)',
           boxShadow: '-12px 0 48px rgba(0,0,0,0.12)',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
           transition: isOpen
@@ -117,7 +117,7 @@ export default function CartDrawer() {
             items.map(item => (
               <div
                 key={cartLineKey(item)}
-                className="flex gap-3 p-3 rounded-2xl bg-white border border-slate-100 hover:border-slate-200 transition-colors"
+                className="flex gap-3 p-3 rounded-2xl bg-surface border border-slate-100 hover:border-slate-200 transition-colors"
               >
                 <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-50 shrink-0">
                   <Image src={item.image} alt={item.name} fill className="object-cover" sizes="64px" />
@@ -180,7 +180,7 @@ export default function CartDrawer() {
             <Link
               href="/cart"
               onClick={closeCart}
-              className="flex items-center justify-center w-full py-3 glass hover:bg-white/80 text-slate-600 hover:text-slate-900 font-semibold rounded-2xl transition-colors text-sm cursor-pointer"
+              className="flex items-center justify-center w-full py-3 glass hover:bg-surface/80 text-slate-600 hover:text-slate-900 font-semibold rounded-2xl transition-colors text-sm cursor-pointer"
             >
               View Full Cart
             </Link>

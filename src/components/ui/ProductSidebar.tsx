@@ -55,7 +55,7 @@ function DualRangeSlider({
           style={{
             left: `${lowPct}%`,
             width: `${highPct - lowPct}%`,
-            background: 'linear-gradient(90deg, #16A34A, #06B6D4)',
+            background:'linear-gradient(90deg, #16A34A, #06B6D4)',
           }}
         />
 
@@ -191,7 +191,7 @@ export default function ProductSidebar({ totalCount }: { totalCount: number }) {
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search products, brands…"
-            className="w-full pl-10 pr-9 py-3 rounded-2xl text-sm border border-slate-200 bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+            className="w-full pl-10 pr-9 py-3 rounded-2xl text-sm border border-slate-200 bg-surface text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
           />
           {searchInput && (
             <button
@@ -251,9 +251,9 @@ export default function ProductSidebar({ totalCount }: { totalCount: number }) {
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150 cursor-pointer border-1.5 ${
                 val
                   ? 'text-white border-transparent'
-                  : 'text-slate-600 border-slate-100 bg-white hover:bg-slate-50'
+                  : 'text-slate-600 border-slate-100 bg-surface hover:bg-slate-50'
               }`}
-              style={val ? { background: `linear-gradient(135deg, ${color}, ${color}cc)` } : {}}
+              style={val ? { background:`linear-gradient(135deg, ${color}, ${color}cc)` } : {}}
             >
               <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${val ? 'bg-white/20' : 'bg-slate-100'}`}>
                 <Icon size={14} style={{ color: val ? 'white' : color }} />
@@ -295,10 +295,10 @@ export default function ProductSidebar({ totalCount }: { totalCount: number }) {
         aria-label={filterCount > 0 ? `Filters (${filterCount} active)` : 'Filters'}
         className="lg:hidden fixed bottom-24 left-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-slate-800 hover:text-primary active:scale-95 cursor-pointer transition-all duration-200 shadow-[0_8px_24px_rgba(15,23,42,0.18)]"
         style={{
-          background:       'rgba(255,255,255,0.65)',
+          background:'rgba(var(--th-surface-rgb),0.65)',
           backdropFilter:   'blur(20px) saturate(180%)',
           WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          border:           '1px solid rgba(255,255,255,0.85)',
+          border:'1px solid rgba(var(--th-surface-rgb),0.85)',
         }}
       >
         <SlidersHorizontal size={20} className="text-primary" />
@@ -322,7 +322,7 @@ export default function ProductSidebar({ totalCount }: { totalCount: number }) {
           />
           <div role="dialog" aria-label="Filters"
             className="fixed inset-x-0 bottom-0 z-[60] max-h-[85vh] flex flex-col rounded-t-3xl animate-slide-up lg:hidden"
-            style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.12)' }}>
+            style={{ background:'rgba(var(--th-surface-rgb),0.97)', backdropFilter: 'blur(20px)', boxShadow: '0 -8px 32px rgba(0,0,0,0.12)' }}>
             <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" aria-hidden="true" />
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <span className="font-heading font-bold text-slate-900 flex items-center gap-2">
@@ -363,8 +363,8 @@ export default function ProductSidebar({ totalCount }: { totalCount: number }) {
           <p className="text-xs text-slate-400 mb-4">{totalCount} products</p>
 
           {/* Colorful blob accent */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl pointer-events-none opacity-20"
-            style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }} />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl pointer-events-none opacity-20 th-decor"
+            style={{ background:'linear-gradient(135deg, #8B5CF6, #EC4899)' }} />
 
           {SidebarContent}
         </div>

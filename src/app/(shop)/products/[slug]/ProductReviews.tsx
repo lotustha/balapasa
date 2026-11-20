@@ -132,7 +132,7 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
             </div>
             <textarea value={myReview} onChange={e=>setMyReview(e.target.value)} placeholder="Share your experience…" rows={3}
               className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none text-slate-800"
-              style={{ background:'rgba(255,255,255,0.60)', border:'1px solid rgba(255,255,255,0.80)' }} />
+              style={{ background:'rgba(var(--th-surface-rgb),0.60)', border:'1px solid rgba(var(--th-surface-rgb),0.80)' }} />
             {reviewMsg && (
               <p className={`text-xs font-semibold ${reviewMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{reviewMsg.text}</p>
             )}
@@ -148,7 +148,7 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
 
         {reviews.length === 0 ? (
           <div className="glass-panel px-6 py-5 flex items-center justify-between gap-4 flex-wrap"
-            style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--clr-primary) 6%, transparent) 0%, rgba(6,182,212,0.04) 100%)' }}>
+            style={{ background:'linear-gradient(135deg, color-mix(in srgb, var(--clr-primary) 6%, transparent) 0%, rgba(6,182,212,0.04) 100%)' }}>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
                 {[1,2,3,4,5].map(i => <Star key={i} size={18} className="text-slate-200" />)}
@@ -201,14 +201,14 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Filter:</span>
                 {([0,5,4,3,2,1] as ReviewFilter[]).map(n => (
                   <button key={n} onClick={() => setReviewFilter(n)}
-                    className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer transition-colors ${reviewFilter === n ? 'bg-primary text-white' : 'bg-white/60 text-slate-600 hover:bg-white/90 border border-white/70'}`}>
+                    className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer transition-colors ${reviewFilter === n ? 'bg-primary text-white' : 'bg-surface/60 text-slate-600 hover:bg-surface/90 border border-white/70'}`}>
                     {n === 0 ? 'All' : `${n}★`}
                   </button>
                 ))}
                 <div className="ml-auto flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sort:</span>
                   <select value={reviewSort} onChange={e => setReviewSort(e.target.value as ReviewSort)}
-                    className="text-xs font-semibold bg-white/60 border border-white/70 rounded-lg px-2 py-1.5 cursor-pointer text-slate-700 outline-none">
+                    className="text-xs font-semibold bg-surface/60 border border-white/70 rounded-lg px-2 py-1.5 cursor-pointer text-slate-700 outline-none">
                     <option value="recent">Most Recent</option>
                     <option value="helpful">Most Helpful</option>
                     <option value="highest">Highest Rating</option>
@@ -286,7 +286,7 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
             onClick={() => setShowReviewModal(false)} aria-hidden="true" />
           <div role="dialog" aria-modal="true" aria-labelledby="review-modal-title"
             className="fixed inset-x-4 top-16 bottom-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-2xl z-50 flex flex-col rounded-3xl overflow-hidden animate-fade-in-up"
-            style={{ background:'rgba(255,255,255,0.90)', backdropFilter:'blur(28px) saturate(200%)', border:'1px solid rgba(255,255,255,0.90)', boxShadow:'0 32px 80px rgba(0,0,0,0.18)' }}>
+            style={{ background:'rgba(var(--th-surface-rgb),0.90)', backdropFilter:'blur(28px) saturate(200%)', border:'1px solid rgba(var(--th-surface-rgb),0.90)', boxShadow:'0 32px 80px rgba(0,0,0,0.18)' }}>
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor:'rgba(0,0,0,0.06)' }}>
               <h3 id="review-modal-title" className="font-heading font-bold text-slate-900 text-lg">All Reviews ({filteredReviews.length})</h3>
               <button onClick={() => setShowReviewModal(false)} aria-label="Close"
@@ -296,7 +296,7 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               {filteredReviews.map(r => (
-                <article key={r.id} className="rounded-2xl p-5" style={{ background:'rgba(255,255,255,0.70)', border:'1px solid rgba(0,0,0,0.06)' }}>
+                <article key={r.id} className="rounded-2xl p-5" style={{ background:'rgba(var(--th-surface-rgb),0.70)', border:'1px solid rgba(0,0,0,0.06)' }}>
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">

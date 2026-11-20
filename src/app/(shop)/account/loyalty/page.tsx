@@ -90,16 +90,16 @@ export default function LoyaltyPage() {
   }
 
   return (
-    <div className="min-h-screen pt-6 pb-16 relative" style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#FFF5FB 50%,#F0FDF4 100%)' }}>
+    <div className="min-h-screen pt-6 pb-16 relative" style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-5) 50%,var(--th-wash-4) 100%)' }}>
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-10 -left-20 w-[360px] h-[360px]"
-          style={{ background: '#8B5CF6', opacity: 0.07, animationDelay: '1s' }} />
+          style={{ background:'#8B5CF6', opacity: 0.07, animationDelay: '1s' }} />
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
-          <Link href="/account" className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors cursor-pointer shadow-sm">
+          <Link href="/account" className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors cursor-pointer shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div>
@@ -142,7 +142,7 @@ export default function LoyaltyPage() {
         {status === 'ready' && cfg?.enabled && (
           <>
             {/* ── Hero balance ─────────────────────────────────────────── */}
-            <div className="rounded-3xl p-6 text-white shadow-lg animate-fade-in-up relative overflow-hidden" style={{ background: 'linear-gradient(135deg,#8B5CF6,#6366F1)' }}>
+            <div className="rounded-3xl p-6 text-white shadow-lg animate-fade-in-up relative overflow-hidden" style={{ background:'linear-gradient(135deg,#8B5CF6,#6366F1)' }}>
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-white/80" /><p className="text-xs font-bold uppercase tracking-widest text-white/80">Your points</p></div>
                 <div className="flex items-end gap-3">
@@ -162,7 +162,7 @@ export default function LoyaltyPage() {
                       <span>{toNext.toLocaleString('en-IN')} to redeem · {minRedeem.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="h-2 rounded-full bg-white/20 overflow-hidden">
-                      <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${progress}%` }} />
+                      <div className="h-full rounded-full bg-surface transition-all duration-500" style={{ width: `${progress}%` }} />
                     </div>
                   </div>
                 )}
@@ -211,7 +211,7 @@ export default function LoyaltyPage() {
                     <div className="flex-1">
                       <input type="number" min={minRedeem} max={balance} step={1} value={redeemInput}
                         onChange={e => setRedeemInput(e.target.value)} placeholder={`${minRedeem.toLocaleString('en-IN')}+ points`}
-                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
+                        className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-surface text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
                     </div>
                     <button onClick={redeem} disabled={redeeming || inputPts < minRedeem || inputPts > balance}
                       className="flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary-dark transition-colors cursor-pointer shadow-md shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
@@ -267,7 +267,7 @@ export default function LoyaltyPage() {
                   <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
                     {([['all', 'All'], ['EARN', 'Earned'], ['REDEEM', 'Redeemed']] as const).map(([k, l]) => (
                       <button key={k} onClick={() => setFilter(k)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${filter === k ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${filter === k ? 'bg-surface text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                         {l}
                       </button>
                     ))}

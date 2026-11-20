@@ -120,10 +120,10 @@ export default function TrendingStack() {
                 tabIndex={isFront ? 0 : -1}
               >
                 <div
-                  className="overflow-hidden bg-white"
+                  className="overflow-hidden bg-surface"
                   style={{
                     width: 240, borderRadius: '1.5rem',
-                    border: '1px solid rgba(0,0,0,0.07)',
+                    border:'1px solid rgba(0,0,0,0.07)',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
                   }}
                 >
@@ -139,13 +139,13 @@ export default function TrendingStack() {
                     />
                     {/* Gradient overlay */}
                     <div className="absolute inset-0"
-                      style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.15), transparent)' }} />
+                      style={{ background:'linear-gradient(to top, rgba(255,255,255,0.15), transparent)' }} />
 
                     {/* Badges */}
                     <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                       {discount > 0 && (
                         <span className="px-2 py-0.5 text-white text-[10px] font-extrabold rounded-lg"
-                          style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
+                          style={{ background:'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
                           -{discount}%
                         </span>
                       )}

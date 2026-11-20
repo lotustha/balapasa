@@ -147,20 +147,19 @@ export default function CartPage() {
       <div
         className="min-h-[80vh] relative overflow-hidden flex items-center justify-center"
         style={{
-          background:
-            "linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 40%, #FFF0F9 70%, #F0FDF4 100%)",
+          background:"linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 40%, var(--th-wash-3) 70%, var(--th-wash-4) 100%)",
         }}
       >
         {/* Blobs */}
         <div className="absolute inset-0 pointer-events-none">
           <div
             className="blob absolute -top-16 -left-16 w-72 h-72 animate-blob-morph animate-blob-float-a"
-            style={{ background: "#8B5CF6", opacity: 0.2 }}
+            style={{ background:"#8B5CF6", opacity: 0.2 }}
           />
           <div
             className="blob absolute bottom-0 right-0 w-64 h-64 animate-blob-morph animate-blob-float-b"
             style={{
-              background: "#EC4899",
+              background:"#EC4899",
               opacity: 0.18,
               animationDelay: "2s",
             }}
@@ -202,8 +201,7 @@ export default function CartPage() {
     <div
       className="min-h-screen py-10 relative"
       style={{
-        background:
-          "linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 40%, #FFF0F9 70%, #F0FDF4 100%)",
+        background:"linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 40%, var(--th-wash-3) 70%, var(--th-wash-4) 100%)",
       }}
     >
       {/* Blobs */}
@@ -213,15 +211,15 @@ export default function CartPage() {
       >
         <div
           className="blob absolute -top-20 -left-20 w-96 h-96 animate-blob-morph animate-blob-float-a"
-          style={{ background: "#8B5CF6", opacity: 0.22 }}
+          style={{ background:"#8B5CF6", opacity: 0.22 }}
         />
         <div
           className="blob absolute top-1/3 -right-10 w-72 h-72 animate-blob-morph animate-blob-float-b"
-          style={{ background: "#06B6D4", opacity: 0.18, animationDelay: "2s" }}
+          style={{ background:"#06B6D4", opacity: 0.18, animationDelay: "2s" }}
         />
         <div
           className="blob absolute bottom-20 left-1/3 w-80 h-80 animate-blob-morph animate-blob-float-c"
-          style={{ background: "#EC4899", opacity: 0.16, animationDelay: "1s" }}
+          style={{ background:"#EC4899", opacity: 0.16, animationDelay: "1s" }}
         />
       </div>
 
@@ -266,13 +264,13 @@ export default function CartPage() {
             </div>
             <div
               className="h-2 rounded-full overflow-hidden"
-              style={{ background: "rgba(0,0,0,0.07)" }}
+              style={{ background:"rgba(0,0,0,0.07)" }}
             >
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${deliveryPct}%`,
-                  background: "linear-gradient(90deg, #16A34A, #06B6D4)",
+                  background:"linear-gradient(90deg, #16A34A, #06B6D4)",
                 }}
               />
             </div>
@@ -371,7 +369,7 @@ export default function CartPage() {
                           }}
                           title="Save for later"
                           className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all ${isSaved ? "text-pink-500" : "text-slate-300 hover:text-pink-400"}`}
-                          style={{ background: "rgba(255,255,255,0.55)" }}
+                          style={{ background:"rgba(var(--th-surface-rgb),0.55)" }}
                         >
                           <Heart
                             size={13}
@@ -382,7 +380,7 @@ export default function CartPage() {
                           onClick={() => removeItem(cartLineKey(item))}
                           title="Remove"
                           className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 cursor-pointer transition-colors"
-                          style={{ background: "rgba(255,255,255,0.55)" }}
+                          style={{ background:"rgba(var(--th-surface-rgb),0.55)" }}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -410,12 +408,12 @@ export default function CartPage() {
                     <div className="flex items-center justify-between mt-3">
                       <div
                         className="flex items-center gap-2 rounded-2xl p-1"
-                        style={{ background: "rgba(255,255,255,0.50)" }}
+                        style={{ background:"rgba(var(--th-surface-rgb),0.50)" }}
                       >
                         <button
                           onClick={() => updateQty(cartLineKey(item), item.quantity - 1)}
-                          className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer text-slate-600"
-                          style={{ background: "rgba(255,255,255,0.65)" }}
+                          className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-surface/80 transition-colors cursor-pointer text-slate-600"
+                          style={{ background:"rgba(var(--th-surface-rgb),0.65)" }}
                         >
                           <Minus size={12} />
                         </button>
@@ -424,8 +422,8 @@ export default function CartPage() {
                         </span>
                         <button
                           onClick={() => updateQty(cartLineKey(item), item.quantity + 1)}
-                          className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer text-slate-600"
-                          style={{ background: "rgba(255,255,255,0.65)" }}
+                          className="w-7 h-7 rounded-xl flex items-center justify-center hover:bg-surface/80 transition-colors cursor-pointer text-slate-600"
+                          style={{ background:"rgba(var(--th-surface-rgb),0.65)" }}
                         >
                           <Plus size={12} />
                         </button>
@@ -511,7 +509,7 @@ export default function CartPage() {
               {/* Total */}
               <div
                 className="border-t mt-4 pt-4 flex justify-between"
-                style={{ borderColor: "rgba(0,0,0,0.07)" }}
+                style={{ borderColor:"rgba(0,0,0,0.07)" }}
               >
                 <span className="font-heading font-bold text-slate-900">
                   Total
@@ -550,7 +548,7 @@ export default function CartPage() {
               {/* Trust badges */}
               <div
                 className="flex justify-between mt-5 pt-4"
-                style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}
+                style={{ borderTop:"1px solid rgba(0,0,0,0.06)" }}
               >
                 {[
                   { icon: ShieldCheck, label: "Secure" },

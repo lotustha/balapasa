@@ -3,28 +3,35 @@ import localFont from 'next/font/local'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
 import { prisma } from '@/lib/prisma'
-import { getThemeScript } from '@/lib/themes'
+import { getThemeCss } from '@/lib/themes'
 
 // Fonts are bundled with the site (src/fonts, Latin subset, variable weight) instead of being
 // downloaded from Google at build time: that download failed often enough to break deploys.
 const jakartaSans = localFont({
   src: '../fonts/PlusJakartaSans-latin.woff2',
-  variable: '--font-heading',
+  variable: '--font-jakarta',
   weight: '400 800',
   display: 'swap',
 })
 
 const inter = localFont({
   src: '../fonts/Inter-latin.woff2',
-  variable: '--font-body',
+  variable: '--font-inter',
   weight: '300 700',
   display: 'swap',
 })
 
 const playfair = localFont({
   src: '../fonts/PlayfairDisplay-latin.woff2',
-  variable: '--font-serif',
+  variable: '--font-playfair',
   weight: '400 800',
+  display: 'swap',
+})
+
+const plex = localFont({
+  src: '../fonts/IBMPlexSans-latin.woff2',
+  variable: '--font-plex',
+  weight: '300 700',
   display: 'swap',
 })
 
@@ -87,11 +94,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Fetch theme server-side so CSS vars are injected before first paint — no flash
-  let themeScript = ''
+  // The legacy accent colour, for pages outside the storefront (the admin panel). The storefront
+  // layout applies the full theme on top of this: see src/components/theme/ThemeProvider.tsx.
+  let accentCss = ''
   try {
     const row = await prisma.appSetting.findUnique({ where: { key: 'STORE_THEME' } })
-    if (row?.value) themeScript = getThemeScript(row.value)
+    if (row?.value) accentCss = getThemeCss(row.value)
   } catch { /* DB unavailable — defaults from globals.css apply */ }
 
   // Reuse cached getSiteSettings — same call from generateMetadata() returns memoized.
@@ -100,18 +108,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={`${jakartaSans.variable} ${inter.variable} ${playfair.variable}`}
+      className={`${jakartaSans.variable} ${inter.variable} ${playfair.variable} ${plex.variable}`}
       suppressHydrationWarning
     >
       <body
         className="min-h-screen flex flex-col font-body antialiased"
-        style={{ background: '#F4F6FF' }}
         suppressHydrationWarning
       >
-        {/* Blocking script sets CSS vars before first paint — no hydration mismatch */}
-        {themeScript && (
-          <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeScript }} />
-        )}
+        {accentCss && <style dangerouslySetInnerHTML={{ __html: accentCss }} />}
         {/* Organization schema feeds Google's "Site Name" + brand chip in search results.
             WebSite schema lets Google identify this as the canonical site for the brand. */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({

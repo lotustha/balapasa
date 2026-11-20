@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
+import { useTheme } from '@/components/theme/ThemeProvider'
 import { useCart } from '@/context/CartContext'
 import CartDrawer from '@/components/ui/CartDrawer'
 import {
@@ -20,7 +21,7 @@ interface SearchResult {
 
 // ── Inline search dropdown ───────────────────────────────────────────────────
 
-function InlineSearch() {
+function InlineSearch({ wide = false }: { wide?: boolean }) {
   const router  = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -85,15 +86,15 @@ function InlineSearch() {
   const showDropdown = open && (query.length > 0 || recent.length > 0)
 
   return (
-    <div ref={containerRef} className="relative flex-1 max-w-md mx-4 hidden md:block">
+    <div ref={containerRef} className={`relative flex-1 mx-4 hidden md:block ${wide ? 'max-w-2xl th-neutral' : 'max-w-md'}`}>
       <form onSubmit={submit}>
         <div
           className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl transition-all duration-200 ${
             open
-              ? 'bg-white ring-2 ring-primary/20 shadow-md'
-              : 'bg-white/70 hover:bg-white/85'
+              ? 'bg-surface ring-2 ring-primary/20 shadow-md'
+              : wide ? 'bg-surface' : 'bg-surface/70 hover:bg-surface/85'
           }`}
-          style={{ border: '1px solid rgba(255,255,255,0.9)' }}
+          style={{ border:'1px solid rgba(var(--th-surface-rgb),0.9)' }}
         >
           {loading
             ? <Loader2 size={15} className="text-slate-400 shrink-0 animate-spin" />
@@ -133,10 +134,10 @@ function InlineSearch() {
         <div
           className="absolute top-full left-0 right-0 mt-2 z-50 overflow-hidden animate-fade-in-up"
           style={{
-            background: 'rgba(255,255,255,0.97)',
+            background:'rgba(var(--th-surface-rgb),0.97)',
             backdropFilter: 'blur(20px)',
             borderRadius: '1rem',
-            border: '1px solid rgba(99,102,241,0.12)',
+            border:'1px solid rgba(99,102,241,0.12)',
             boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
           }}
         >
@@ -222,6 +223,9 @@ export default function Navbar({
   const { count, openCart } = useCart()
   const router = useRouter()
   const pathname = usePathname()
+  // Header layout comes from the theme: a floating rounded bar, an edge-to-edge solid bar, or a
+  // thin minimal line.
+  const variant = useTheme().layout.header
   const [scrolled,    setScrolled]    = useState(false)
   const [mobileOpen,  setMobileOpen]  = useState(false)
   const [mobileSearch, setMobileSearch] = useState(false)
@@ -259,20 +263,29 @@ export default function Navbar({
 
   return (
     <>
-      <header className="fixed top-3 inset-x-4 sm:inset-x-6 lg:inset-x-8 z-50 max-w-7xl mx-auto">
+      <header data-header={variant} className={variant === 'floating'
+        ? 'fixed top-3 inset-x-4 sm:inset-x-6 lg:inset-x-8 z-50 max-w-7xl mx-auto'
+        : 'fixed top-0 inset-x-0 z-50'}>
         <div
-          className="rounded-2xl transition-all duration-500"
-          style={{
-            background: scrolled ? 'rgba(255,255,255,0.93)' : 'rgba(255,255,255,0.55)',
+          className={variant === 'floating' ? 'rounded-2xl transition-all duration-500'
+            : variant === 'bar' ? `th-chrome-scope transition-shadow duration-300 ${scrolled ? 'shadow-lg' : 'shadow-sm'}`
+            : 'transition-shadow duration-300'}
+          style={variant === 'floating' ? {
+            background: scrolled ? 'rgba(var(--th-surface-rgb),0.93)' : 'rgba(var(--th-surface-rgb),0.55)',
             backdropFilter: 'blur(20px) saturate(180%)',
             WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            border: '1px solid rgba(255,255,255,0.90)',
+            border:'1px solid var(--th-hairline)',
             boxShadow: scrolled
-              ? '0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)'
+              ? '0 8px 32px rgba(0,0,0,0.10)'
               : '0 2px 12px rgba(0,0,0,0.04)',
-          }}
+          } : variant === 'minimal' ? {
+            background:'var(--th-bg)',
+            borderBottom:'1px solid rgba(var(--th-ink-rgb),0.12)',
+          } : undefined}
         >
-          <div className="flex items-center px-4 sm:px-5 h-14 gap-3">
+          <div className={variant === 'floating'
+            ? 'flex items-center px-4 sm:px-5 h-14 gap-3'
+            : 'flex items-center px-4 sm:px-6 h-16 gap-3 max-w-7xl mx-auto'}>
             {/* Logo + name. Same typography on every viewport, including the
                 animated iridescent accent half. No `truncate` — it clips the
                 webkit-background-clip:text gradient on the accent span and
@@ -288,7 +301,7 @@ export default function Navbar({
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                   pathname === '/products'
                     ? 'text-primary bg-primary-bg'
-                    : 'text-slate-600 hover:text-primary hover:bg-white/70'
+                    : 'text-slate-600 hover:text-primary hover:bg-surface/70'
                 }`}>
                 <Store size={15} /> Shop
               </Link>
@@ -303,7 +316,7 @@ export default function Navbar({
             </nav>
 
             {/* Inline search (desktop) */}
-            <InlineSearch />
+            <InlineSearch wide={variant === 'bar'} />
 
             {/* Right actions */}
             <div className="flex items-center gap-1 ml-auto">
@@ -311,7 +324,7 @@ export default function Navbar({
               <button
                 onClick={() => setMobileSearch(s => !s)}
                 aria-label="Search"
-                className="md:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all cursor-pointer"
+                className="md:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all cursor-pointer"
               >
                 <Search size={18} />
               </button>
@@ -319,18 +332,18 @@ export default function Navbar({
               {/* Track Order */}
               <Link
                 href="/track-order"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-primary hover:bg-white/70 transition-all cursor-pointer"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-primary hover:bg-surface/70 transition-all cursor-pointer"
               >
                 <Truck size={15} className="text-primary" />
                 <span className="hidden lg:block">Track Order</span>
               </Link>
 
               <Link href="/account/wishlist" aria-label="Wishlist"
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex cursor-pointer">
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all hidden sm:flex cursor-pointer">
                 <Heart size={18} />
               </Link>
               <Link href="/account" aria-label={profile ? `Account · ${profile.name ?? profile.email}` : 'Account'}
-                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex cursor-pointer">
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all hidden sm:flex cursor-pointer">
                 {profile?.avatar ? (
                   <Image
                     src={profile.avatar}
@@ -342,7 +355,7 @@ export default function Navbar({
                   />
                 ) : profile ? (
                   <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-extrabold shadow-sm"
-                    style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
+                    style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
                     {navInitials(profile)}
                   </span>
                 ) : (
@@ -352,7 +365,7 @@ export default function Navbar({
 
               {/* Cart */}
               <button onClick={openCart} aria-label="Cart"
-                className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all cursor-pointer">
+                className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all cursor-pointer">
                 <ShoppingCart size={18} />
                 {count > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] bg-gradient-to-br from-violet-500 to-pink-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-bounce-in">
@@ -363,7 +376,7 @@ export default function Navbar({
 
               {/* Mobile menu toggle — desktop only (bottom nav handles mobile) */}
               <button onClick={() => setMobileOpen(o => !o)} aria-label="Menu"
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/70 transition-all hidden sm:flex md:hidden cursor-pointer">
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all hidden sm:flex md:hidden cursor-pointer">
                 {mobileOpen ? <X size={18} /> : <Menu size={18} />}
               </button>
             </div>

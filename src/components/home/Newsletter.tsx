@@ -16,14 +16,14 @@ export default function Newsletter() {
   return (
     <section
       className="relative py-24 overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF, #FFF0F9, #F0FDF4)' }}
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1), var(--th-wash-3), var(--th-wash-4))' }}
     >
       {/* Blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 -left-20 w-96 h-96" style={{ background: '#8B5CF6', opacity: 0.22, animationDelay: '0s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-b absolute top-10 right-0 w-80 h-80"   style={{ background: '#06B6D4', opacity: 0.18, animationDelay: '2s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-c absolute -bottom-20 left-1/3 w-72 h-72" style={{ background: '#EC4899', opacity: 0.18, animationDelay: '1s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-a absolute bottom-10 right-1/4 w-56 h-56" style={{ background: '#10B981', opacity: 0.18, animationDelay: '3s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 -left-20 w-96 h-96" style={{ background:'#8B5CF6', opacity: 0.22, animationDelay: '0s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-b absolute top-10 right-0 w-80 h-80"   style={{ background:'#06B6D4', opacity: 0.18, animationDelay: '2s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-c absolute -bottom-20 left-1/3 w-72 h-72" style={{ background:'#EC4899', opacity: 0.18, animationDelay: '1s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-a absolute bottom-10 right-1/4 w-56 h-56" style={{ background:'#10B981', opacity: 0.18, animationDelay: '3s' }} />
       </div>
 
       <div className="relative max-w-2xl mx-auto px-4 sm:px-6 text-center">

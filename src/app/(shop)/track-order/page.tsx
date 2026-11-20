@@ -148,17 +148,17 @@ function TrackOrderInner() {
   }, [])
 
   return (
-    <div className="min-h-screen pt-6 pb-16 relative" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)' }}>
+    <div className="min-h-screen pt-6 pb-16 relative" style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 35%, var(--th-wash-3) 65%, var(--th-wash-4) 100%)' }}>
       {/* Aurora blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 -left-20 w-[400px] h-[400px]"
-          style={{ background: '#8B5CF6', opacity: 0.18 }} />
+          style={{ background:'#8B5CF6', opacity: 0.18 }} />
         <div className="blob animate-blob-morph animate-blob-float-b absolute top-1/4 -right-10 w-[320px] h-[320px]"
-          style={{ background: '#06B6D4', opacity: 0.15 }} />
+          style={{ background:'#06B6D4', opacity: 0.15 }} />
         <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-20 left-1/3 w-[360px] h-[360px]"
-          style={{ background: '#EC4899', opacity: 0.13 }} />
+          style={{ background:'#EC4899', opacity: 0.13 }} />
         <div className="blob animate-blob-morph animate-blob-float-a absolute top-1/2 right-1/4 w-[260px] h-[260px]"
-          style={{ background: '#10B981', opacity: 0.12 }} />
+          style={{ background:'#10B981', opacity: 0.12 }} />
       </div>
 
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6">
@@ -210,7 +210,7 @@ function LookupView({ mode, setMode, query, setQuery, error, submitting, onSubmi
     <div className="pt-6 sm:pt-12 animate-fade-in">
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl mb-5 shadow-lg shadow-primary/20"
-          style={{ background: 'linear-gradient(135deg, #16A34A, #06B6D4)' }}>
+          style={{ background:'linear-gradient(135deg, #16A34A, #06B6D4)' }}>
           <Package size={28} className="text-white" strokeWidth={2.2} />
         </div>
         <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em] text-primary mb-2">Track your order</p>
@@ -232,7 +232,7 @@ function LookupView({ mode, setMode, query, setQuery, error, submitting, onSubmi
               aria-selected={mode === m}
               onClick={() => setMode(m)}
               className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors min-h-[36px] ${
-                mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                mode === m ? 'bg-surface text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}>
               {m === 'code' ? 'Order code' : 'Phone number'}
             </button>
@@ -253,7 +253,7 @@ function LookupView({ mode, setMode, query, setQuery, error, submitting, onSubmi
             onChange={e => setQuery(e.target.value)}
             placeholder={mode === 'code' ? 'e.g. BLP-AIRP-123-0001' : 'e.g. 98XXXXXXXX'}
             className="w-full pl-11 pr-4 py-4 rounded-2xl text-base border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
-            style={{ background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(8px)' }}
+            style={{ background:'rgba(var(--th-surface-rgb),0.78)', backdropFilter: 'blur(8px)' }}
             aria-describedby={error ? 'lookup-error' : undefined}
           />
         </div>
@@ -573,7 +573,7 @@ function DetailView({ order: initialOrder, fromList, onBack, onRefresh }: {
             <MessageCircle size={15} aria-hidden="true" /> WhatsApp
           </a>
           <a href="tel:+9779800000000"
-            className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold cursor-pointer transition-colors min-h-[44px]">
+            className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-surface hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold cursor-pointer transition-colors min-h-[44px]">
             <Phone size={15} aria-hidden="true" /> Call store
           </a>
         </div>

@@ -16,17 +16,17 @@ export default function PageShell({ eyebrow, title, intro, children }: PageShell
   return (
     <section
       className="relative min-h-screen pt-16 pb-24 overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#F4F6FF 40%,#FFF5FB 70%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-7) 40%,var(--th-wash-5) 70%,var(--th-wash-4) 100%)' }}
     >
       {/* Decorative blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div
           className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-24 w-[28rem] h-[28rem]"
-          style={{ background: '#8B5CF6', opacity: 0.16 }}
+          style={{ background:'#8B5CF6', opacity: 0.16 }}
         />
         <div
           className="blob animate-blob-morph animate-blob-float-b absolute -bottom-32 -right-24 w-[26rem] h-[26rem]"
-          style={{ background: '#06B6D4', opacity: 0.14, animationDelay: '2s' }}
+          style={{ background:'#06B6D4', opacity: 0.14, animationDelay: '2s' }}
         />
       </div>
 

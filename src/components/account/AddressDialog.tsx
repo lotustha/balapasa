@@ -131,14 +131,14 @@ export default function AddressDialog({ open, onClose, onSaved, address, isFirst
 
   if (!open) return null
 
-  const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+  const inputCls = 'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl bg-surface text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
 
   return (
     <div role="dialog" aria-modal="true"
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 animate-fade-in"
       onClick={close}>
       <div onClick={e => e.stopPropagation()}
-        className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+        className="w-full sm:max-w-lg bg-surface rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
@@ -264,7 +264,7 @@ export default function AddressDialog({ open, onClose, onSaved, address, isFirst
               disabled={isFirst || (isEdit && address?.isDefault)}
               aria-label="Toggle default"
               className={`shrink-0 w-11 h-6 rounded-full transition-colors cursor-pointer relative disabled:opacity-60 ${form.isDefault ? 'bg-green-500' : 'bg-slate-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.isDefault ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <span className={`absolute top-0.5 w-5 h-5 bg-surface rounded-full shadow transition-transform ${form.isDefault ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </div>
 

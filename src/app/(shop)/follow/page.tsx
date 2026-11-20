@@ -134,7 +134,7 @@ export default async function FollowPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 flex flex-col items-center justify-center px-4 py-12">
       {/* Card */}
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden">
+      <div className="w-full max-w-sm bg-surface rounded-3xl shadow-xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-br from-emerald-500 to-green-600 px-6 py-8 text-center">
           {logoUrl ? (

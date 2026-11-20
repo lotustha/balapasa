@@ -51,16 +51,16 @@ export default function StoreCreditPage() {
   }, [])
 
   return (
-    <div className="min-h-screen pt-6 pb-16 relative" style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#FFF5FB 50%,#F0FDF4 100%)' }}>
+    <div className="min-h-screen pt-6 pb-16 relative" style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-5) 50%,var(--th-wash-4) 100%)' }}>
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-10 -left-20 w-[360px] h-[360px]"
-          style={{ background: '#10B981', opacity: 0.07, animationDelay: '1s' }} />
+          style={{ background:'#10B981', opacity: 0.07, animationDelay: '1s' }} />
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
-          <Link href="/account" className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors cursor-pointer shadow-sm">
+          <Link href="/account" className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors cursor-pointer shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div>
@@ -100,7 +100,7 @@ export default function StoreCreditPage() {
           <>
             {/* Balance card */}
             <div className="rounded-3xl p-6 text-white shadow-lg animate-fade-in-up relative overflow-hidden"
-              style={{ background: 'linear-gradient(135deg,#10B981,#059669)' }}>
+              style={{ background:'linear-gradient(135deg,#10B981,#059669)' }}>
               <div className="flex items-center gap-2 mb-2 relative z-10">
                 <Wallet size={16} className="text-white/80" />
                 <p className="text-xs font-bold uppercase tracking-widest text-white/80">Available balance</p>

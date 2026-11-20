@@ -52,13 +52,13 @@ export default async function DealsPage() {
   return (
     <section
       className="relative min-h-screen pt-10 pb-24 overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,#FFF0FC 0%,#FFF5E8 35%,#F0FDF4 70%,#EFF6FF 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-8) 0%,var(--th-wash-12) 35%,var(--th-wash-4) 70%,#EFF6FF 100%)' }}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-24 w-[28rem] h-[28rem]"
-          style={{ background: '#F59E0B', opacity: 0.18 }} />
+          style={{ background:'#F59E0B', opacity: 0.18 }} />
         <div className="blob animate-blob-morph animate-blob-float-b absolute -bottom-32 -right-24 w-80 h-80"
-          style={{ background: '#EC4899', opacity: 0.14, animationDelay: '2s' }} />
+          style={{ background:'#EC4899', opacity: 0.14, animationDelay: '2s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">

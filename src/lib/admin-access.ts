@@ -16,7 +16,7 @@ const under = (pathname: string, base: string, area: string) =>
 // ── Pages ───────────────────────────────────────────────────────────────────
 // STAFF work the dashboard and orders; ADMIN alone reaches configuration; MANAGER gets the rest.
 const STAFF_PAGES = ['orders']
-const ADMIN_PAGES = ['settings', 'logistics', 'whatsapp-bot']
+const ADMIN_PAGES = ['settings', 'logistics', 'whatsapp-bot', 'appearance']
 
 export function pageMinRole(pathname: string): AdminRole {
   if (pathname === '/admin' || STAFF_PAGES.some(a => under(pathname, '/admin', a))) return 'STAFF'
@@ -31,7 +31,7 @@ const MANAGER_API = [
   'settings', 'finance', 'import', 'suppliers', 'coupons', 'discount-rules', 'inventory', 'ai', 'brands',
   'category-mappings', 'products/bulk-delete', 'products/import', 'products/export', 'daraz', 'search-terms',
 ]
-const ADMIN_API = ['team', 'danger', 'logistics', 'whatsapp-bot', 'emails']
+const ADMIN_API = ['team', 'danger', 'logistics', 'whatsapp-bot', 'emails', 'theme']
 
 export function apiMinRole(pathname: string): AdminRole {
   if (ADMIN_API.some(a => under(pathname, '/api/admin', a))) return 'ADMIN'

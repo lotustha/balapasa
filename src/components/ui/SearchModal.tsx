@@ -64,7 +64,7 @@ export default function SearchModal({ isOpen, onClose }: Props) {
     <>
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       <div className="fixed top-4 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-50 animate-fade-in-up">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="bg-surface rounded-3xl shadow-2xl overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
             <Search size={20} className="text-gray-400 shrink-0" />
             <input

@@ -48,10 +48,10 @@ export default function StorePopup({ popup }: { popup: Popup }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
       role="dialog" aria-modal="true" aria-label={popup.title || 'Announcement'} onClick={close}>
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up"
+      <div className="relative bg-surface rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up"
         onClick={e => e.stopPropagation()}>
         <button onClick={close} aria-label="Close"
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center text-slate-600 shadow cursor-pointer">
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-surface/85 hover:bg-surface flex items-center justify-center text-slate-600 shadow cursor-pointer">
           <X size={16} />
         </button>
         {popup.image.trim() && (

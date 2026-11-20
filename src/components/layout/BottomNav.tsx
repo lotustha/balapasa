@@ -24,10 +24,10 @@ export default function BottomNav() {
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-50"
       style={{
-        background: 'rgba(255,255,255,0.97)',
+        background:'rgba(var(--th-surface-rgb),0.97)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        borderTop: '1px solid rgba(0,0,0,0.08)',
+        borderTop:'1px solid rgba(0,0,0,0.08)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >

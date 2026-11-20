@@ -64,18 +64,18 @@ export default function AddressesPage() {
   return (
     <div
       className="min-h-screen pt-6 pb-16 relative"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#F4F6FF 40%,#FFF5FB 70%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-7) 40%,var(--th-wash-5) 70%,var(--th-wash-4) 100%)' }}
     >
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-b absolute -top-24 -right-24 w-[400px] h-[400px]"
-          style={{ background: '#06B6D4', opacity: 0.07, animationDelay: '1s' }} />
+          style={{ background:'#06B6D4', opacity: 0.07, animationDelay: '1s' }} />
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
           <Link href="/account"
-            className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors cursor-pointer shadow-sm">
+            className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors cursor-pointer shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div className="flex-1">

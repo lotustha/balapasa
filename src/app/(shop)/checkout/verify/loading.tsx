@@ -4,7 +4,7 @@ export default function VerifyLoading() {
   return (
     <div
       className="min-h-[70vh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg,#F0FDF4 0%,#EEF2FF 50%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-4) 0%,var(--th-wash-1) 50%,var(--th-wash-4) 100%)' }}
     >
       <div className="text-center glass-panel p-12 rounded-3xl max-w-sm w-full animate-fade-in-up">
         <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">

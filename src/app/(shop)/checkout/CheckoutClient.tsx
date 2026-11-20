@@ -769,8 +769,8 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
   if (isEmpty) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 py-12"
-        style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)' }}>
-        <div className="max-w-md w-full bg-white/80 backdrop-blur rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 p-8 text-center">
+        style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 35%, var(--th-wash-3) 65%, var(--th-wash-4) 100%)' }}>
+        <div className="max-w-md w-full bg-surface/80 backdrop-blur rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 p-8 text-center">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-indigo-100 to-pink-100 flex items-center justify-center">
             <ShoppingBag size={28} className="text-indigo-500" strokeWidth={2.2} />
           </div>
@@ -795,7 +795,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
 
   return (
     <div className="min-h-screen pt-6 pb-8 relative"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)', overflowX: 'clip' }}>
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 35%, var(--th-wash-3) 65%, var(--th-wash-4) 100%)', overflowX: 'clip' }}>
 
       <div
         className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] w-full max-w-lg px-4 transition-all duration-300"
@@ -808,7 +808,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
         <div
           className="flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl border border-red-200/80"
           style={{
-            background:     'rgba(255,240,240,0.97)',
+            background:'rgba(255,240,240,0.97)',
             backdropFilter: 'blur(20px) saturate(180%)',
           }}
         >
@@ -837,13 +837,13 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
 
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-20 -left-20 w-[400px] h-[400px]"
-          style={{ background: '#8B5CF6', opacity: 0.22, animationDelay: '0s' }} />
+          style={{ background:'#8B5CF6', opacity: 0.22, animationDelay: '0s' }} />
         <div className="blob animate-blob-morph animate-blob-float-b absolute top-1/4 -right-10 w-[320px] h-[320px]"
-          style={{ background: '#06B6D4', opacity: 0.18, animationDelay: '2s' }} />
+          style={{ background:'#06B6D4', opacity: 0.18, animationDelay: '2s' }} />
         <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-20 left-1/3 w-[360px] h-[360px]"
-          style={{ background: '#EC4899', opacity: 0.16, animationDelay: '1s' }} />
+          style={{ background:'#EC4899', opacity: 0.16, animationDelay: '1s' }} />
         <div className="blob animate-blob-morph animate-blob-float-a absolute top-1/2 right-1/4 w-[260px] h-[260px]"
-          style={{ background: '#10B981', opacity: 0.15, animationDelay: '3.5s' }} />
+          style={{ background:'#10B981', opacity: 0.15, animationDelay: '3.5s' }} />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
@@ -1008,7 +1008,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                         <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input type="text" value={recipientName} onChange={e => setName(e.target.value)}
                           placeholder="Your full name" required
-                          className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }} />
+                          className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" style={{ background:'rgba(var(--th-surface-rgb),0.75)', backdropFilter: 'blur(8px)' }} />
                       </div>
                     </div>
                     <div>
@@ -1021,7 +1021,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                           placeholder="98XXXXXXXX" required
                           pattern="^(?:\+?977[-\s]?)?(?:9[678]\d{8})$"
                           title="Nepal mobile number (98XXXXXXXX, 97XXXXXXXX, or 96XXXXXXXX)"
-                          className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }} />
+                          className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all" style={{ background:'rgba(var(--th-surface-rgb),0.75)', backdropFilter: 'blur(8px)' }} />
                       </div>
                     </div>
                   </div>
@@ -1043,7 +1043,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                         placeholder="you@example.com"
                         readOnly={!!user}
                         className={`w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all ${user ? 'cursor-not-allowed opacity-80' : ''}`}
-                        style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }}
+                        style={{ background:'rgba(var(--th-surface-rgb),0.75)', backdropFilter: 'blur(8px)' }}
                       />
                     </div>
                   </div>
@@ -1079,7 +1079,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                   rows={3}
                   placeholder="Anything the rider should know? Gate code, landmark, time window, special handling…"
                   className="w-full px-4 py-3 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all resize-none"
-                  style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }}
+                  style={{ background:'rgba(var(--th-surface-rgb),0.75)', backdropFilter: 'blur(8px)' }}
                 />
                 <p className="text-[11px] text-slate-400 mt-1.5">{deliveryNote.length}/500</p>
               </div>
@@ -1155,19 +1155,19 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                             <Truck size={11} /> Partners we&apos;ll check
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-slate-100 shadow-sm">
                               <div className="relative w-[46px] h-[14px]">
                                 <Image src="/pathao.webp" alt="Pathao" fill className="object-contain object-left" sizes="46px" />
                               </div>
                               <span className="text-[10px] text-orange-600 font-bold bg-orange-50 px-1.5 py-0.5 rounded-full">Fast</span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-slate-100 shadow-sm">
                               <div className="relative w-[52px] h-[14px]">
                                 <Image src="/pick_n_drop.webp" alt="Pick & Drop" fill className="object-contain object-left" sizes="52px" />
                               </div>
                               <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded-full">Reliable</span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-slate-100 shadow-sm">
                               <Banknote size={13} className="text-slate-500" />
                               <span className="text-[10px] text-slate-600 font-semibold">COD</span>
                               <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded-full">Most areas</span>
@@ -1245,7 +1245,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                             key={opt.id}
                             className="relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border cursor-pointer transition-all duration-200 overflow-hidden"
                             style={{
-                              background: isSelected ? 'rgba(22,163,74,0.04)' : 'rgba(255,255,255,0.80)',
+                              background: isSelected ? 'rgba(22,163,74,0.04)' : 'rgba(var(--th-surface-rgb),0.80)',
                               borderColor: isSelected ? '#16A34A' : 'rgba(0,0,0,0.08)',
                               boxShadow: isSelected ? '0 0 0 1px #16A34A' : '0 1px 4px rgba(0,0,0,0.04)',
                             }}
@@ -1255,7 +1255,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                               <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
                             )}
 
-                            <div className="shrink-0 w-[100px] h-14 flex items-center justify-center rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+                            <div className="shrink-0 w-[100px] h-14 flex items-center justify-center rounded-2xl bg-surface border border-slate-100 shadow-sm overflow-hidden">
                               {meta.logo ? (
                                 <div className="relative w-full h-full p-2">
                                   <Image src={meta.logo} alt={meta.badge} fill className="object-contain" sizes="100px" />
@@ -1455,7 +1455,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                             onChange={e => { setCoupon(e.target.value); setCouponError('') }}
                             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), applyCoupon())}
                             placeholder="Promo code"
-                            className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+                            className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-surface/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                           />
                         </div>
                         <button
@@ -1504,7 +1504,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                             onChange={e => { setGiftCard(e.target.value); setGiftCardError('') }}
                             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), applyGiftCard())}
                             placeholder="Gift card code"
-                            className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-white/80 text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/15 transition-all"
+                            className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 bg-surface/80 text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/15 transition-all"
                           />
                         </div>
                         <button
@@ -1534,7 +1534,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border transition-all text-left ${
                         useStoreCredit && storeCreditEligible
                           ? 'bg-emerald-50 border-emerald-300'
-                          : 'bg-white/80 border-slate-200'
+                          : 'bg-surface/80 border-slate-200'
                       } ${storeCreditEligible ? 'cursor-pointer hover:border-emerald-300' : 'opacity-60 cursor-not-allowed'}`}
                     >
                       <Wallet size={15} className="text-emerald-600 shrink-0" />
@@ -1549,7 +1549,7 @@ export default function CheckoutClient({ user, initialAddresses }: CheckoutClien
                         </p>
                       </div>
                       <span className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${useStoreCredit && storeCreditEligible ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${useStoreCredit && storeCreditEligible ? 'left-[18px]' : 'left-0.5'}`} />
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-surface transition-all ${useStoreCredit && storeCreditEligible ? 'left-[18px]' : 'left-0.5'}`} />
                       </span>
                     </button>
                   </div>

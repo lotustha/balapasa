@@ -135,7 +135,7 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
         <div className="flex items-center gap-3">
           <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #16A34A, #06B6D4)' }} />
+              style={{ width: `${pct}%`, background:'linear-gradient(90deg, #16A34A, #06B6D4)' }} />
           </div>
           <span className="text-[10px] font-bold text-slate-400 shrink-0">{pct}% complete</span>
         </div>
@@ -169,7 +169,7 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
             onChange={e => set('landmark', e.target.value)}
             placeholder={value.municipality ? 'e.g. near XYZ school' : 'Select Municipality first'}
             disabled={!value.municipality}
-            className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-white text-slate-800 outline-none focus:ring-2 transition-all
+            className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-surface text-slate-800 outline-none focus:ring-2 transition-all
               ${!value.municipality
                 ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
                 : 'border-slate-200 focus:border-primary focus:ring-primary/15'
@@ -200,7 +200,7 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
               }}
               onFocus={() => streetSugg.length > 0 && setShowStreetSugg(true)}
               placeholder="e.g. Thamel Marg"
-              className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-white text-slate-800 outline-none focus:ring-2 transition-all
+              className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-surface text-slate-800 outline-none focus:ring-2 transition-all
                 ${streetTouched && !value.street
                   ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
                   : 'border-slate-200 focus:border-primary focus:ring-primary/15'
@@ -216,7 +216,7 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
             {/* Suggestions dropdown */}
             {showStreetSugg && streetSugg.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 z-30 rounded-2xl overflow-hidden shadow-xl"
-                style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)', border: '1px solid rgba(99,102,241,0.12)' }}>
+                style={{ background:'rgba(var(--th-surface-rgb),0.97)', backdropFilter: 'blur(16px)', border:'1px solid rgba(99,102,241,0.12)' }}>
                 <p className="px-3 pt-2 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
                   <Search size={10} /> Suggestions from OpenStreetMap
                 </p>
@@ -246,7 +246,7 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
             onChange={e => set('tole', e.target.value)}
             onBlur={() => setToleTouched(true)}
             placeholder="e.g. Jyatha Tole"
-            className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-white text-slate-800 outline-none focus:ring-2 transition-all
+            className={`w-full px-4 py-3.5 rounded-xl text-sm border bg-surface text-slate-800 outline-none focus:ring-2 transition-all
               ${toleTouched && !value.tole
                 ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
                 : 'border-slate-200 focus:border-primary focus:ring-primary/15'
@@ -321,7 +321,7 @@ export default function NepalAddressSelector({ value, onChange, onComplete }: Pr
       {mapOpen && (
         <Suspense fallback={
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 flex items-center gap-3 shadow-xl">
+            <div className="bg-surface rounded-2xl p-6 flex items-center gap-3 shadow-xl">
               <Loader2 size={18} className="animate-spin text-primary" />
               <p className="text-sm font-semibold text-slate-700">Loading map…</p>
             </div>

@@ -220,7 +220,7 @@ export default function MapPicker({
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Pin your delivery location">
-      <div className="m-auto w-full max-w-3xl h-[90vh] max-h-[720px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="m-auto w-full max-w-3xl h-[90vh] max-h-[720px] bg-surface rounded-2xl shadow-2xl overflow-hidden flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -258,7 +258,7 @@ export default function MapPicker({
             type="button"
             onClick={useMyLocation}
             disabled={geoLoading}
-            className="absolute top-3 right-3 z-[401] flex items-center gap-1.5 px-3.5 py-2 bg-white text-slate-700 hover:text-primary text-xs font-bold rounded-xl shadow-lg disabled:opacity-60 cursor-pointer transition-colors"
+            className="absolute top-3 right-3 z-[401] flex items-center gap-1.5 px-3.5 py-2 bg-surface text-slate-700 hover:text-primary text-xs font-bold rounded-xl shadow-lg disabled:opacity-60 cursor-pointer transition-colors"
           >
             {geoLoading
               ? <><Loader2 size={13} className="animate-spin" /> Locating…</>
@@ -279,7 +279,7 @@ export default function MapPicker({
         {/* Footer with confirm */}
         <div className="border-t border-slate-100 p-4 bg-slate-50/60">
           {coords ? (
-            <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-100">
+            <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-surface border border-slate-100">
               <MapPin size={14} className="text-primary shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-slate-800">
@@ -305,7 +305,7 @@ export default function MapPicker({
 
           <div className="flex gap-2">
             <button type="button" onClick={onCancel}
-              className="flex-1 px-4 py-3 rounded-xl text-sm font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer">
+              className="flex-1 px-4 py-3 rounded-xl text-sm font-bold text-slate-700 bg-surface border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer">
               Cancel
             </button>
             <button type="button" onClick={confirm}

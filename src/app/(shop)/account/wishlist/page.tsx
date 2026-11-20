@@ -74,18 +74,18 @@ export default function WishlistPage() {
   return (
     <div
       className="min-h-screen pt-6 pb-16 relative"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#FFF5FB 50%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-5) 50%,var(--th-wash-4) 100%)' }}
     >
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-10 -left-20 w-[360px] h-[360px]"
-          style={{ background: '#EC4899', opacity: 0.07, animationDelay: '1s' }} />
+          style={{ background:'#EC4899', opacity: 0.07, animationDelay: '1s' }} />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
           <Link href="/account"
-            className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors cursor-pointer shadow-sm">
+            className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors cursor-pointer shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div className="flex-1">
@@ -93,7 +93,7 @@ export default function WishlistPage() {
             <h1 className="font-heading font-extrabold text-2xl text-slate-900 leading-tight">Wishlist</h1>
           </div>
           {status === 'ready' && items.length > 0 && (
-            <span className="text-xs font-bold text-slate-500 bg-white/80 border border-slate-200 rounded-full px-3 py-1.5 shadow-sm">
+            <span className="text-xs font-bold text-slate-500 bg-surface/80 border border-slate-200 rounded-full px-3 py-1.5 shadow-sm">
               {items.length} {items.length === 1 ? 'item' : 'items'}
             </span>
           )}
@@ -103,7 +103,7 @@ export default function WishlistPage() {
         {status === 'loading' && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="rounded-3xl overflow-hidden bg-white/60 border border-white/80 shadow-sm animate-pulse">
+              <div key={i} className="rounded-3xl overflow-hidden bg-surface/60 border border-white/80 shadow-sm animate-pulse">
                 <div className="aspect-square bg-slate-100" />
                 <div className="p-4 space-y-2">
                   <div className="h-3 bg-slate-100 rounded w-3/4" />
@@ -174,16 +174,16 @@ export default function WishlistPage() {
                   key={p.id}
                   className="relative h-full flex flex-col rounded-3xl overflow-hidden card-hover animate-fade-in-up"
                   style={{
-                    background: 'rgba(255,255,255,0.78)',
+                    background:'rgba(var(--th-surface-rgb),0.78)',
                     backdropFilter: 'blur(16px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                    border: '1px solid rgba(255,255,255,0.90)',
+                    border:'1px solid rgba(var(--th-surface-rgb),0.90)',
                     boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
                     animationDelay: `${Math.min(i * 0.04, 0.4)}s`,
                   }}
                 >
                   <Link href={`/products/${p.slug}`} className="block group">
-                    <div className="relative aspect-square overflow-hidden" style={{ background: 'rgba(255,255,255,0.35)' }}>
+                    <div className="relative aspect-square overflow-hidden" style={{ background:'rgba(var(--th-surface-rgb),0.35)' }}>
                       <Image
                         src={p.images[0] ?? '/placeholder.jpg'}
                         alt={p.name}
@@ -212,12 +212,12 @@ export default function WishlistPage() {
                     disabled={removing === p.id}
                     aria-label="Remove from wishlist"
                     className="absolute top-3 right-3 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110 cursor-pointer shadow-md disabled:opacity-50"
-                    style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(8px)' }}
+                    style={{ background:'rgba(var(--th-surface-rgb),0.88)', backdropFilter: 'blur(8px)' }}
                   >
                     <X size={14} className="text-slate-500" />
                   </button>
 
-                  <div className="p-4 border-t flex-1 flex flex-col min-w-0" style={{ borderColor: 'rgba(255,255,255,0.45)' }}>
+                  <div className="p-4 border-t flex-1 flex flex-col min-w-0" style={{ borderColor:'rgba(var(--th-surface-rgb),0.45)' }}>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 min-h-[12px]">
                       {p.brand ?? ' '}
                     </p>

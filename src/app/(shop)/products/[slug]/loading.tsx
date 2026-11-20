@@ -5,7 +5,7 @@
 export default function ProductLoading() {
   return (
     <div className="min-h-screen relative"
-      style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)' }}>
+      style={{ background:'linear-gradient(135deg,var(--th-wash-1) 0%,var(--th-wash-2) 40%,var(--th-wash-3) 70%,var(--th-wash-4) 100%)' }}>
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full min-w-0">
 
         {/* Breadcrumb */}

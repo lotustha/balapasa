@@ -6,7 +6,7 @@ import { CheckCircle, ArrowRight } from 'lucide-react'
 export default function CheckoutSuccessFallback() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%)' }}>
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-4) 100%)' }}>
       <div className="text-center max-w-md w-full glass-card p-12">
         <div className="w-20 h-20 bg-primary-bg rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle size={40} className="text-primary" />

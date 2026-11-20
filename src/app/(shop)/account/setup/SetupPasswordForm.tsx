@@ -98,7 +98,7 @@ export default function SetupPasswordForm({ token, email }: Props) {
             value={email}
             readOnly
             className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-600 outline-none cursor-not-allowed opacity-80"
-            style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(8px)' }}
+            style={{ background:'rgba(var(--th-surface-rgb),0.6)', backdropFilter: 'blur(8px)' }}
           />
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function SetupPasswordForm({ token, email }: Props) {
             minLength={8}
             autoComplete="new-password"
             className="w-full pl-10 pr-10 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
-            style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }}
+            style={{ background:'rgba(var(--th-surface-rgb),0.75)', backdropFilter: 'blur(8px)' }}
           />
           <button
             type="button"
@@ -147,7 +147,7 @@ export default function SetupPasswordForm({ token, email }: Props) {
             required
             autoComplete="new-password"
             className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm border border-white/80 text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
-            style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)' }}
+            style={{ background:'rgba(var(--th-surface-rgb),0.75)', backdropFilter: 'blur(8px)' }}
           />
         </div>
       </div>

@@ -34,7 +34,7 @@ export default async function AccountSetupPage({ searchParams }: PageProps) {
   if (profile.password) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%)' }}>
+        style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-4) 100%)' }}>
         <div className="text-center max-w-md w-full glass-card p-10">
           <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-5">
             <AlertCircle size={32} className="text-amber-600" />
@@ -53,13 +53,13 @@ export default async function AccountSetupPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen pt-12 pb-16 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 60%, #FAF5FF 100%)' }}>
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-4) 60%, var(--th-wash-2) 100%)' }}>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="blob absolute -top-20 -left-20 w-[380px] h-[380px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#10B981', opacity: 0.14 }} />
+          style={{ background:'#10B981', opacity: 0.14 }} />
         <div className="blob absolute -bottom-16 -right-16 w-[320px] h-[320px] animate-blob-morph animate-blob-float-b"
-          style={{ background: '#8B5CF6', opacity: 0.12 }} />
+          style={{ background:'#8B5CF6', opacity: 0.12 }} />
       </div>
 
       <div className="relative z-10 max-w-md mx-auto px-4">
@@ -84,7 +84,7 @@ export default async function AccountSetupPage({ searchParams }: PageProps) {
 function InvalidLinkScreen({ reason }: { reason: string }) {
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #FEF2F2 0%, #FFF7ED 100%)' }}>
+      style={{ background:'linear-gradient(135deg, var(--th-wash-15) 0%, var(--th-wash-10) 100%)' }}>
       <div className="text-center max-w-md w-full glass-card p-10">
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
           <AlertCircle size={32} className="text-red-600" />
@@ -95,7 +95,7 @@ function InvalidLinkScreen({ reason }: { reason: string }) {
           <Link href="/login" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors cursor-pointer text-sm">
             Sign in
           </Link>
-          <Link href="/" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-sm">
+          <Link href="/" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-surface border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-sm">
             Back to home
           </Link>
         </div>

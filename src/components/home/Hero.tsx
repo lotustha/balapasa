@@ -173,15 +173,15 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
       ref={heroRef}
       onMouseMove={handleMouseMove}
       className="relative min-h-screen flex items-center overflow-hidden -mt-20"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 35%, #FFF0F9 65%, #F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 35%, var(--th-wash-3) 65%, var(--th-wash-4) 100%)' }}
     >
       {/* ── Colorful aurora blobs ─────────────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-32 w-[500px] h-[500px]" style={{ background: '#8B5CF6', animationDelay: '0s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-b absolute top-0 right-0 w-[380px] h-[380px]"   style={{ background: '#06B6D4', opacity: 0.28, animationDelay: '2s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-0 left-1/3 w-[420px] h-[420px]" style={{ background: '#EC4899', opacity: 0.26, animationDelay: '1s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-a absolute top-1/2 right-1/4 w-[300px] h-[300px]" style={{ background: '#10B981', opacity: 0.28, animationDelay: '3s' }} />
-        <div className="blob animate-blob-morph animate-blob-float-b absolute bottom-16 -left-10 w-[260px] h-[260px]" style={{ background: '#F59E0B', opacity: 0.24, animationDelay: '4s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-32 w-[500px] h-[500px]" style={{ background:'#8B5CF6', animationDelay: '0s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-b absolute top-0 right-0 w-[380px] h-[380px]"   style={{ background:'#06B6D4', opacity: 0.28, animationDelay: '2s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-c absolute bottom-0 left-1/3 w-[420px] h-[420px]" style={{ background:'#EC4899', opacity: 0.26, animationDelay: '1s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-a absolute top-1/2 right-1/4 w-[300px] h-[300px]" style={{ background:'#10B981', opacity: 0.28, animationDelay: '3s' }} />
+        <div className="blob animate-blob-morph animate-blob-float-b absolute bottom-16 -left-10 w-[260px] h-[260px]" style={{ background:'#F59E0B', opacity: 0.24, animationDelay: '4s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-16 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -217,7 +217,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
             </Link>
             {hero.ctaSecondaryLabel && (
               <Link href={hero.ctaSecondaryUrl}
-                className="inline-flex items-center gap-2 px-7 py-4 glass-card text-slate-700 font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:bg-white/90 cursor-pointer">
+                className="inline-flex items-center gap-2 px-7 py-4 glass-card text-slate-700 font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:bg-surface/90 cursor-pointer">
                 <Zap size={15} className="text-gold-bright" /> {hero.ctaSecondaryLabel}
               </Link>
             )}
@@ -278,9 +278,9 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                     <Image key={current.id} src={current.images[0]} alt={current.name}
                       fill className="object-cover" sizes="320px"
                       priority={activeIdx === 0} fetchPriority={activeIdx === 0 ? 'high' : 'auto'} />
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.3), transparent)' }} />
+                    <div className="absolute inset-0" style={{ background:'linear-gradient(to top, rgba(var(--th-surface-rgb),0.3), transparent)' }} />
                     <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-white text-[10px] font-bold rounded-xl"
-                      style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
+                      style={{ background:'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
                       #{activeIdx + 1} Trending
                     </span>
                   </div>
@@ -323,7 +323,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
                   className="glass-card p-3 flex items-center gap-2.5 hover:scale-105 transition-all duration-200 cursor-pointer animate-fade-in-up"
                   style={{ animationDelay: `${0.15 + i * 0.1}s` }}
                 >
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-lg leading-none" style={{ background: `${color}20` }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-lg leading-none" style={{ background:`${color}20` }}>
                     {icon ? icon : <Package size={15} style={{ color }} />}
                   </div>
                   <div className="min-w-0">
@@ -350,7 +350,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
               ) : flashDeal.maxOff > 0 ? (
                 <Link href="/deals"
                   className="flex-1 glass-card p-4 flex flex-col justify-center animate-fade-in-up delay-300 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
+                  style={{ background:'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.08))' }}>
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 shrink-0">
                       <Zap size={13} className="text-white fill-white" />
@@ -372,7 +372,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
             {stats.map(({ val, label, color }) => (
               <div key={label}
                 className="glass-card p-3 text-center cursor-default hover:scale-105 transition-transform duration-200"
-                style={{ borderTop: `2px solid ${color}22` }}
+                style={{ borderTop:`2px solid ${color}22` }}
               >
                 <p className="font-heading font-extrabold text-xl text-slate-900">{val}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">{label}</p>

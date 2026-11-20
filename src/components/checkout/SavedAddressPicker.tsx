@@ -71,7 +71,7 @@ export default function SavedAddressPicker({
               className={`relative text-left p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer ${
                 isSelected
                   ? 'border-primary bg-primary-bg shadow-md'
-                  : 'border-slate-100 bg-white/80 hover:border-slate-200 hover:bg-white'
+                  : 'border-slate-100 bg-surface/80 hover:border-slate-200 hover:bg-surface'
               }`}
               style={{ backdropFilter: 'blur(8px)' }}
             >

@@ -50,7 +50,7 @@ function ConfirmDialog({ opts, onResolve }: { opts: ConfirmOptions | null; onRes
       onClick={() => onResolve(false)}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-sm animate-fade-in-up"
+        className="bg-surface rounded-3xl shadow-2xl w-full max-w-sm animate-fade-in-up"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6">

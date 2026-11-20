@@ -27,8 +27,8 @@ export default function MaintenanceGate({
   return (
     <main data-maintenance="closed"
       className="min-h-screen flex items-center justify-center px-4 py-12"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 45%, #F0FDF4 100%)' }}>
-      <div className="w-full max-w-md text-center bg-white/80 backdrop-blur-sm rounded-3xl ring-1 ring-white shadow-xl px-6 py-10 sm:px-10">
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 45%, var(--th-wash-4) 100%)' }}>
+      <div className="w-full max-w-md text-center bg-surface/80 backdrop-blur-sm rounded-3xl ring-1 ring-white shadow-xl px-6 py-10 sm:px-10">
         <Image src={logoUrl} alt={siteName} width={64} height={64} className="mx-auto rounded-2xl" unoptimized />
         <p className="mt-3 font-heading font-bold text-slate-900">{siteName}</p>
 

@@ -27,16 +27,16 @@ export default async function FeaturedProducts() {
   return (
     <section
       className="relative py-20 overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #F0F9FF 0%, #FAF5FF 50%, #FFF0F9 100%)' }}
+      style={{ background:'linear-gradient(180deg, var(--th-wash-9) 0%, var(--th-wash-2) 50%, var(--th-wash-3) 100%)' }}
     >
       {/* Animated blobs — matches hero/products page style */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="blob absolute -top-24 -right-16 w-[480px] h-[480px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#8B5CF6', opacity: 0.10, animationDelay: '0s' }} />
+          style={{ background:'#8B5CF6', opacity: 0.10, animationDelay: '0s' }} />
         <div className="blob absolute -bottom-16 -left-16 w-[400px] h-[400px] animate-blob-morph animate-blob-float-b"
-          style={{ background: '#06B6D4', opacity: 0.09, animationDelay: '2s' }} />
+          style={{ background:'#06B6D4', opacity: 0.09, animationDelay: '2s' }} />
         <div className="blob absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] animate-blob-morph animate-blob-float-c"
-          style={{ background: '#EC4899', opacity: 0.07, animationDelay: '1s' }} />
+          style={{ background:'#EC4899', opacity: 0.07, animationDelay: '1s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
@@ -46,9 +46,9 @@ export default async function FeaturedProducts() {
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-3 shadow-sm"
               style={{
-                background: 'rgba(255,255,255,0.72)',
+                background:'rgba(var(--th-surface-rgb),0.72)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.85)',
+                border:'1px solid rgba(var(--th-surface-rgb),0.85)',
               }}>
               <Sparkles size={13} className="text-primary" />
               <span className="text-xs font-bold text-slate-700 tracking-wide">Handpicked for You</span>
@@ -66,7 +66,7 @@ export default async function FeaturedProducts() {
         </div>
 
         {/* Product grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="th-grid th-grid-fill">
           {products.map((p, i) => (
             <div key={p.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 0.05, 0.3)}s` }}>
               <ProductCard product={{
@@ -92,9 +92,9 @@ export default async function FeaturedProducts() {
           <Link href="/products?featured=true"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-slate-700 hover:text-primary transition-colors cursor-pointer"
             style={{
-              background: 'rgba(255,255,255,0.72)',
+              background:'rgba(var(--th-surface-rgb),0.72)',
               backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.85)',
+              border:'1px solid rgba(var(--th-surface-rgb),0.85)',
             }}>
             View all featured <ArrowRight size={14} />
           </Link>

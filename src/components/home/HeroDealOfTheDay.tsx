@@ -80,9 +80,9 @@ export default function HeroDealOfTheDay() {
       {/* Background blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 left-1/4 w-[28rem] h-[28rem]"
-          style={{ background: '#F59E0B', opacity: 0.20 }} />
+          style={{ background:'#F59E0B', opacity: 0.20 }} />
         <div className="blob animate-blob-morph animate-blob-float-b absolute -bottom-20 right-1/4 w-80 h-80"
-          style={{ background: '#EC4899', opacity: 0.15, animationDelay: '2s' }} />
+          style={{ background:'#EC4899', opacity: 0.15, animationDelay: '2s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
@@ -108,10 +108,10 @@ export default function HeroDealOfTheDay() {
                 </div>
               )}
               <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold text-white shadow-lg"
-                style={{ background: 'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
+                style={{ background:'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
                 <Flame size={13} className="fill-white" /> Deal of the Day
               </div>
-              <div className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur text-amber-700 text-xs font-extrabold shadow">
+              <div className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-surface/95 backdrop-blur text-amber-700 text-xs font-extrabold shadow">
                 -{pct}%
               </div>
             </div>
@@ -159,7 +159,7 @@ export default function HeroDealOfTheDay() {
                       className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${claimed}%`,
-                        background: 'linear-gradient(90deg,#F59E0B,#EC4899)',
+                        background:'linear-gradient(90deg,#F59E0B,#EC4899)',
                       }}
                     />
                   </div>

@@ -135,7 +135,7 @@ export default async function ContactPage() {
             {s.storeEmail && (
               <a
                 href={`mailto:${s.storeEmail}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-surface border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
               >
                 <Mail size={16} /> Email us
               </a>

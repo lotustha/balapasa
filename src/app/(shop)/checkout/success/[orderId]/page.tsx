@@ -53,16 +53,16 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
 
   return (
     <div className="min-h-screen pt-6 pb-16 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 50%, #FAF5FF 100%)' }}>
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-4) 50%, var(--th-wash-2) 100%)' }}>
 
       {/* Decorative blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="blob absolute -top-20 -left-20 w-[400px] h-[400px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#10B981', opacity: 0.16 }} />
+          style={{ background:'#10B981', opacity: 0.16 }} />
         <div className="blob absolute -bottom-16 -right-16 w-[360px] h-[360px] animate-blob-morph animate-blob-float-b"
-          style={{ background: '#8B5CF6', opacity: 0.14 }} />
+          style={{ background:'#8B5CF6', opacity: 0.14 }} />
         <div className="blob absolute top-1/3 right-1/4 w-[280px] h-[280px] animate-blob-morph animate-blob-float-c"
-          style={{ background: '#EC4899', opacity: 0.10 }} />
+          style={{ background:'#EC4899', opacity: 0.10 }} />
       </div>
 
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6">
@@ -78,7 +78,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
           <p className="text-slate-600 text-sm sm:text-base">
             Thank you, <span className="font-semibold text-slate-900">{order.name}</span>. We&apos;ll confirm your order shortly.
           </p>
-          <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full bg-white/80 border border-slate-100 shadow-sm" style={{ backdropFilter: 'blur(8px)' }}>
+          <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full bg-surface/80 border border-slate-100 shadow-sm" style={{ backdropFilter: 'blur(8px)' }}>
             <Package size={13} className="text-primary" />
             <span className="text-xs font-bold text-slate-700">Order #{orderShort}</span>
           </div>
@@ -87,7 +87,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
         {/* Guest signup card (claim + 10% off) */}
         {claimToken && (
           <div className="glass-card p-6 sm:p-7 mb-6 animate-fade-in-up relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-30" style={{ background: '#F59E0B' }} />
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-30 th-decor" style={{ background:'#F59E0B' }} />
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold mb-3">
                 <Sparkles size={11} /> Exclusive offer
@@ -186,7 +186,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
 
         {/* Email confirmation note */}
         {order.email && (
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/70 border border-slate-100 mb-6"
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface/70 border border-slate-100 mb-6"
             style={{ backdropFilter: 'blur(8px)' }}>
             <div className="w-9 h-9 rounded-xl bg-primary-bg flex items-center justify-center shrink-0">
               <Mail size={15} className="text-primary" />
@@ -205,7 +205,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
             { icon: Truck,        title: 'Track Anytime',   desc: 'Real-time updates' },
             { icon: Package,      title: 'Easy Returns',    desc: '7-day window'      },
           ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-center gap-3 p-3 rounded-2xl bg-white/70 border border-slate-100"
+            <div key={title} className="flex items-center gap-3 p-3 rounded-2xl bg-surface/70 border border-slate-100"
               style={{ backdropFilter: 'blur(8px)' }}>
               <div className="w-9 h-9 rounded-xl bg-primary-bg flex items-center justify-center shrink-0">
                 <Icon size={15} className="text-primary" />
@@ -225,7 +225,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
             <Package size={15} /> Track this order
           </Link>
           <Link href="/"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 hover:text-primary hover:border-primary/30 font-bold rounded-2xl transition-all cursor-pointer shadow-sm"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-surface border border-slate-200 text-slate-700 hover:text-primary hover:border-primary/30 font-bold rounded-2xl transition-all cursor-pointer shadow-sm"
             style={{ backdropFilter: 'blur(8px)' }}>
             Continue shopping <ArrowRight size={14} />
           </Link>

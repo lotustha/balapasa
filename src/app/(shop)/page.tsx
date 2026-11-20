@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import Hero from '@/components/home/Hero'
+import HomeHero from '@/components/home/HomeHero'
+import HomeSections from '@/components/home/HomeSections'
 
 // ISR: re-generate the home shell every 5 minutes. Hero trending data is
 // fetched client-side so storefront edits show up quickly while keeping
@@ -77,38 +78,40 @@ export default async function HomePage() {
           name: 'Electronics, Gadgets & Beauty',
         },
       }) }} />
-      <Hero hero={settings.hero} />
-      <HeroDealOfTheDay />
-      <CategorySection />
-      <NewlyAddedProducts />
-      <FeaturedProducts />
-      <DealsSection />
-
-      {/* Trust bar */}
-      <section
-        className="relative py-14 overflow-hidden glass-section"
-        style={{ background: 'rgba(255,255,255,0.55)' }}
-      >
-        {/* Soft blob */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 rounded-full blur-3xl opacity-15 pointer-events-none" style={{ background: '#10B981' }} />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {TRUST.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="w-12 h-12 glass-md rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
-                  <Icon size={20} className="text-primary" />
-                </div>
-                <div>
-                  <h4 className="font-heading font-bold text-slate-800 text-sm">{title}</h4>
-                  <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">{desc}</p>
-                </div>
+      {/* Which sections show, and in what order, is part of the theme (Admin, Appearance). */}
+      <HomeSections sections={{
+        hero:        <HomeHero hero={settings.hero} />,
+        dealOfDay:   <HeroDealOfTheDay />,
+        categories:  <CategorySection />,
+        newArrivals: <NewlyAddedProducts />,
+        featured:    <FeaturedProducts />,
+        deals:       <DealsSection />,
+        newsletter:  <Newsletter />,
+        trust: (
+          <section
+            className="relative py-14 overflow-hidden glass-section"
+            style={{ background:'rgba(var(--th-surface-rgb),0.55)' }}
+          >
+            {/* Soft blob */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 rounded-full blur-3xl opacity-15 pointer-events-none th-decor" style={{ background:'#10B981' }} />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                {TRUST.map(({ icon: Icon, title, desc }) => (
+                  <div key={title} className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="w-12 h-12 glass-md rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                      <Icon size={20} className="text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-heading font-bold text-slate-800 text-sm">{title}</h4>
+                      <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">{desc}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <Newsletter />
+            </div>
+          </section>
+        ),
+      }} />
     </>
   )
 }

@@ -250,7 +250,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
     <div className="flex items-center justify-center gap-2 mt-10 flex-wrap">
       {page > 1 && (
         <Link href={pageUrl(page - 1)}
-          className={`${btnBase} gap-1.5 px-4 py-2.5 glass-card rounded-2xl text-slate-600 hover:bg-white/90`}>
+          className={`${btnBase} gap-1.5 px-4 py-2.5 glass-card rounded-2xl text-slate-600 hover:bg-surface/90`}>
           <ChevronLeft size={14} /> Prev
         </Link>
       )}
@@ -263,7 +263,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
             className={`${btnBase} w-10 h-10 rounded-2xl ${
               p === page
                 ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                : 'glass-card text-slate-600 hover:bg-white/90'
+                : 'glass-card text-slate-600 hover:bg-surface/90'
             }`}>
             {p}
           </Link>
@@ -272,7 +272,7 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
 
       {page < totalPages && (
         <Link href={pageUrl(page + 1)}
-          className={`${btnBase} gap-1.5 px-4 py-2.5 glass-card rounded-2xl text-slate-600 hover:bg-white/90`}>
+          className={`${btnBase} gap-1.5 px-4 py-2.5 glass-card rounded-2xl text-slate-600 hover:bg-surface/90`}>
           Next <ChevronRight size={14} />
         </Link>
       )}
@@ -310,18 +310,18 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   return (
     <div
       className="min-h-screen"
-      style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #FAF5FF 40%, #FFF0F9 70%, #F0FDF4 100%)', overflowX: 'clip' }}
+      style={{ background:'linear-gradient(135deg, var(--th-wash-1) 0%, var(--th-wash-2) 40%, var(--th-wash-3) 70%, var(--th-wash-4) 100%)', overflowX: 'clip' }}
     >
       {/* Blob accents */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <div className="blob absolute -top-20 -left-20 w-[420px] h-[420px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#8B5CF6', opacity: 0.08, animationDelay: '0s' }} />
+          style={{ background:'#8B5CF6', opacity: 0.08, animationDelay: '0s' }} />
         <div className="blob absolute top-1/3 -right-10 w-[360px] h-[360px] animate-blob-morph animate-blob-float-b"
-          style={{ background: '#06B6D4', opacity: 0.07, animationDelay: '2s' }} />
+          style={{ background:'#06B6D4', opacity: 0.07, animationDelay: '2s' }} />
         <div className="blob absolute bottom-20 left-1/4 w-[380px] h-[380px] animate-blob-morph animate-blob-float-c"
-          style={{ background: '#EC4899', opacity: 0.07, animationDelay: '1s' }} />
+          style={{ background:'#EC4899', opacity: 0.07, animationDelay: '1s' }} />
         <div className="blob absolute top-1/2 left-1/2 w-[280px] h-[280px] animate-blob-morph animate-blob-float-a"
-          style={{ background: '#10B981', opacity: 0.06, animationDelay: '3s' }} />
+          style={{ background:'#10B981', opacity: 0.06, animationDelay: '3s' }} />
       </div>
 
       {/* Page header */}
@@ -368,7 +368,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           {/* Grid area */}
           <div className="flex-1 min-w-0">
             {categoryIntro && (
-              <div className="mb-5 rounded-2xl bg-white/70 backdrop-blur-sm ring-1 ring-white/80 p-4 sm:p-5 shadow-sm">
+              <div className="mb-5 rounded-2xl bg-surface/70 backdrop-blur-sm ring-1 ring-white/80 p-4 sm:p-5 shadow-sm">
                 <p className="text-[10px] font-bold text-primary uppercase tracking-[0.18em] mb-1">{categoryIntro.name}</p>
                 <p className="text-sm text-slate-600 leading-relaxed">{categoryIntro.seoIntro}</p>
               </div>
@@ -386,7 +386,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 </Link>
               </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                <div className="th-grid th-grid-side">
                   {products.map((product, i) => (
                     <div key={product.id} className="animate-fade-in-up"
                       style={{ animationDelay: `${Math.min(i * 0.04, 0.32)}s` }}>

@@ -32,6 +32,40 @@
   --glass-border: rgba(255,255,255,0.90);
   --glass-blur:   blur(20px) saturate(180%);
   --glass-shadow: 0 4px 24px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
+
+  /* ── Theme roles (60-30-10). Overridden per theme by src/lib/theme/css.ts ── */
+  --th-bg:           #F4F6FF;            /* 60%: page background */
+  --th-surface:      #FFFFFF;            /* 30%: cards and panels */
+  --th-surface-rgb:  255,255,255;
+  --th-ink:          #0F172A;            /* text */
+  --th-ink-rgb:      15,23,42;
+  --th-on-accent:    #FFFFFF;            /* text on an accent-coloured button */
+  --th-accent-text:  var(--clr-primary); /* the accent when used as text */
+  --th-chrome-bg:    #FFFFFF;            /* solid header / footer blocks */
+  --th-chrome-fg:    #111827;
+  --th-chrome-rgb:   17,24,39;
+  --th-hairline:     rgba(255,255,255,0.90);
+  --th-font-heading: var(--font-jakarta);
+  --th-font-body:    var(--font-inter);
+  --th-decor-vis: visible;
+  --th-brand-gradient: linear-gradient(135deg, #16A34A 0%, #06B6D4 50%, #6366F1 100%);
+  /* Pastel washes painted behind pages in the Aurora look */
+  --th-wash-1: #EEF2FF;
+  --th-wash-2: #FAF5FF;
+  --th-wash-3: #FFF0F9;
+  --th-wash-4: #F0FDF4;
+  --th-wash-5: #FFF5FB;
+  --th-wash-6: #F8F7FF;
+  --th-wash-7: #F4F6FF;
+  --th-wash-8: #FFF0FC;
+  --th-wash-9: #F0F9FF;
+  --th-wash-10: #FFF7ED;
+  --th-wash-11: #FEF3C7;
+  --th-wash-12: #FFF5E8;
+  --th-wash-13: #FFF5F5;
+  --th-wash-14: #FFF0F0;
+  --th-wash-15: #FEF2F2;
+  --th-warm-gradient: linear-gradient(135deg, #F59E0B 0%, #EC4899 50%, #8B5CF6 100%);
 }
 
 @theme inline {
@@ -45,8 +79,16 @@
   --color-electronics:  var(--clr-electronics);
   --color-gadgets:      var(--clr-gadgets);
   --color-beauty:       var(--clr-beauty);
-  --font-heading:       'Plus Jakarta Sans', sans-serif;
-  --font-body:          'Inter', sans-serif;
+  --color-surface:      var(--th-surface);
+  --color-ink:          var(--th-ink);
+  --color-on-accent:    var(--th-on-accent);
+  --color-chrome:       var(--th-chrome-bg);
+  --color-chrome-fg:    var(--th-chrome-fg);
+  /* The accent as text can differ from the accent as a fill (a yellow button is fine, yellow
+     text on white is not), so text utilities read their own value. */
+  --text-color-primary: var(--th-accent-text);
+  --font-heading:       var(--th-font-heading), ui-sans-serif, system-ui, sans-serif;
+  --font-body:          var(--th-font-body), ui-sans-serif, system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -56,12 +98,9 @@
 html { scroll-behavior: smooth; scrollbar-gutter: stable; overflow-x: clip; }
 
 body {
-  font-family: var(--font-body);
-  /* Slowly shifting aurora background — same 4-stop palette used site-wide */
-  background: linear-gradient(135deg, #EEF2FF, #FAF5FF, #FFF0F9, #F0FDF4, #EEF2FF);
-  background-size: 400% 400%;
-  animation: page-bg-drift 22s ease infinite;
-  color: #0F172A;
+  font-family: var(--th-font-body), ui-sans-serif, system-ui, sans-serif;
+  background: var(--th-bg);
+  color: var(--th-ink);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -72,7 +111,7 @@ body {
   75%  { background-position:   0% 100%; }
   100% { background-position:   0%  50%; }
 }
-h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
+h1, h2, h3, h4, h5, h6 { font-family: var(--th-font-heading), ui-sans-serif, system-ui, sans-serif; }
 
 /* ── Light Liquid Glass system ──────────────────────────────────────── */
 
@@ -88,41 +127,41 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
   background: var(--glass-bg-md);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(255,255,255,0.95);
+  border: 1px solid var(--th-hairline);
   box-shadow: 0 6px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1);
 }
 .glass-card {
-  background: rgba(255,255,255,0.72);
+  background: rgba(var(--th-surface-rgb),0.72);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.90);
+  border: 1px solid var(--th-hairline);
   border-radius: 1.5rem;
   box-shadow: 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
 }
 /* More transparent variant for pages with vivid blob backgrounds */
 .glass-panel {
-  background: rgba(255,255,255,0.48);
+  background: rgba(var(--th-surface-rgb),0.48);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(255,255,255,0.75);
+  border: 1px solid var(--th-hairline);
   border-radius: 1.5rem;
   box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.85);
 }
 /* Colored glass — tinted with brand color */
 .glass-colored {
-  background: rgba(255,255,255,0.55);
+  background: rgba(var(--th-surface-rgb),0.55);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.80);
+  border: 1px solid var(--th-hairline);
   box-shadow: 0 4px 20px rgba(0,0,0,0.05);
 }
 /* Subtle glass for sections */
 .glass-section {
-  background: rgba(255,255,255,0.50);
+  background: rgba(var(--th-surface-rgb),0.50);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255,255,255,0.70);
-  border-bottom: 1px solid rgba(255,255,255,0.70);
+  border-top: 1px solid var(--th-hairline);
+  border-bottom: 1px solid var(--th-hairline);
 }
 
 /* ── Blob shapes ────────────────────────────────────────────────────── */
@@ -134,19 +173,19 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 
 /* ── Gradient text ──────────────────────────────────────────────────── */
 .gradient-text {
-  background: linear-gradient(135deg, #16A34A 0%, #06B6D4 50%, #6366F1 100%);
+  background: var(--th-brand-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .gradient-text-warm {
-  background: linear-gradient(135deg, #F59E0B 0%, #EC4899 50%, #8B5CF6 100%);
+  background: var(--th-warm-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .iridescent-text {
-  background: linear-gradient(90deg, #16A34A, #06B6D4, #8B5CF6, #EC4899, #F59E0B, #16A34A);
+  background: var(--th-iridescent, linear-gradient(90deg, #16A34A, #06B6D4, #8B5CF6, #EC4899, #F59E0B, #16A34A));
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -185,28 +224,28 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 .rte-render               { overflow-wrap: anywhere; word-break: break-word; min-width: 0; max-width: 100%; }
 .rte-render p             { margin: 0 0 0.75em; }
 .rte-render p:last-child  { margin-bottom: 0; }
-.rte-render h1            { font-size: 1.4rem; font-weight: 800; margin: 1.1em 0 0.4em; color: #0f172a; }
-.rte-render h2            { font-size: 1.15rem; font-weight: 700; margin: 0.9em 0 0.35em; color: #0f172a; }
-.rte-render h3            { font-size: 1rem; font-weight: 700; margin: 0.8em 0 0.3em; color: #0f172a; }
+.rte-render h1            { font-size: 1.4rem; font-weight: 800; margin: 1.1em 0 0.4em; color: var(--th-ink); }
+.rte-render h2            { font-size: 1.15rem; font-weight: 700; margin: 0.9em 0 0.35em; color: var(--th-ink); }
+.rte-render h3            { font-size: 1rem; font-weight: 700; margin: 0.8em 0 0.3em; color: var(--th-ink); }
 .rte-render ul            { list-style: disc; padding-left: 1.4em; margin: 0.5em 0; }
 .rte-render ol            { list-style: decimal; padding-left: 1.4em; margin: 0.5em 0; }
 .rte-render li            { margin: 0.25em 0; }
-.rte-render blockquote    { border-left: 3px solid #16a34a; padding-left: 1em; margin: 0.75em 0; color: #475569; font-style: italic; }
-.rte-render hr            { border: none; border-top: 1px solid #e2e8f0; margin: 1em 0; }
-.rte-render code          { background: #f1f5f9; border-radius: 4px; padding: 0.15em 0.4em; font-family: monospace; font-size: 0.85em; color: #be185d; word-break: break-all; }
-.rte-render a             { color: #16a34a; text-decoration: underline; word-break: break-all; }
-.rte-render strong        { font-weight: 700; color: #0f172a; }
+.rte-render blockquote    { border-left: 3px solid var(--th-accent-text); padding-left: 1em; margin: 0.75em 0; color: var(--color-slate-600); font-style: italic; }
+.rte-render hr            { border: none; border-top: 1px solid var(--color-slate-200); margin: 1em 0; }
+.rte-render code          { background: var(--color-slate-100); border-radius: 4px; padding: 0.15em 0.4em; font-family: monospace; font-size: 0.85em; color: #be185d; word-break: break-all; }
+.rte-render a             { color: var(--th-accent-text); text-decoration: underline; word-break: break-all; }
+.rte-render strong        { font-weight: 700; color: var(--th-ink); }
 .rte-render em            { font-style: italic; }
 /* Embedded media stays inside the card */
 .rte-render img,
 .rte-render video,
 .rte-render iframe        { max-width: 100%; height: auto; display: block; border-radius: 0.5rem; margin: 0.5em 0; }
-.rte-render pre           { overflow-x: auto; max-width: 100%; padding: 0.75em; background: #f1f5f9; border-radius: 0.5rem; font-size: 0.85em; white-space: pre-wrap; word-break: break-word; }
+.rte-render pre           { overflow-x: auto; max-width: 100%; padding: 0.75em; background: var(--color-slate-100); border-radius: 0.5rem; font-size: 0.85em; white-space: pre-wrap; word-break: break-word; }
 .rte-render pre code      { background: none; padding: 0; color: inherit; word-break: normal; }
 /* Tables: horizontal scroll on overflow rather than blowing past the card */
 .rte-render table         { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; margin: 0.5em 0; }
 .rte-render th,
-.rte-render td            { border: 1px solid #e2e8f0; padding: 0.4em 0.6em; font-size: 0.85em; }
+.rte-render td            { border: 1px solid var(--color-slate-200); padding: 0.4em 0.6em; font-size: 0.85em; }
 @keyframes iridescent-shift {
   0%   { background-position: 0% center; }
   100% { background-position: 200% center; }
@@ -294,7 +333,7 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 }
 .glass-hover:hover {
   transform: translateY(-4px);
-  background: rgba(255,255,255,0.88) !important;
+  background: rgba(var(--th-surface-rgb),0.88) !important;
   box-shadow: 0 20px 48px rgba(0,0,0,0.12), inset 0 1px 0 white;
 }
 
@@ -320,7 +359,7 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 
 /* ── Skeleton ───────────────────────────────────────────────────────── */
 .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.6) 25%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0.6) 75%);
+  background: linear-gradient(90deg, rgba(var(--th-surface-rgb),0.6) 25%, rgba(var(--th-surface-rgb),0.9) 50%, rgba(var(--th-surface-rgb),0.6) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -378,8 +417,8 @@ input[type="range"].price-range-thumb::-moz-range-thumb {
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.25); border-radius: 3px; }
+::-webkit-scrollbar-track { background: var(--color-slate-100); }
+::-webkit-scrollbar-thumb { background: rgba(var(--th-ink-rgb),0.22); border-radius: 3px; }
 
 /* Horizontal chip rows scroll without a visible scrollbar */
 .chip-scroller {
@@ -390,3 +429,51 @@ input[type="range"].price-range-thumb::-moz-range-thumb {
           mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
 }
 .chip-scroller::-webkit-scrollbar { display: none; }
+
+/* ── Theme system ───────────────────────────────────────────────────── */
+/* Written outside any layer on purpose: these have to win over utility classes. */
+
+/* Text sitting on an accent fill follows the accent's own contrast colour (white on green,
+   near-black on yellow or lime). */
+[class~="bg-primary"][class~="text-white"],
+[class~="bg-primary"] [class~="text-white"],
+[class~="hover:bg-primary"][class~="hover:text-white"]:hover,
+[class~="bg-primary-dark"][class~="text-white"] { color: var(--th-on-accent); }
+
+/* Decoration that only belongs to the Aurora look */
+.blob, .th-decor { visibility: var(--th-decor-vis); }
+
+/* Solid header / footer blocks */
+.th-chrome { background: var(--th-chrome-bg); color: var(--th-chrome-fg); }
+.th-chrome-muted { color: rgba(var(--th-chrome-rgb), 0.68); }
+.th-chrome-line { border-color: rgba(var(--th-chrome-rgb), 0.14); }
+.th-chrome-chip { background: rgba(var(--th-chrome-rgb), 0.10); }
+.th-chrome-chip:hover { background: rgba(var(--th-chrome-rgb), 0.18); }
+
+/* Product grid density, set by the theme layout */
+.th-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px)  { .th-grid { gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .th-grid { grid-template-columns: repeat(var(--th-cols, 4), minmax(0, 1fr)); } }
+@media (min-width: 640px)  { [data-grid="spacious"] .th-grid { gap: 1.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { [data-grid="spacious"] .th-grid { grid-template-columns: repeat(min(var(--th-cols, 4), 3), minmax(0, 1fr)); } }
+@media (min-width: 640px)  { [data-grid="dense"] .th-grid { gap: 0.625rem; grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { [data-grid="dense"] .th-grid { grid-template-columns: repeat(calc(var(--th-cols, 4) + 1), minmax(0, 1fr)); } }
+@media (min-width: 1280px) { [data-grid="dense"] .th-grid { grid-template-columns: repeat(calc(var(--th-cols, 4) + 2), minmax(0, 1fr)); } }
+
+/* Minimal footer: the link columns are replaced by one row of links */
+[data-footer="minimal"] .th-footer-main,
+[data-footer="minimal"] .th-decor,
+[data-footer="minimal"] > .h-px { display: none; }
+
+/* Product listing with a filter sidebar: one column fewer than a full-width shelf */
+@media (min-width: 1024px) { .th-grid.th-grid-side { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .th-grid.th-grid-side { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { [data-grid="spacious"] .th-grid.th-grid-side { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { [data-grid="spacious"] .th-grid.th-grid-side { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { [data-grid="dense"] .th-grid.th-grid-side { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { [data-grid="dense"] .th-grid.th-grid-side { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+/* Home shelves show whole rows only: 8 products fit 4 columns, so other densities trim the tail */
+@media (min-width: 640px)  { [data-grid="spacious"] .th-grid.th-grid-fill > :nth-child(n+7) { display: none; } }
+@media (min-width: 1024px) { [data-grid="dense"] .th-grid.th-grid-fill > :nth-child(n+6) { display: none; } }
+@media (min-width: 1280px) { [data-grid="dense"] .th-grid.th-grid-fill > :nth-child(6) { display: block; } }

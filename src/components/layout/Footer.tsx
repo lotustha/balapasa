@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Heart } from 'lucide-react'
 import BrandText from '@/components/ui/BrandText'
+import FooterFrame from '@/components/layout/FooterFrame'
 
 interface FooterProps {
   siteName?:       string
@@ -90,17 +91,14 @@ export default function Footer({
   ].filter(r => r.text)
 
   return (
-    <footer
-      className="relative overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #EEF2FF 0%, #F4F6FF 100%)' }}
-    >
+    <FooterFrame>
       {/* Blobs */}
-      <div className="absolute top-0 left-0 w-72 h-72 rounded-full blur-3xl opacity-15 pointer-events-none" style={{ background: '#8B5CF6' }} />
-      <div className="absolute top-0 right-0 w-56 h-56 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: '#EC4899' }} />
+      <div className="absolute top-0 left-0 w-72 h-72 rounded-full blur-3xl opacity-15 pointer-events-none th-decor" style={{ background:'#8B5CF6' }} />
+      <div className="absolute top-0 right-0 w-56 h-56 rounded-full blur-3xl opacity-10 pointer-events-none th-decor" style={{ background:'#EC4899' }} />
 
       <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+      <div className="th-footer-main max-w-7xl mx-auto px-4 sm:px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
           {/* Brand */}
           <div className="lg:col-span-2">
@@ -116,7 +114,7 @@ export default function Footer({
                 {socials.map(({ href, icon: Icon, label }) => (
                   <a key={label} href={href} aria-label={label}
                     target="_blank" rel="noopener noreferrer"
-                    className="w-9 h-9 glass rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-white/80 transition-all duration-200 cursor-pointer">
+                    className="w-9 h-9 glass rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-surface/80 transition-all duration-200 cursor-pointer">
                     <Icon />
                   </a>
                 ))}
@@ -186,6 +184,6 @@ export default function Footer({
           )}
         </div>
       </div>
-    </footer>
+    </FooterFrame>
   )
 }

@@ -66,7 +66,7 @@ function FlashSaleStrip({
     <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-pink-50 p-3.5 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold text-white"
-          style={{ background: 'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
+          style={{ background:'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
           <Flame size={11} className="fill-white" />
           {isDealOfTheDay ? 'Deal of the Day' : 'Flash sale'}
         </span>
@@ -84,9 +84,9 @@ function FlashSaleStrip({
             <span className="font-semibold text-amber-700">{claimed}% claimed</span>
             <span className="text-slate-500">only {stock} left</span>
           </div>
-          <div className="h-2 bg-white rounded-full overflow-hidden">
+          <div className="h-2 bg-surface rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${claimed}%`, background: 'linear-gradient(90deg,#F59E0B,#EC4899)' }} />
+              style={{ width: `${claimed}%`, background:'linear-gradient(90deg,#F59E0B,#EC4899)' }} />
           </div>
         </div>
       )}
@@ -704,7 +704,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
   return (
     <div className="min-h-screen relative"
-      style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#FAF5FF 40%,#FFF0F9 70%,#F0FDF4 100%)' }}>
+      style={{ background:'linear-gradient(135deg,var(--th-wash-1) 0%,var(--th-wash-2) 40%,var(--th-wash-3) 70%,var(--th-wash-4) 100%)' }}>
 
       {/* Admin-only shortcut to edit this product in the admin panel. */}
       <AdminProductEditButton productId={p.id} />
@@ -781,7 +781,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   top offset + caption) and centred, so the whole image stays
                   in view without scrolling. Mobile keeps the full-width square. */}
               <div className="flex-1 min-w-0 relative overflow-hidden lg:max-w-[calc(100vh-9rem)] lg:mx-auto"
-                style={{ borderRadius:'2rem', background:'rgba(255,255,255,0.50)', backdropFilter:'blur(24px) saturate(200%)', border:'1px solid rgba(255,255,255,0.78)', boxShadow:'0 24px 64px rgba(0,0,0,0.10)' }}>
+                style={{ borderRadius:'2rem', background:'rgba(var(--th-surface-rgb),0.50)', backdropFilter:'blur(24px) saturate(200%)', border:'1px solid rgba(var(--th-surface-rgb),0.78)', boxShadow:'0 24px 64px rgba(0,0,0,0.10)' }}>
                 <div className="relative aspect-square">
                   {mediaMode === 'video' && activeVideo && video ? (
                     <>
@@ -815,18 +815,18 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
                     {wishMsg && (
                       <div className="mb-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-white shadow-lg whitespace-nowrap animate-fade-in"
-                        style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)' }}>
+                        style={{ background:'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)' }}>
                         {wishMsg}
                       </div>
                     )}
                     <button onClick={toggleWishlist} disabled={wishLoading} aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
                       className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-all cursor-pointer disabled:opacity-60 ${wished?'bg-red-500 text-white':'text-slate-400 hover:text-red-500'}`}
-                      style={!wished ? { background:'rgba(255,255,255,0.52)', backdropFilter:'blur(12px)' } : {}}>
+                      style={!wished ? { background:'rgba(var(--th-surface-rgb),0.52)', backdropFilter:'blur(12px)' } : {}}>
                       <svg viewBox="0 0 24 24" className={`w-4 h-4 ${wished?'fill-white':'fill-none stroke-current'}`} strokeWidth={2}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                     </button>
                     <button aria-label="Copy product link" onClick={() => copyToClipboard(window.location.href, 'gallery-link')}
                       className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm text-slate-400 hover:text-slate-700 transition-all cursor-pointer relative"
-                      style={{ background:'rgba(255,255,255,0.52)', backdropFilter:'blur(12px)' }}>
+                      style={{ background:'rgba(var(--th-surface-rgb),0.52)', backdropFilter:'blur(12px)' }}>
                       {copied === 'gallery-link'
                         ? <CheckCircle size={16} className="text-emerald-500" />
                         : <Link2 size={16} />}
@@ -910,7 +910,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 const bundlePrice = p.salePrice ?? p.price
                 const save = regularTotal - bundlePrice
                 return (
-                  <div className="rounded-2xl p-4 space-y-3" style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
+                  <div className="rounded-2xl p-4 space-y-3" style={{ background:'rgba(var(--th-surface-rgb),0.55)', border:'1px solid rgba(var(--th-surface-rgb),0.72)', backdropFilter:'blur(8px)' }}>
                     <div className="flex items-center gap-2">
                       <Package size={15} className="text-primary" />
                       <p className="text-xs font-bold text-primary uppercase tracking-wide">What&rsquo;s in this bundle</p>
@@ -1027,8 +1027,8 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                           ) : (
                             <button key={val} onClick={() => selectOption(opt.name, val)}
                               role="radio" aria-checked={selected[opt.name]===val}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer ${selected[opt.name]===val?'bg-primary text-white shadow-md shadow-primary/25':'text-slate-600 hover:bg-white/70'}`}
-                              style={selected[opt.name]===val?{}:{ background:'rgba(255,255,255,0.50)', border:'1px solid rgba(255,255,255,0.75)' }}>
+                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer ${selected[opt.name]===val?'bg-primary text-white shadow-md shadow-primary/25':'text-slate-600 hover:bg-surface/70'}`}
+                              style={selected[opt.name]===val?{}:{ background:'rgba(var(--th-surface-rgb),0.50)', border:'1px solid rgba(var(--th-surface-rgb),0.75)' }}>
                               {val}
                             </button>
                           ))}
@@ -1043,7 +1043,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               {p.kind === 'SUBSCRIPTION' && p.plan ? (
                 /* ── Subscription product ── */
                 <div className="space-y-4">
-                  <div className="rounded-2xl p-4 space-y-2" style={{ background:'rgba(255,255,255,0.55)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
+                  <div className="rounded-2xl p-4 space-y-2" style={{ background:'rgba(var(--th-surface-rgb),0.55)', border:'1px solid rgba(var(--th-surface-rgb),0.72)', backdropFilter:'blur(8px)' }}>
                     <div className="flex items-center gap-2 mb-1">
                       <Repeat size={15} className="text-primary" />
                       <p className="text-xs font-bold text-primary uppercase tracking-wide">Subscription Plan</p>
@@ -1085,12 +1085,12 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       <div className="flex gap-3">
                         <button onClick={() => payVia('esewa')} disabled={subscribing}
                           className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white cursor-pointer transition-all disabled:opacity-60"
-                          style={{ background: '#60BB46' }}>
+                          style={{ background:'#60BB46' }}>
                           {subscribing ? <Loader2 size={16} className="animate-spin" /> : 'Pay with eSewa'}
                         </button>
                         <button onClick={() => payVia('khalti')} disabled={subscribing}
                           className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white cursor-pointer transition-all disabled:opacity-60"
-                          style={{ background: '#5C2D91' }}>
+                          style={{ background:'#5C2D91' }}>
                           {subscribing ? <Loader2 size={16} className="animate-spin" /> : 'Pay with Khalti'}
                         </button>
                       </div>
@@ -1098,7 +1098,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   ) : (
                     <button onClick={handleSubscribe} disabled={subscribing}
                       className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base cursor-pointer shadow-lg transition-all duration-200 disabled:opacity-60"
-                      style={{ background: 'var(--clr-primary)', color: 'white', boxShadow: '0 8px 24px color-mix(in srgb, var(--clr-primary) 30%, transparent)' }}>
+                      style={{ background:'var(--clr-primary)', color: 'white', boxShadow: '0 8px 24px color-mix(in srgb, var(--clr-primary) 30%, transparent)' }}>
                       {subscribing
                         ? <><Loader2 size={19} className="animate-spin" /> Starting…</>
                         : <><Repeat size={19} /> Subscribe Now</>}
@@ -1111,14 +1111,14 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 <>
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-bold text-slate-700">Quantity</span>
-                    <div className="flex items-center gap-2 rounded-2xl p-1" style={{ background:'rgba(255,255,255,0.40)' }}>
+                    <div className="flex items-center gap-2 rounded-2xl p-1" style={{ background:'rgba(var(--th-surface-rgb),0.40)' }}>
                       <button onClick={() => setQty(q => Math.max(1,q-1))} aria-label="Decrease quantity"
-                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
+                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-surface/80 transition-colors cursor-pointer" style={{ background:'rgba(var(--th-surface-rgb),0.50)' }}>
                         <Minus size={15} className="text-slate-600" />
                       </button>
                       <span className="w-10 text-center font-bold text-lg tabular-nums text-slate-900" aria-live="polite">{qty}</span>
                       <button onClick={() => setQty(q => Math.min(Math.min(variantStock, qtyMax || variantStock), q+1))} aria-label="Increase quantity"
-                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/80 transition-colors cursor-pointer" style={{ background:'rgba(255,255,255,0.50)' }}>
+                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-surface/80 transition-colors cursor-pointer" style={{ background:'rgba(var(--th-surface-rgb),0.50)' }}>
                         <Plus size={15} className="text-slate-600" />
                       </button>
                     </div>
@@ -1138,13 +1138,13 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     <button
                       onClick={() => { setBuyNow({ id:p.id, name:cartName, price:originalPrice, salePrice:effectivePrice, image:activeVariant?.image ?? images[0], slug:p.slug, codAvailable:true, variantId:activeVariant?.id ?? null, variantTitle:activeVariant?.title ?? null }, qty); router.push('/checkout') }}
                       disabled={variantStock===0}
-                      className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-slate-800 hover:bg-white/80 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
-                      style={{ background:'rgba(255,255,255,0.42)', border:'1px solid rgba(255,255,255,0.72)', backdropFilter:'blur(8px)' }}>
+                      className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-slate-800 hover:bg-surface/80 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
+                      style={{ background:'rgba(var(--th-surface-rgb),0.42)', border:'1px solid rgba(var(--th-surface-rgb),0.72)', backdropFilter:'blur(8px)' }}>
                       <Zap size={17} className="text-gold-bright" /> Buy Now
                     </button>
                   </div>
                   {variantStock === 0 && (
-                    <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
+                    <div className="rounded-2xl border border-slate-200 bg-surface/70 p-4">
                       {notifyStatus === 'done' ? (
                         <div className="flex items-start gap-2 text-sm font-semibold text-emerald-600">
                           <CheckCircle size={17} className="shrink-0 mt-0.5" />
@@ -1190,7 +1190,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
               <div className="grid grid-cols-2 gap-3">
                 {[{icon:Truck,label:'Fast Delivery',sub:(mounted && effectiveEstimate ? effectiveEstimate.short : 'Nationwide')},{icon:RotateCcw,label:'Returns',sub:'7 days'}].map(({icon:Icon,label,sub}) => (
                   <div key={label} className="flex flex-col items-center text-center p-3 rounded-2xl"
-                    style={{ background:'rgba(255,255,255,0.50)', border:'1px solid rgba(255,255,255,0.72)' }}>
+                    style={{ background:'rgba(var(--th-surface-rgb),0.50)', border:'1px solid rgba(var(--th-surface-rgb),0.72)' }}>
                     <div className="w-8 h-8 rounded-xl mb-1.5 flex items-center justify-center bg-primary-bg">
                       <Icon size={15} className="text-primary" aria-hidden="true" />
                     </div>
@@ -1236,7 +1236,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   ] as { label: string; color: string; icon: React.ReactNode; action: () => void }[]).map(({ label, color, icon, action }) => (
                     <button key={label} onClick={action} aria-label={label} title={label}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105 cursor-pointer"
-                      style={{ background: `${color}15`, color, border: `1px solid ${color}30` }}>
+                      style={{ background:`${color}15`, color, border:`1px solid ${color}30` }}>
                       {icon}
                       <span className="hidden sm:inline">{label}</span>
                     </button>
@@ -1336,7 +1336,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     <CheckCircle size={18} className="text-primary shrink-0" />
                   </div>
                   {boughtTogether.map(item => (
-                    <label key={item.id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${btSelected.has(item.id) ? 'bg-white/70 border border-primary/30' : 'bg-white/40 border border-white/50 hover:bg-white/60'}`}>
+                    <label key={item.id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${btSelected.has(item.id) ? 'bg-surface/70 border border-primary/30' : 'bg-white/40 border border-white/50 hover:bg-surface/60'}`}>
                       <input type="checkbox" checked={btSelected.has(item.id)}
                         onChange={() => { const s = new Set(btSelected); s.has(item.id)?s.delete(item.id):s.add(item.id); setBtSelected(s) }}
                         className="accent-primary w-4 h-4 shrink-0" aria-label={`Include ${item.name}`} />
@@ -1403,7 +1403,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       : <div className="absolute inset-0 bg-slate-900" />}
                     <div className="absolute inset-0 bg-black/30" />
                     <button onClick={() => setPlayingVideo(true)} className="absolute inset-0 flex items-center justify-center cursor-pointer group">
-                      <div className="w-20 h-20 rounded-full bg-white/90 flex items-center justify-center shadow-xl transition-all group-hover:scale-110 group-hover:bg-white">
+                      <div className="w-20 h-20 rounded-full bg-surface/90 flex items-center justify-center shadow-xl transition-all group-hover:scale-110 group-hover:bg-surface">
                         <PlayCircle size={40} className="text-primary fill-primary" />
                       </div>
                     </button>
@@ -1474,7 +1474,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   <Link key={item.id} href={`/products/${item.slug}`}
                     className="group block cursor-pointer">
                     <div className="relative aspect-square rounded-2xl overflow-hidden mb-3"
-                      style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.75)' }}>
+                      style={{ background:'rgba(var(--th-surface-rgb),0.55)', border:'1px solid rgba(var(--th-surface-rgb),0.75)' }}>
                       <Image src={item.images[0] ?? ''} alt={item.name} fill
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                         sizes="(max-width:1024px) 50vw, 25vw" />
@@ -1487,18 +1487,18 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
 
                       <button onClick={(e) => { e.preventDefault(); toggleCompare(item) }}
                         aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
-                        className={`absolute top-3 right-3 z-10 p-2 rounded-xl cursor-pointer transition-all backdrop-blur opacity-90 hover:opacity-100 ${inCompare ? 'bg-primary text-white' : 'bg-white/90 text-slate-700 hover:bg-white'}`}>
+                        className={`absolute top-3 right-3 z-10 p-2 rounded-xl cursor-pointer transition-all backdrop-blur opacity-90 hover:opacity-100 ${inCompare ? 'bg-primary text-white' : 'bg-surface/90 text-slate-700 hover:bg-surface'}`}>
                         <GitCompareArrows size={13} />
                       </button>
 
                       <div className="hidden lg:flex absolute inset-0 flex-col items-stretch justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto"
-                        style={{ background: 'linear-gradient(to top, rgba(15,23,42,0.65) 0%, rgba(15,23,42,0.25) 55%, transparent 100%)' }}>
+                        style={{ background:'linear-gradient(to top, rgba(15,23,42,0.65) 0%, rgba(15,23,42,0.25) 55%, transparent 100%)' }}>
                         <button
                           onClick={(e) => {
                             e.preventDefault()
                             addItem({ id: item.id, name: item.name, price: item.price, salePrice: item.salePrice, image: item.images[0], slug: item.slug })
                           }}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-slate-900 text-xs font-extrabold uppercase tracking-wider rounded-xl cursor-pointer hover:bg-primary hover:text-white transition-colors shadow-lg">
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-surface text-slate-900 text-xs font-extrabold uppercase tracking-wider rounded-xl cursor-pointer hover:bg-primary hover:text-white transition-colors shadow-lg">
                           <ShoppingCart size={14} /> Quick Add
                         </button>
                         <p className="mt-2 text-center text-[11px] font-bold uppercase tracking-wider text-white/95">
@@ -1554,7 +1554,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                     className="group block cursor-pointer">
                     {/* Image — square, with hover overlay (desktop only) */}
                     <div className="relative aspect-square rounded-2xl overflow-hidden mb-3"
-                      style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.75)' }}>
+                      style={{ background:'rgba(var(--th-surface-rgb),0.55)', border:'1px solid rgba(var(--th-surface-rgb),0.75)' }}>
                       <Image src={item.images[0] ?? ''} alt={item.name} fill
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                         sizes="(max-width:1024px) 50vw, 25vw" />
@@ -1569,19 +1569,19 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       {/* Compare toggle — always visible top-right (subtle) */}
                       <button onClick={(e) => { e.preventDefault(); toggleCompare(item) }}
                         aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
-                        className={`absolute top-3 right-3 z-10 p-2 rounded-xl cursor-pointer transition-all backdrop-blur opacity-90 hover:opacity-100 ${inCompare ? 'bg-primary text-white' : 'bg-white/90 text-slate-700 hover:bg-white'}`}>
+                        className={`absolute top-3 right-3 z-10 p-2 rounded-xl cursor-pointer transition-all backdrop-blur opacity-90 hover:opacity-100 ${inCompare ? 'bg-primary text-white' : 'bg-surface/90 text-slate-700 hover:bg-surface'}`}>
                         <GitCompareArrows size={13} />
                       </button>
 
                       {/* Hover overlay — desktop only */}
                       <div className="hidden lg:flex absolute inset-0 flex-col items-stretch justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto"
-                        style={{ background: 'linear-gradient(to top, rgba(15,23,42,0.65) 0%, rgba(15,23,42,0.25) 55%, transparent 100%)' }}>
+                        style={{ background:'linear-gradient(to top, rgba(15,23,42,0.65) 0%, rgba(15,23,42,0.25) 55%, transparent 100%)' }}>
                         <button
                           onClick={(e) => {
                             e.preventDefault()
                             addItem({ id: item.id, name: item.name, price: item.price, salePrice: item.salePrice, image: item.images[0], slug: item.slug })
                           }}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-slate-900 text-xs font-extrabold uppercase tracking-wider rounded-xl cursor-pointer hover:bg-primary hover:text-white transition-colors shadow-lg">
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-surface text-slate-900 text-xs font-extrabold uppercase tracking-wider rounded-xl cursor-pointer hover:bg-primary hover:text-white transition-colors shadow-lg">
                           <ShoppingCart size={14} /> Quick Add
                         </button>
                         <p className="mt-2 text-center text-[11px] font-bold uppercase tracking-wider text-white/95">
@@ -1618,7 +1618,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       {/* ── Compare bar ─────────────────────────────────────────────────── */}
       {compareList.length > 0 && (
         <div className="fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-40 animate-fade-in-up"
-          style={{ background:'rgba(255,255,255,0.92)', backdropFilter:'blur(24px) saturate(180%)', border:'1px solid rgba(255,255,255,0.95)', boxShadow:'0 16px 48px rgba(0,0,0,0.15)', borderRadius:'1.5rem' }}>
+          style={{ background:'rgba(var(--th-surface-rgb),0.92)', backdropFilter:'blur(24px) saturate(180%)', border:'1px solid rgba(var(--th-surface-rgb),0.95)', boxShadow:'0 16px 48px rgba(0,0,0,0.15)', borderRadius:'1.5rem' }}>
           <div className="flex items-center gap-3 px-5 py-3">
             <GitCompareArrows size={18} className="text-primary shrink-0" />
             <span className="text-sm font-bold text-slate-800">{compareList.length} to compare</span>
@@ -1638,7 +1638,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             onClick={() => setShowCompare(false)} aria-hidden="true" />
           <div role="dialog" aria-modal="true" aria-labelledby="compare-modal-title"
             className="fixed inset-x-4 top-16 bottom-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-4xl z-50 flex flex-col rounded-3xl overflow-hidden animate-fade-in-up"
-            style={{ background:'rgba(255,255,255,0.95)', backdropFilter:'blur(28px) saturate(200%)', border:'1px solid rgba(255,255,255,0.95)', boxShadow:'0 32px 80px rgba(0,0,0,0.18)' }}>
+            style={{ background:'rgba(var(--th-surface-rgb),0.95)', backdropFilter:'blur(28px) saturate(200%)', border:'1px solid rgba(var(--th-surface-rgb),0.95)', boxShadow:'0 32px 80px rgba(0,0,0,0.18)' }}>
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor:'rgba(0,0,0,0.06)' }}>
               <h3 id="compare-modal-title" className="font-heading font-bold text-slate-900 text-lg">Compare Products</h3>
               <button onClick={() => setShowCompare(false)} aria-label="Close"
@@ -1691,9 +1691,9 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
       {/* ── Sticky buy bar ──────────────────────────────────────────────── */}
       {showSticky && (
         <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-40 animate-fade-in-up"
-          style={{ background:'rgba(255,255,255,0.88)', backdropFilter:'blur(24px) saturate(180%)', borderTop:'1px solid rgba(255,255,255,0.80)', boxShadow:'0 -4px 24px rgba(0,0,0,0.08)' }}>
+          style={{ background:'rgba(var(--th-surface-rgb),0.88)', backdropFilter:'blur(24px) saturate(180%)', borderTop:'1px solid rgba(var(--th-surface-rgb),0.80)', boxShadow:'0 -4px 24px rgba(0,0,0,0.08)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-            <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0" style={{ border:'1px solid rgba(255,255,255,0.80)' }}>
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0" style={{ border:'1px solid rgba(var(--th-surface-rgb),0.80)' }}>
               <Image src={images[activeImg]} alt={p.name} fill className="object-cover" sizes="48px" />
             </div>
             <div className="flex-1 min-w-0">

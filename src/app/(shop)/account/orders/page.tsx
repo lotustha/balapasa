@@ -106,18 +106,18 @@ function OrdersContent() {
   return (
     <div
       className="min-h-screen pt-6 pb-16 relative"
-      style={{ background: 'linear-gradient(135deg,#F8F7FF 0%,#F4F6FF 40%,#FFF5FB 70%,#F0FDF4 100%)' }}
+      style={{ background:'linear-gradient(135deg,var(--th-wash-6) 0%,var(--th-wash-7) 40%,var(--th-wash-5) 70%,var(--th-wash-4) 100%)' }}
     >
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <div className="blob animate-blob-morph animate-blob-float-a absolute -top-32 -left-32 w-[500px] h-[500px]"
-          style={{ background: '#8B5CF6', opacity: 0.07 }} />
+          style={{ background:'#8B5CF6', opacity: 0.07 }} />
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-up">
           <Link href="/account"
-            className="w-9 h-9 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center hover:bg-white transition-colors cursor-pointer shadow-sm">
+            className="w-9 h-9 rounded-xl bg-surface/80 border border-slate-200 flex items-center justify-center hover:bg-surface transition-colors cursor-pointer shadow-sm">
             <ArrowLeft size={16} className="text-slate-600" />
           </Link>
           <div>
@@ -286,7 +286,7 @@ function OrdersContent() {
 
             {/* Track another order */}
             <Link href="/track-order"
-              className="glass-card flex items-center justify-center gap-2 py-4 text-sm font-bold text-primary hover:bg-white/80 transition-colors cursor-pointer">
+              className="glass-card flex items-center justify-center gap-2 py-4 text-sm font-bold text-primary hover:bg-surface/80 transition-colors cursor-pointer">
               <Search size={14} /> Track a different order
             </Link>
           </div>
@@ -298,7 +298,7 @@ function OrdersContent() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) setConfirmTarget(null) }}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmTarget(null)} />
-          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in-up">
+          <div className="relative w-full max-w-sm bg-surface rounded-3xl shadow-2xl overflow-hidden animate-fade-in-up">
             {/* Header */}
             <div className="flex items-start justify-between px-6 pt-6 pb-4">
               <div className="flex items-center gap-3">
@@ -341,7 +341,7 @@ function OrdersContent() {
                     className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                       cancelReason === r
                         ? 'bg-red-500 border-red-500 text-white shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                        : 'bg-surface border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
                   >
                     {r}
@@ -367,7 +367,7 @@ function OrdersContent() {
             {/* Actions */}
             <div className="flex gap-3 px-6 py-5">
               <button type="button" onClick={() => setConfirmTarget(null)}
-                className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer">
+                className="flex-1 py-3 rounded-2xl border border-slate-200 bg-surface text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer">
                 Keep order
               </button>
               <button type="button" onClick={confirmCancel} disabled={!!cancellingId || !cancelReason}

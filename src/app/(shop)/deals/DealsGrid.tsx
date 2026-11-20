@@ -35,7 +35,7 @@ function DealTimer({ iso }: { iso: string | null }) {
   if (!iso || done) return null
   return (
     <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-lg shadow-md text-white text-[10px] font-extrabold tabular-nums"
-      style={{ background: 'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
+      style={{ background:'linear-gradient(135deg,#F59E0B,#EC4899)' }}>
       <Clock size={10} className="shrink-0" />
       <span>{h}:{m}:{s}</span>
     </div>
