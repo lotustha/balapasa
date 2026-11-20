@@ -71,7 +71,7 @@ function LoginInner() {
     e.preventDefault()
     setForgotLoading(true)
     // Always succeeds on the client side (API never leaks whether email exists)
-    await fetch('/api/auth/magic-link/request', {
+    await fetch('/api/auth/password-reset/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: forgotEmail }),
@@ -95,11 +95,11 @@ function LoginInner() {
             </>}
             {view === 'forgot' && <>
               <h1 className="font-heading font-extrabold text-2xl text-gray-900">Forgot password?</h1>
-              <p className="text-gray-500 text-sm mt-1 text-center">We&apos;ll email you a one-tap sign-in link</p>
+              <p className="text-gray-500 text-sm mt-1 text-center">We&apos;ll email you a link to choose a new password</p>
             </>}
             {view === 'sent' && <>
               <h1 className="font-heading font-extrabold text-2xl text-gray-900">Check your inbox</h1>
-              <p className="text-gray-500 text-sm mt-1 text-center">If that email is registered, a sign-in link is on its way</p>
+              <p className="text-gray-500 text-sm mt-1 text-center">If that email is registered, a reset link is on its way</p>
             </>}
           </div>
 
@@ -168,7 +168,7 @@ function LoginInner() {
               </div>
               <button type="submit" disabled={forgotLoading}
                 className="w-full flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary-dark disabled:bg-gray-300 text-white font-bold rounded-2xl transition-colors cursor-pointer">
-                {forgotLoading ? <><Loader2 size={18} className="animate-spin" /> Sending…</> : 'Send sign-in link'}
+                {forgotLoading ? <><Loader2 size={18} className="animate-spin" /> Sending…</> : 'Send reset link'}
               </button>
             </form>
             <button onClick={() => setView('login')}
@@ -184,7 +184,7 @@ function LoginInner() {
                 <CheckCircle2 size={28} className="text-green-500" />
               </div>
               <p className="text-sm text-gray-500 text-center leading-relaxed">
-                We sent a sign-in link to <strong className="text-gray-800">{forgotEmail}</strong>.
+                We sent a password reset link to <strong className="text-gray-800">{forgotEmail}</strong>.
                 Click it to log in instantly — no password needed. The link expires in 7 days.
               </p>
               <button onClick={() => setView('login')}

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getEnabledPaymentMethods } from '@/lib/payment-methods-server'
+import { parseMaintenance, parseBanner, ordersBlocked, MAINTENANCE_FALLBACK_TITLE, MAINTENANCE_FALLBACK_MESSAGE, ORDERS_PAUSED_FALLBACK_MESSAGE } from '@/lib/site-settings-shared'
 
 // Public store settings — safe to expose to customers
 const PUBLIC_KEYS = [
@@ -18,6 +19,9 @@ const PUBLIC_KEYS = [
   'CONTACT_YOUTUBE',
   'DELIVERY_MODE',
   'DELIVERY_ENABLED',
+  // Read by the mobile app: it has no storefront page to show the maintenance screen or banner on.
+  'MAINTENANCE_JSON',
+  'STORE_BANNER_JSON',
 ]
 
 export async function GET() {
@@ -28,6 +32,8 @@ export async function GET() {
     ])
     const config: Record<string, string> = {}
     for (const s of settings) config[s.key] = s.value
+    const maintenance = parseMaintenance(config.MAINTENANCE_JSON)
+    const banner = parseBanner(config.STORE_BANNER_JSON)
     return Response.json({
       FREE_DELIVERY_THRESHOLD: parseInt(config.FREE_DELIVERY_THRESHOLD ?? '5000', 10),
       enabledPaymentMethods,
@@ -45,6 +51,14 @@ export async function GET() {
       CONTACT_YOUTUBE:     config.CONTACT_YOUTUBE     ?? '',
       DELIVERY_MODE:    (config.DELIVERY_MODE === 'FREE' ? 'FREE' : 'PAID') as 'FREE' | 'PAID',
       DELIVERY_ENABLED: config.DELIVERY_ENABLED !== 'false',
+      maintenance: {
+        closed:       maintenance.closed,
+        ordersPaused: ordersBlocked(maintenance),
+        title:        maintenance.title || MAINTENANCE_FALLBACK_TITLE,
+        message:      maintenance.message || (maintenance.closed ? MAINTENANCE_FALLBACK_MESSAGE : ORDERS_PAUSED_FALLBACK_MESSAGE),
+        backBy:       maintenance.backBy || null,
+      },
+      banner: banner.enabled && banner.message ? { message: banner.message, linkLabel: banner.linkLabel, linkUrl: banner.linkUrl } : null,
     }, { headers: { 'Cache-Control': 'public, max-age=60' } })
   } catch {
     return Response.json({ FREE_DELIVERY_THRESHOLD: 5000, STORE_NAME: process.env.NEXT_PUBLIC_STORE_NAME ?? 'Balapasa', STORE_PHONE: '', STORE_EMAIL: '', STORE_ADDRESS: '', STORE_LOGO_URL: '', WHATSAPP_NUMBER: '', DELIVERY_MODE: 'PAID' as const, DELIVERY_ENABLED: true, enabledPaymentMethods: ['COD', 'ESEWA', 'KHALTI'] })
