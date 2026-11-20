@@ -1217,7 +1217,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       action: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer'),
                     },
                     {
-                      label: 'X / Twitter', color: '#000000',
+                      label: 'X / Twitter', color: 'var(--th-ink)',
                       icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zM17.083 19.77h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>,
                       action: () => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(p.name)}&url=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer'),
                     },
@@ -1236,7 +1236,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                   ] as { label: string; color: string; icon: React.ReactNode; action: () => void }[]).map(({ label, color, icon, action }) => (
                     <button key={label} onClick={action} aria-label={label} title={label}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105 cursor-pointer"
-                      style={{ background:`${color}15`, color, border:`1px solid ${color}30` }}>
+                      style={{ background:`color-mix(in srgb, ${color} 9%, transparent)`, color, border:`1px solid color-mix(in srgb, ${color} 19%, transparent)` }}>
                       {icon}
                       <span className="hidden sm:inline">{label}</span>
                     </button>

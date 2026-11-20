@@ -435,10 +435,14 @@ input[type="range"].price-range-thumb::-moz-range-thumb {
 
 /* Text sitting on an accent fill follows the accent's own contrast colour (white on green,
    near-black on yellow or lime). */
-[class~="bg-primary"][class~="text-white"],
-[class~="bg-primary"] [class~="text-white"],
-[class~="hover:bg-primary"][class~="hover:text-white"]:hover,
-[class~="bg-primary-dark"][class~="text-white"] { color: var(--th-on-accent); }
+[class~="bg-primary"][class~="text-white"]:not(:disabled),
+[class~="bg-primary"]:not(:disabled) [class~="text-white"],
+[class~="bg-primary"]:not(:disabled) [class~="text-white/80"],
+[class~="bg-primary"]:not(:disabled) [class~="text-white/70"],
+[class~="from-primary"][class~="text-white"],
+[class~="from-primary"] [class~="text-white"],
+[class~="hover:bg-primary"][class~="hover:text-white"]:not(:disabled):hover,
+[class~="bg-primary-dark"][class~="text-white"]:not(:disabled) { color: var(--th-on-accent); }
 
 /* Decoration that only belongs to the Aurora look */
 .blob, .th-decor { visibility: var(--th-decor-vis); }
