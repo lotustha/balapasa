@@ -928,7 +928,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <Link href={`/products/${c.slug}`} className="text-sm font-semibold text-slate-700 hover:text-primary transition-colors line-clamp-2">
+                            <Link prefetch={false} href={`/products/${c.slug}`} className="text-sm font-semibold text-slate-700 hover:text-primary transition-colors line-clamp-2">
                               {c.name}
                             </Link>
                             {c.inStock === false && (
@@ -1344,7 +1344,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                         <Image src={item.images[0] ?? ''} alt={item.name} fill className="object-cover" sizes="56px" />
                       </div>
                       <div className="flex-grow min-w-0">
-                        <Link href={`/products/${item.slug}`} className="text-xs font-bold text-slate-800 line-clamp-2 hover:text-primary">{item.name}</Link>
+                        <Link prefetch={false} href={`/products/${item.slug}`} className="text-xs font-bold text-slate-800 line-clamp-2 hover:text-primary">{item.name}</Link>
                         <div className="flex items-center gap-1.5">
                           <p className="text-primary font-bold text-sm">{formatPrice(item.salePrice ?? item.price)}</p>
                           {item.salePrice && <p className="text-[10px] text-slate-400 line-through">{formatPrice(item.price)}</p>}
@@ -1429,7 +1429,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
             </h2>
             <div className="grid sm:grid-cols-2 gap-5">
               {shopsChoice.map(item => (
-                <Link key={item.id} href={`/products/${item.slug}`}
+                <Link key={item.id} prefetch={false} href={`/products/${item.slug}`}
                   className="glass-panel p-4 flex gap-4 cursor-pointer hover:scale-[1.02] transition-transform duration-200">
                   <div className="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0">
                     <Image src={item.images[0]??''} alt={item.name} fill className="object-cover" sizes="96px" />
@@ -1471,7 +1471,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 const inCompare = !!compareList.find(c => c.id === item.id)
                 const sale = item.salePrice ?? null
                 return (
-                  <Link key={item.id} href={`/products/${item.slug}`}
+                  <Link key={item.id} prefetch={false} href={`/products/${item.slug}`}
                     className="group block cursor-pointer">
                     <div className="relative aspect-square rounded-2xl overflow-hidden mb-3"
                       style={{ background:'rgba(var(--th-surface-rgb),0.55)', border:'1px solid rgba(var(--th-surface-rgb),0.75)' }}>
@@ -1550,7 +1550,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                 const inCompare = !!compareList.find(c => c.id === item.id)
                 const sale = item.salePrice ?? null
                 return (
-                  <Link key={item.id} href={`/products/${item.slug}`}
+                  <Link key={item.id} prefetch={false} href={`/products/${item.slug}`}
                     className="group block cursor-pointer">
                     {/* Image — square, with hover overlay (desktop only) */}
                     <div className="relative aspect-square rounded-2xl overflow-hidden mb-3"
@@ -1657,7 +1657,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                           <div className="relative w-24 h-24 rounded-xl overflow-hidden mb-2">
                             <Image src={c.images[0]??''} alt={c.name} fill className="object-cover" sizes="96px" />
                           </div>
-                          <Link href={`/products/${c.slug}`} className="font-heading font-bold text-slate-900 text-sm line-clamp-2 hover:text-primary">{c.name}</Link>
+                          <Link prefetch={false} href={`/products/${c.slug}`} className="font-heading font-bold text-slate-900 text-sm line-clamp-2 hover:text-primary">{c.name}</Link>
                         </th>
                       ))}
                     </tr>

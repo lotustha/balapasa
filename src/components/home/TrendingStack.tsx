@@ -115,7 +115,7 @@ export default function TrendingStack() {
               }}
             >
               <Link
-                href={`/products/${product.slug}`}
+                prefetch={false} href={`/products/${product.slug}`}
                 className="block cursor-pointer"
                 tabIndex={isFront ? 0 : -1}
               >

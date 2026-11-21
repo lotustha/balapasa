@@ -80,7 +80,7 @@ function BannerHero({ hero }: { hero: HeroSettings }) {
         </div>
         <div className="hidden lg:grid grid-cols-3 gap-3 p-8 pl-0">
           {picks.map((p, i) => (
-            <Link key={p.id} href={`/products/${p.slug}`}
+            <Link key={p.id} prefetch={false} href={`/products/${p.slug}`}
               className={`th-neutral group rounded-2xl overflow-hidden bg-surface shadow-xl transition-transform hover:-translate-y-1 ${i === 1 ? 'translate-y-5' : ''}`}>
               <div className="relative aspect-square">
                 {p.images[0] && <Image src={p.images[0]} alt={p.name} fill className="object-cover" sizes="180px" />}
@@ -128,7 +128,7 @@ function EditorialHero({ hero }: { hero: HeroSettings }) {
         </div>
         <div className="grid grid-cols-2 gap-4">
           {picks.map((p, i) => (
-            <Link key={p.id} href={`/products/${p.slug}`} className={`group block ${i === 1 ? 'mt-10' : ''}`}>
+            <Link key={p.id} prefetch={false} href={`/products/${p.slug}`} className={`group block ${i === 1 ? 'mt-10' : ''}`}>
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100">
                 {p.images[0] && (
                   <Image src={p.images[0]} alt={p.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" sizes="(max-width:1024px) 50vw, 300px" />

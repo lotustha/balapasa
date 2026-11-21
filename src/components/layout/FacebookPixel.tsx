@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { getStoreConfig } from '@/lib/client-cache'
 
 declare global {
   interface Window {
@@ -26,10 +27,16 @@ function initPixel(id: string) {
   f.version = '2.0'
   f.queue = []
 
-  const script = document.createElement('script')
-  script.async = true
-  script.src = 'https://connect.facebook.net/en_US/fbevents.js'
-  document.head.appendChild(script)
+  // Events queue up in fbq until the script arrives, so it can wait until the page has
+  // finished its own work instead of competing with it.
+  const load = () => {
+    const script = document.createElement('script')
+    script.async = true
+    script.src = 'https://connect.facebook.net/en_US/fbevents.js'
+    document.head.appendChild(script)
+  }
+  if ('requestIdleCallback' in window) window.requestIdleCallback(load, { timeout: 4000 })
+  else setTimeout(load, 2000)
 
   window.fbq('init', id)
   window.fbq('track', 'PageView')
@@ -55,9 +62,9 @@ export default function FacebookPixel() {
   const pathname = usePathname()
 
   useEffect(() => {
-    fetch('/api/store-config').then(r => r.json()).then(d => {
-      if (d.FACEBOOK_PIXEL_ID) initPixel(d.FACEBOOK_PIXEL_ID)
-    }).catch(() => {})
+    getStoreConfig().then(d => {
+      if (d.FACEBOOK_PIXEL_ID) initPixel(String(d.FACEBOOK_PIXEL_ID))
+    })
   }, [])
 
   // Track PageView on route changes

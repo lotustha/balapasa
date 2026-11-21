@@ -19,6 +19,7 @@ const inter = localFont({
   variable: '--font-inter',
   weight: '300 700',
   display: 'swap',
+  preload: false,
 })
 
 const playfair = localFont({
@@ -26,6 +27,7 @@ const playfair = localFont({
   variable: '--font-playfair',
   weight: '400 800',
   display: 'swap',
+  preload: false,
 })
 
 const plex = localFont({
@@ -33,6 +35,7 @@ const plex = localFont({
   variable: '--font-plex',
   weight: '300 700',
   display: 'swap',
+  preload: false,
 })
 
 import { getSiteSettings } from '@/lib/site-settings'

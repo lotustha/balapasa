@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getStoreConfig } from '@/lib/client-cache'
 import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import { useProductContext } from '@/context/ProductContext'
@@ -16,7 +17,7 @@ export default function WhatsAppButton() {
 
   // Load WhatsApp number from store config
   useEffect(() => {
-    fetch('/api/store-config').then(r => r.json()).then(d => {
+    getStoreConfig().then(d => {
       const raw = String(d.WHATSAPP_NUMBER ?? '').replace(/\D/g, '')
       if (raw.length >= 8) setPhone(raw)
     }).catch(() => {})

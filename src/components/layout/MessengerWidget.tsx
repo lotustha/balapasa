@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { getStoreConfig } from '@/lib/client-cache'
 
 declare global {
   interface Window {
@@ -11,7 +12,7 @@ declare global {
 
 export default function MessengerWidget() {
   useEffect(() => {
-    fetch('/api/store-config').then(r => r.json()).then(d => {
+    getStoreConfig().then(d => {
       const pageId = d.FACEBOOK_PAGE_ID
       if (!pageId) return
 

@@ -160,7 +160,7 @@ function InlineSearch({ wide = false }: { wide?: boolean }) {
           {query && results.length > 0 && (
             <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
               {results.map(p => (
-                <Link key={p.id} href={`/products/${p.slug}`}
+                <Link key={p.id} prefetch={false} href={`/products/${p.slug}`}
                   onClick={() => { saveRecent(query); setOpen(false); setQuery('') }}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
@@ -338,11 +338,11 @@ export default function Navbar({
                 <span className="hidden lg:block">Track Order</span>
               </Link>
 
-              <Link href="/account/wishlist" aria-label="Wishlist"
+              <Link href="/account/wishlist" prefetch={false} aria-label="Wishlist"
                 className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all hidden sm:flex cursor-pointer">
                 <Heart size={18} />
               </Link>
-              <Link href="/account" aria-label={profile ? `Account · ${profile.name ?? profile.email}` : 'Account'}
+              <Link href="/account" prefetch={false} aria-label={profile ? `Account · ${profile.name ?? profile.email}` : 'Account'}
                 className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-surface/70 transition-all hidden sm:flex cursor-pointer">
                 {profile?.avatar ? (
                   <Image
@@ -414,11 +414,11 @@ export default function Navbar({
                 All Products
               </Link>
               <div className="flex gap-2 pt-2 border-t border-slate-100/80">
-                <Link href="/account" onClick={() => setMobileOpen(false)}
+                <Link href="/account" prefetch={false} onClick={() => setMobileOpen(false)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">
                   <User size={14} /> Account
                 </Link>
-                <Link href="/account/wishlist" onClick={() => setMobileOpen(false)}
+                <Link href="/account/wishlist" prefetch={false} onClick={() => setMobileOpen(false)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">
                   <Heart size={14} /> Wishlist
                 </Link>

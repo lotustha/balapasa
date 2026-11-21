@@ -133,7 +133,11 @@ export async function GET(req: NextRequest) {
       return p
     })
 
-    return Response.json({ products, total, page, totalPages: Math.ceil(total / limit) })
+    // slim=1: lists and cards do not show the description, which is most of the payload.
+    const out = searchParams.get('slim') === '1' && !admin
+      ? products.map(p => ({ ...p, description: '' }))
+      : products
+    return Response.json({ products: out, total, page, totalPages: Math.ceil(total / limit) })
   } catch {
     return Response.json({ error: 'Failed to fetch products' }, { status: 500 })
   }

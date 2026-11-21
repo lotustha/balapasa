@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getFlashDeals } from '@/lib/client-cache'
 import { ArrowRight, ShieldCheck, Truck, Star, Zap, Cpu, Sparkles, Package, Clock } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { HeroSettings } from '@/lib/site-settings-shared'
@@ -114,10 +115,8 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
   // Live flash deals — only products with an ACTIVE salePrice (server filters
   // out expired/scheduled). Derives the real max discount % shown on the card.
   useEffect(() => {
-    fetch('/api/products?flash=true&limit=50')
-      .then(r => r.json())
-      .then(d => {
-        const items = (d.products ?? []) as { price: number; salePrice?: number | null }[]
+    getFlashDeals()
+      .then(items => {
         const deals = items.filter(p => p.salePrice != null && p.salePrice < p.price)
         const maxOff = deals.reduce((m, p) => {
           const off = Math.round(((p.price - (p.salePrice as number)) / p.price) * 100)
@@ -270,7 +269,7 @@ export default function Hero({ hero = HERO_DEFAULTS }: HeroProps) {
               </div>
             ) : (
               <Link
-                href={`/products/${current.slug}`}
+                prefetch={false} href={`/products/${current.slug}`}
                 className="flex-1 glass-card p-4 flex flex-col animate-fade-in-up delay-100 hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
               >
                 <div className="flex-1 flex flex-col" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.28s ease' }}>

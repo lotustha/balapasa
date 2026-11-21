@@ -182,7 +182,7 @@ export default function WishlistPage() {
                     animationDelay: `${Math.min(i * 0.04, 0.4)}s`,
                   }}
                 >
-                  <Link href={`/products/${p.slug}`} className="block group">
+                  <Link prefetch={false} href={`/products/${p.slug}`} className="block group">
                     <div className="relative aspect-square overflow-hidden" style={{ background:'rgba(var(--th-surface-rgb),0.35)' }}>
                       <Image
                         src={p.images[0] ?? '/placeholder.jpg'}
@@ -221,7 +221,7 @@ export default function WishlistPage() {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 min-h-[12px]">
                       {p.brand ?? ' '}
                     </p>
-                    <Link href={`/products/${p.slug}`}>
+                    <Link prefetch={false} href={`/products/${p.slug}`}>
                       <h3 className="font-heading font-semibold text-slate-800 text-sm leading-snug line-clamp-2 break-words min-h-[2.5em] hover:text-primary transition-colors duration-200">
                         {p.name}
                       </h3>

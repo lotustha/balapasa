@@ -61,13 +61,13 @@ export default function BottomNav() {
         </div>
 
         {/* Wishlist */}
-        <Link href="/account/wishlist" className={linkCls('/account/wishlist')}>
+        <Link href="/account/wishlist" prefetch={false} className={linkCls('/account/wishlist')}>
           <Heart size={21} strokeWidth={isActive('/account/wishlist') ? 2.5 : 1.8} className={isActive('/account/wishlist') ? 'fill-primary/20' : ''} />
           <span className="text-[10px] font-semibold tracking-wide">Wishlist</span>
         </Link>
 
         {/* Account */}
-        <Link href="/account" className={linkCls('/account')}>
+        <Link href="/account" prefetch={false} className={linkCls('/account')}>
           <User size={21} strokeWidth={isActive('/account') ? 2.5 : 1.8} />
           <span className="text-[10px] font-semibold tracking-wide">Account</span>
         </Link>

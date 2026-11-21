@@ -4,11 +4,13 @@ import type { Metadata } from 'next'
 import ProductDetailClient from './ProductDetailClient'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
 
-// ISR: cache product pages for 1 hour. Stock + price-sensitive content is
-// re-fetched on revalidation; admin updates show within an hour. Add
-// revalidatePath(`/products/${slug}`) in the product PATCH route for instant
-// propagation if needed.
-export const revalidate = 3600
+// Product pages are built on first visit and reused for five minutes, so price and stock are
+// never more than five minutes old. Saving a product in admin rebuilds its page at once.
+export const revalidate = 300
+
+// Without this a [slug] page is rebuilt on every single visit. An empty list means "build
+// none ahead of time, cache each one when it is first asked for".
+export async function generateStaticParams() { return [] }
 
 type PageProps = { params: Promise<{ slug: string }> }
 

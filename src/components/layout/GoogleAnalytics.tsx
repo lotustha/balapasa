@@ -3,7 +3,7 @@
 import Script from 'next/script'
 
 // Loads GA4 (gtag.js) site-wide when an admin has configured a Measurement ID.
-// next/script (afterInteractive) is the correct mechanism — an external loader
+// next/script (lazyOnload: after the page itself has loaded) is the correct mechanism — an external loader
 // injected via dangerouslySetInnerHTML would NOT execute. GA4 auto-tracks SPA
 // route changes via History events, so no manual pageview wiring is needed.
 export default function GoogleAnalytics({ gaId }: { gaId: string }) {
@@ -14,9 +14,9 @@ export default function GoogleAnalytics({ gaId }: { gaId: string }) {
     <>
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${id}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
-      <Script id="ga-init" strategy="afterInteractive">
+      <Script id="ga-init" strategy="lazyOnload">
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());

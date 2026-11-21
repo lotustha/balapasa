@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Heart, ShoppingCart, Star, Zap } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
@@ -25,7 +26,11 @@ export interface Product {
   category?: { name: string }
 }
 
-export default function ProductCard({ product: p }: { product: Product }) {
+export default function ProductCard({ product: p, priority = false }: { product: Product; priority?: boolean }) {
+  const router = useRouter()
+  const href = `/products/${p.slug}`
+  // A grid of cards would otherwise fetch every product page in the background.
+  const warm = () => router.prefetch(href)
   const soldOut = isSoldOut(p as { stock: number; trackInventory?: boolean })
   const { addItem } = useCart()
   const [wished, setWished] = useState(false)
@@ -85,7 +90,8 @@ export default function ProductCard({ product: p }: { product: Product }) {
   )
 
   return (
-    <Link href={`/products/${p.slug}`} className="group block cursor-pointer h-full" data-product-card={variant}>
+    <Link href={href} prefetch={false} onMouseEnter={warm} onTouchStart={warm} onFocus={warm}
+      className="group block cursor-pointer h-full" data-product-card={variant}>
       <div className={shell} style={shellStyle}>
         {/* Image */}
         <div className={`relative overflow-hidden ${minimal ? 'aspect-[4/5] rounded-2xl' : 'aspect-square'}`}
@@ -96,6 +102,7 @@ export default function ProductCard({ product: p }: { product: Product }) {
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-108"
             sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw"
+            priority={priority}
           />
 
           {/* Badges */}

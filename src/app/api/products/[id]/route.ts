@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser, requireRole } from '@/lib/auth'
 import { hasRole } from '@/lib/admin-access'
@@ -215,6 +216,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/products/[
       return updated
     })
 
+    // The product page is cached; rebuild it so the change shows immediately.
+    revalidatePath(`/products/${product.slug}`)
     return Response.json(product)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

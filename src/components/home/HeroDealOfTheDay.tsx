@@ -87,7 +87,7 @@ export default function HeroDealOfTheDay() {
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
         <Link
-          href={`/products/${deal.slug}`}
+          prefetch={false} href={`/products/${deal.slug}`}
           className="group block glass-card rounded-3xl overflow-hidden animate-fade-in-up shadow-xl shadow-amber-500/10"
         >
           <div className="grid md:grid-cols-2 gap-0">

@@ -86,7 +86,7 @@ export default function SearchModal({ isOpen, onClose }: Props) {
               {results.map(p => (
                 <Link
                   key={p.id}
-                  href={`/products/${p.slug}`}
+                  prefetch={false} href={`/products/${p.slug}`}
                   onClick={onClose}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
                 >

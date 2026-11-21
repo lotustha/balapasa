@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getFlashDeals } from '@/lib/client-cache'
 import { Zap, ArrowRight, Clock, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { getClaimedPercent } from '@/lib/sale-status'
@@ -56,10 +57,9 @@ export default function DealsSection() {
 
   useEffect(() => {
     // ?flash=true returns only products with a non-expired salePrice
-    fetch('/api/products?flash=true&limit=20')
-      .then(r => r.json())
+    getFlashDeals()
       .then(data => {
-        const products = (data.products ?? data ?? []) as DealProduct[]
+        const products = data as unknown as DealProduct[]
         const withSale = products
           .filter((p: DealProduct) => p.salePrice && p.salePrice < p.price)
           .sort((a, b) => {
@@ -134,7 +134,7 @@ export default function DealsSection() {
             return (
               <Link
                 key={deal.id}
-                href={`/products/${deal.slug}`}
+                prefetch={false} href={`/products/${deal.slug}`}
                 className="group relative block rounded-3xl overflow-hidden glass glass-hover glass-shine cursor-pointer animate-fade-in-up"
                 style={{ animationDelay: `${i * 0.1}s` }}
               >

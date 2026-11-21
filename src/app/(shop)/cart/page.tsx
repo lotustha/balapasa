@@ -338,7 +338,7 @@ export default function CartPage() {
                 >
                   {/* Product image */}
                   <Link
-                    href={`/products/${item.slug}`}
+                    prefetch={false} href={`/products/${item.slug}`}
                     className="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 cursor-pointer hover:scale-105 transition-transform"
                   >
                     <Image
@@ -354,7 +354,7 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <Link
-                        href={`/products/${item.slug}`}
+                        prefetch={false} href={`/products/${item.slug}`}
                         className="font-heading font-bold text-slate-900 text-sm leading-snug hover:text-primary transition-colors cursor-pointer line-clamp-2 flex-1"
                       >
                         {item.name}
@@ -587,7 +587,7 @@ export default function CartPage() {
             {SUGGESTED.map((p) => (
               <Link
                 key={p.id}
-                href={`/products/${p.slug}`}
+                prefetch={false} href={`/products/${p.slug}`}
                 className="glass-panel p-4 shrink-0 cursor-pointer hover:scale-[1.02] transition-transform duration-200"
                 style={{ width: 180 }}
               >

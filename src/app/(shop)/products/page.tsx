@@ -390,7 +390,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   {products.map((product, i) => (
                     <div key={product.id} className="animate-fade-in-up"
                       style={{ animationDelay: `${Math.min(i * 0.04, 0.32)}s` }}>
-                      <ProductCard product={product} />
+                      <ProductCard product={product} priority={i < 4} />
                     </div>
                   ))}
                 </div>
