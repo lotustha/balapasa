@@ -15,6 +15,7 @@ import ImageUploader from '@/components/admin/ImageUploader'
 import VideoUploader    from '@/components/admin/VideoUploader'
 import RichTextEditor  from '@/components/admin/RichTextEditor'
 import { exceeds, summarize, type Pkg, type CarrierLimits } from '@/lib/carrier-limits'
+import { offerDarazPriceSync, priceChanged } from '@/lib/daraz-push-client'
 
 interface CarrierLimitInfo extends CarrierLimits { active: boolean }
 interface Category { id: string; name: string }
@@ -1210,6 +1211,10 @@ export default function ProductForm({ initial, mode, productId }: Props) {
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Failed to save product'); setSaving(false); return }
     setSaved(true)
+    if (mode === 'edit' && productId && priceChanged(initial ?? {}, payload)) {
+      const note = await offerDarazPriceSync({ id: productId, sku: payload.sku, name: payload.name })
+      if (note) alert(note)
+    }
     setTimeout(() => router.push('/admin/products'), 1000)
   }
 

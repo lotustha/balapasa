@@ -1849,6 +1849,7 @@ const DARAZ_MIRROR: [DarazSwitch, string, string][] = [
   ['mirrorStock',       'Copy stock',                 'Bala Pasa listings get the same quantity as TrendWave.'],
   ['mirrorNewListings', 'Copy new listings',          'A product newly listed by TrendWave is created in the Bala Pasa shop.'],
   ['mirrorSoldOut',     'Mark removed products sold out', 'A listing TrendWave stopped selling is set to zero stock in the Bala Pasa shop.'],
+  ['websitePricePush',  'Ask to update Daraz when I change a price', 'After you change a price on the website, you are asked whether the TrendWave and Bala Pasa Daraz shops should get the same price.'],
 ]
 
 const DARAZ_ORDERS: [DarazSwitch, string, string][] = [

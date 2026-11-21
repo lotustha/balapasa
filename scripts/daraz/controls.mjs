@@ -23,6 +23,9 @@ export const CONTROL_DEFAULTS = {
   mirrorStock: true,
   mirrorNewListings: true,
   mirrorSoldOut: true,
+  // Website → Daraz: after an admin changes a price on the website, offer to set it on Daraz too
+  // (scripts/daraz/push-price.mjs, both shops).
+  websitePricePush: true,
   // Daraz orders copied into the admin panel (scripts/daraz/orders-sync.mjs)
   ordersSync: true,
   ordersBalapasa: true,

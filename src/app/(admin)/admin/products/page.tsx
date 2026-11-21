@@ -10,6 +10,7 @@ import {
   Minus, History, Warehouse, CheckSquare, Square, Zap,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { offerDarazPriceSync } from '@/lib/daraz-push-client'
 
 interface Product {
   id: string; name: string; slug: string; sku: string | null; brand: string | null
@@ -310,6 +311,10 @@ export default function ProductsPage() {
         return
       }
       setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+      if ('price' in data || 'salePrice' in data) {
+        const note = await offerDarazPriceSync({ id, sku: updated.sku, name: updated.name })
+        if (note) alert(note)
+      }
     } catch (e) {
       setInlineError(e instanceof Error ? e.message : String(e))
       setTimeout(() => setInlineError(null), 4500)
