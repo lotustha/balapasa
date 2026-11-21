@@ -28,6 +28,8 @@ export function buildCreatePayload(detail, categoryAttrs) {
     if (NOT_COPIED.has(key) || value == null || value === '') continue
     if (known.get(key)?.type === 'normal') attributes[key] = value
   }
+  // Daraz shows a listing with no long description as incomplete; the highlights are the best stand-in.
+  if (!attributes.description && attributes.short_description) attributes.description = attributes.short_description
 
   const Sku = skus.map(s => {
     const out = { SellerSku: sellerSkuFor(s.SkuId), quantity: Number(s.quantity) || 0, price: Number(s.price) }

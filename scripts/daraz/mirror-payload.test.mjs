@@ -45,3 +45,9 @@ test('missingMandatory names what the source could not supply', () => {
   assert.deepEqual(missingMandatory(buildCreatePayload(d, CAT), CAT).sort(), ['brand', 'color_family', 'package_weight'])
   assert.deepEqual(missingMandatory(buildCreatePayload(detail(), CAT), CAT), [])
 })
+
+test('a listing without a long description gets its highlights as the description', () => {
+  const detail = { primary_category: 1, images: [], attributes: { name: 'X', short_description: '<ul><li>a</li></ul>' }, skus: [{ Status: 'active', price: 100, quantity: 1, SkuId: 5 }] }
+  const attrs = [{ name: 'name', type: 'normal' }, { name: 'short_description', type: 'normal' }]
+  assert.equal(buildCreatePayload(detail, attrs).Request.Product.Attributes.description, '<ul><li>a</li></ul>')
+})
