@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMessage, createPending, summaryDue } from './bot-logic.mjs'
+import { parseMessage, createPending, summaryDue, createSentStore } from './bot-logic.mjs'
 
 test('a message splits into a lower-case command and the rest', () => {
   assert.deepEqual(parseMessage('  Order   DZ-12-0001 '), { command: 'order', arg: 'DZ-12-0001' })
@@ -38,4 +38,16 @@ test('the summary is due from 8 pm Nepal time, once per day', () => {
   assert.equal(summaryDue(new Date('2026-11-20T15:00:00Z'), '2026-11-20'), null)
   // 18:20 UTC = 00:05 Nepal the next day: not due again until that evening
   assert.equal(summaryDue(new Date('2026-11-20T18:20:00Z'), '2026-11-20'), null)
+})
+
+test('the sent store returns a remembered message by id and forgets the oldest past its limit', () => {
+  const store = createSentStore(2)
+  store.remember({ key: { id: 'a' }, message: { conversation: 'one' } })
+  store.remember({ key: { id: 'b' }, message: { conversation: 'two' } })
+  assert.deepEqual(store.get('b'), { conversation: 'two' })
+  store.remember({ key: { id: 'c' }, message: { conversation: 'three' } })
+  assert.equal(store.get('a'), undefined)
+  assert.deepEqual(store.get('c'), { conversation: 'three' })
+  assert.equal(store.get(undefined), undefined)
+  assert.equal(store.remember(undefined), undefined)
 })

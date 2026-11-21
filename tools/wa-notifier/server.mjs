@@ -21,7 +21,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import pino from 'pino'
-import { parseMessage, createPending, summaryDue } from './bot-logic.mjs'
+import { parseMessage, createPending, summaryDue, createSentStore } from './bot-logic.mjs'
 import * as baileysModule from '@whiskeysockets/baileys'
 
 // The package is CommonJS: depending on the Node version its exports arrive on the namespace or under `default`.
@@ -58,6 +58,9 @@ config.lids ??= {} // commanding number -> WhatsApp privacy id, see resolveLids
 const saveConfig = () => writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 })
 
 let sock = null
+// What was sent recently, so a phone that could not read a message can be given it again.
+const sent = createSentStore()
+const send = async (s, jid, text) => sent.remember(await s.sendMessage(jid, { text }))
 let connected = false
 let generation = 0
 let pairing = null // { number, code, requestedAt }
@@ -78,6 +81,9 @@ async function connect({ pairNumber = null, linked = false } = {}) {
     printQRInTerminal: false,
     markOnlineOnConnect: false,
     syncFullHistory: false,
+    // WhatsApp asks for a message again when the phone could not decrypt it. Without this the
+    // phone shows "Waiting for this message" forever.
+    getMessage: async key => sent.get(key?.id),
   })
   sock = s
   let requested = false
@@ -300,11 +306,11 @@ async function handleIncoming(s, m) {
 
   const { command, arg } = parseMessage(text)
   const slow = ['status', 'sync', 'held', 'approve'].includes(command)
-  if (slow && busy) { await s.sendMessage(jid, { text: 'Still working on the previous command, try again in a minute.' }); return }
-  if (slow) { busy = true; await s.sendMessage(jid, { text: 'Working on it...' }) }
+  if (slow && busy) { await send(s, jid, 'Still working on the previous command, try again in a minute.'); return }
+  if (slow) { busy = true; await send(s, jid, 'Working on it...') }
   try {
     const answer = await execute(command, arg, jid)
-    await s.sendMessage(jid, { text: (answer || '(no output)').slice(0, MAX_TEXT) })
+    await send(s, jid, (answer || '(no output)').slice(0, MAX_TEXT))
   } finally {
     if (slow) busy = false
   }
@@ -374,7 +380,7 @@ async function route(req, res) {
     if (typeof text !== 'string' || !text.trim()) return reply(res, 400, { error: 'text is required' })
     const recipients = to ? [normalizeNumber(to)] : config.commanders
     if (recipients.length === 0 || recipients.includes(null)) return reply(res, 400, { error: 'No valid recipient: add a commanding number first' })
-    for (const number of recipients) await sock.sendMessage(`${number}@s.whatsapp.net`, { text: text.slice(0, MAX_TEXT) })
+    for (const number of recipients) await send(sock, `${number}@s.whatsapp.net`, text.slice(0, MAX_TEXT))
     return reply(res, 200, { sent: recipients.length })
   }
 
@@ -402,7 +408,7 @@ setInterval(async () => {
   }
   if (!answer.text) return
   for (const number of config.commanders) {
-    try { await sock.sendMessage(`${number}@s.whatsapp.net`, { text: answer.text.slice(0, MAX_TEXT) }) }
+    try { await send(sock, `${number}@s.whatsapp.net`, answer.text.slice(0, MAX_TEXT)) }
     catch (err) { log(`daily summary to ${number} failed: ${err.message}`) }
   }
   log(`daily summary sent for ${date}`)

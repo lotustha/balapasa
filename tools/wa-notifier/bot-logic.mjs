@@ -30,3 +30,20 @@ export function summaryDue(now, lastSentDate, hour = 20) {
   const date = npt.toISOString().slice(0, 10)
   return npt.getUTCHours() >= hour && lastSentDate !== date ? date : null
 }
+
+/**
+ * Remembers the last `limit` messages the bot sent, by message id. WhatsApp asks for a message
+ * again when the receiving phone could not decrypt it; the bot can only answer from here.
+ */
+export function createSentStore(limit = 500) {
+  const byId = new Map()
+  return {
+    remember(msg) {
+      if (!msg?.key?.id || !msg.message) return msg
+      byId.set(msg.key.id, msg.message)
+      if (byId.size > limit) byId.delete(byId.keys().next().value)
+      return msg
+    },
+    get: id => byId.get(id),
+  }
+}
