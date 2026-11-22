@@ -83,7 +83,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     product ? prisma.review.findMany({
       where: { productId: product.id },
       include: { user: { select: { name: true, avatar: true } } },
-      orderBy: { createdAt: 'desc' }, take: 20,
+      orderBy: { createdAt: 'desc' }, take: 30,
     }).catch(() => []) : Promise.resolve([]),
   ])
 
@@ -135,7 +135,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const reviews: ClientReview[] = rawReviews.map(r => ({
     id: r.id, rating: r.rating, comment: r.comment,
     createdAt: r.createdAt.toISOString(),
-    user: { name: r.user.name, avatar: r.user.avatar },
+    user: { name: r.user?.name ?? r.authorName, avatar: r.user?.avatar ?? null },
+    source: r.source, variant: r.variant, images: r.images,
   }))
 
   const jsonLd = product ? {

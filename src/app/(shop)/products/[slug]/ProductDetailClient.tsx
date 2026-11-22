@@ -21,6 +21,7 @@ import { formatPrice, discountPercent } from '@/lib/utils'
 import { getClaimedPercent } from '@/lib/sale-status'
 import { estimateDelivery, estimateDeliveryByCoords, isInValleyCoords, DELIVERY_CITIES, type DeliveryEstimate } from '@/lib/delivery-zone'
 import type { ClientProduct, ClientReview, ClientSlimProduct } from './types'
+import OrderOnWhatsApp from '@/components/product/OrderOnWhatsApp'
 
 // ── Countdown hook ──────────────────────────────────────────────────────────
 function useSaleCountdown(iso: string | null) {
@@ -1143,6 +1144,7 @@ export default function ProductDetailClient({ initialProduct, similar, shopsChoi
                       <Zap size={17} className="text-gold-bright" /> Buy Now
                     </button>
                   </div>
+                  <OrderOnWhatsApp name={cartName} price={effectivePrice} qty={qty} disabled={variantStock === 0} />
                   {variantStock === 0 && (
                     <div className="rounded-2xl border border-slate-200 bg-surface/70 p-4">
                       {notifyStatus === 'done' ? (

@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
         rating:    r.rating,
         comment:   r.comment,
         createdAt: r.createdAt,
-        name:      r.user?.name ?? 'Customer',
+        name:      r.user?.name ?? r.authorName ?? 'Customer',
+        source:    r.source,
+        variant:   r.variant,
+        images:    r.images,
         mine:      payload ? r.userId === payload.sub : false,
       })),
     })

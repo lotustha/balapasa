@@ -60,7 +60,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext<'/api/products/[i
 
     // The cost price is for staff only (the admin edit form reads it from here).
     const costPrice = hasRole(me?.role, 'STAFF') ? product.costPrice : null
-    return Response.json({ ...product, costPrice, canReview, bundleComponents })
+    // A review copied from Daraz has no account: give it the same `user` shape the apps read.
+    const reviews = product.reviews.map(r => ({ ...r, user: r.user ?? { name: r.authorName ?? 'Daraz buyer', avatar: null } }))
+    return Response.json({ ...product, reviews, costPrice, canReview, bundleComponents })
   } catch {
     return Response.json({ error: 'Failed to fetch product' }, { status: 500 })
   }

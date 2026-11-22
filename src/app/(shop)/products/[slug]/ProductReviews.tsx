@@ -20,6 +20,23 @@ interface Props {
   reviews: ClientReview[]
 }
 
+// Photos a buyer attached to their review. Plain <img>: they are small, below the fold and
+// come from Daraz's image servers.
+function ReviewPhotos({ images }: { images: string[] }) {
+  if (images.length === 0) return null
+  return (
+    <div className="mt-3 flex gap-2 flex-wrap">
+      {images.map(src => (
+        <a key={src} href={src} target="_blank" rel="noopener noreferrer" className="block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="Photo from the buyer" loading="lazy" referrerPolicy="no-referrer"
+            width={72} height={72} className="w-[72px] h-[72px] rounded-xl object-cover border border-black/5" />
+        </a>
+      ))}
+    </div>
+  )
+}
+
 export default function ProductReviews({ productId, rating, reviews }: Props) {
   const router = useRouter()
 
@@ -234,7 +251,7 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
                         </div>
                         <span className="font-bold text-slate-800 text-sm">{r.user.name ?? 'Anonymous'}</span>
                         <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded-full">
-                          <BadgeCheck size={9} /> Verified
+                          <BadgeCheck size={9} /> {r.source === 'daraz' ? 'Bought on Daraz' : 'Verified'}
                         </span>
                       </div>
                     </div>
@@ -242,7 +259,11 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
                       {new Date(r.createdAt).toLocaleDateString('en-NP',{year:'numeric',month:'short',day:'numeric'})}
                     </time>
                   </div>
-                  <p className="text-slate-600 text-sm leading-relaxed mt-3">{r.comment ?? 'No comment provided.'}</p>
+                  {r.variant && <p className="text-[11px] text-slate-400 mt-2">{r.variant}</p>}
+                  {(r.comment || r.images.length === 0) && (
+                    <p className="text-slate-600 text-sm leading-relaxed mt-3">{r.comment ?? 'No comment provided.'}</p>
+                  )}
+                  <ReviewPhotos images={r.images} />
                   <div className="mt-3 flex items-center gap-4 flex-wrap">
                     <button onClick={() => { const s=new Set(helpful); s.has(r.id)?s.delete(r.id):s.add(r.id); setHelpful(s) }}
                       className={`inline-flex items-center gap-1 text-xs font-semibold cursor-pointer transition-colors ${helpful.has(r.id)?'text-primary':'text-slate-400 hover:text-slate-600'}`}>
@@ -311,7 +332,11 @@ export default function ProductReviews({ productId, rating, reviews }: Props) {
                     </div>
                     <time className="text-xs text-slate-400 shrink-0">{new Date(r.createdAt).toLocaleDateString('en-NP',{year:'numeric',month:'short',day:'numeric'})}</time>
                   </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">{r.comment ?? 'No comment provided.'}</p>
+                  {r.variant && <p className="text-[11px] text-slate-400 mb-2">{r.variant}</p>}
+                  {(r.comment || r.images.length === 0) && (
+                    <p className="text-slate-600 text-sm leading-relaxed">{r.comment ?? 'No comment provided.'}</p>
+                  )}
+                  <ReviewPhotos images={r.images} />
                 </article>
               ))}
             </div>

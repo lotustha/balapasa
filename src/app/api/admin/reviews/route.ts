@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       rating: r.rating,
       comment: r.comment,
       createdAt: r.createdAt,
-      author: r.user?.name ?? r.user?.email?.split('@')[0] ?? 'Customer',
+      author: r.user?.name ?? r.user?.email?.split('@')[0] ?? (r.authorName ? `${r.authorName} (Daraz)` : 'Customer'),
       product: r.product,
     }))
 

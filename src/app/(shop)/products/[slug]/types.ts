@@ -39,6 +39,7 @@ export interface ClientProduct {
 export interface ClientReview {
   id: string; rating: number; comment: string | null; createdAt: string
   user: { name: string | null; avatar: string | null }
+  source: string; variant: string | null; images: string[]
 }
 
 export interface ClientSlimProduct {
