@@ -59,7 +59,18 @@ const saveConfig = () => writeFileSync(CONFIG_FILE, JSON.stringify(config, null,
 
 let sock = null
 // What was sent recently, so a phone that could not read a message can be given it again.
-const sent = createSentStore()
+// Kept on disk too, so a message sent just before a restart can still be given again.
+const SENT_FILE = path.join(DATA_DIR, 'sent.json')
+let sentTimer = null
+const saveSent = () => {
+  sentTimer ??= setTimeout(() => {
+    sentTimer = null
+    try { writeFileSync(SENT_FILE, JSON.stringify(sent.entries()), { mode: 0o600 }) } catch (err) { log(`could not save sent messages: ${err.message}`) }
+  }, 1000)
+}
+let sentBefore = []
+try { if (existsSync(SENT_FILE)) sentBefore = JSON.parse(readFileSync(SENT_FILE, 'utf8')) } catch { sentBefore = [] }
+const sent = createSentStore(200, { initial: sentBefore, onChange: saveSent })
 const send = async (s, jid, text) => sent.remember(await s.sendMessage(jid, { text }))
 let connected = false
 let generation = 0

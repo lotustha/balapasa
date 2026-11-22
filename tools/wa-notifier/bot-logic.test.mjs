@@ -51,3 +51,15 @@ test('the sent store returns a remembered message by id and forgets the oldest p
   assert.equal(store.get(undefined), undefined)
   assert.equal(store.remember(undefined), undefined)
 })
+
+test('the sent store can be rebuilt from its entries after a restart and reports each addition', () => {
+  let changes = 0
+  const first = createSentStore(2, { onChange: () => changes++ })
+  first.remember({ key: { id: 'a' }, message: { conversation: 'one' } })
+  first.remember({ key: { id: 'b' }, message: { conversation: 'two' } })
+  assert.equal(changes, 2)
+  const second = createSentStore(2, { initial: JSON.parse(JSON.stringify(first.entries())) })
+  assert.deepEqual(second.get('a'), { conversation: 'one' })
+  assert.deepEqual(second.get('b'), { conversation: 'two' })
+  assert.equal(createSentStore(2, { initial: 'broken' }).get('a'), undefined)
+})

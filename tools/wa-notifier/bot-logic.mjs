@@ -35,15 +35,18 @@ export function summaryDue(now, lastSentDate, hour = 20) {
  * Remembers the last `limit` messages the bot sent, by message id. WhatsApp asks for a message
  * again when the receiving phone could not decrypt it; the bot can only answer from here.
  */
-export function createSentStore(limit = 500) {
-  const byId = new Map()
+export function createSentStore(limit = 500, { initial = [], onChange = () => {} } = {}) {
+  // `initial` is what entries() returned before a restart; `onChange` is told after each addition.
+  const byId = new Map(Array.isArray(initial) ? initial.slice(-limit) : [])
   return {
     remember(msg) {
       if (!msg?.key?.id || !msg.message) return msg
       byId.set(msg.key.id, msg.message)
       if (byId.size > limit) byId.delete(byId.keys().next().value)
+      onChange()
       return msg
     },
     get: id => byId.get(id),
+    entries: () => [...byId],
   }
 }
