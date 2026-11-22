@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { STORE_NAME, STORE_URL } from '@/lib/config'
+import { isSoldOut } from '@/lib/stock'
+import { isSaleLive } from '@/lib/sale-status'
 
-// Meta Commerce Manager crawls this URL as a scheduled data feed. It accepts
+// Meta Commerce Manager and Google Merchant Center read this URL as a scheduled data feed. It accepts
 // CSV / TSV / RSS-XML / ATOM-XML / XLSX — NOT JSON. We emit RSS 2.0 with the
 // Google base namespace (g:), which Meta ingests natively.
 
@@ -41,7 +43,11 @@ export async function GET() {
       .filter(p => p.images.length > 0)
       .map(p => {
         const description = p.description.replace(/<[^>]+>/g, '').slice(0, 5000)
-        const hasSale = p.salePrice != null && p.salePrice < p.price
+        // Same rules as the product page: a sale counts only while it is running, and a
+        // product is sold out only when its stock is tracked and has run out.
+        const hasSale = p.salePrice != null && p.salePrice < p.price && isSaleLive(p)
+        // Google rejects titles over 150 characters.
+        const title = p.name.length > 150 ? `${p.name.slice(0, 149).trimEnd()}…` : p.name
         const additional = p.images
           .slice(1, 11)
           .map(img => `      <g:additional_image_link>${xmlEscape(absUrl(img))}</g:additional_image_link>`)
@@ -49,9 +55,9 @@ export async function GET() {
 
         return `    <item>
       <g:id>${xmlEscape(p.id)}</g:id>
-      <g:title>${xmlEscape(p.name)}</g:title>
+      <g:title>${xmlEscape(title)}</g:title>
       <g:description>${xmlEscape(description)}</g:description>
-      <g:availability>${p.stock > 0 ? 'in stock' : 'out of stock'}</g:availability>
+      <g:availability>${isSoldOut(p) ? 'out of stock' : 'in stock'}</g:availability>
       <g:condition>new</g:condition>
       <g:price>${p.price} NPR</g:price>${hasSale ? `\n      <g:sale_price>${p.salePrice} NPR</g:sale_price>` : ''}
       <g:link>${xmlEscape(`${STORE_URL}/products/${p.slug}`)}</g:link>

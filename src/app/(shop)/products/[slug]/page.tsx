@@ -154,6 +154,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
       seller: { '@type': 'Organization', name: STORE_NAME, url: appUrl },
     },
     ...(product.reviewCount > 0 && { aggregateRating: { '@type': 'AggregateRating', ratingValue: product.rating, reviewCount: product.reviewCount, bestRating: 5, worstRating: 1 } }),
+    // Written reviews, so search results can show them under the product.
+    ...(reviews.some(r => r.comment) && { review: reviews.filter(r => r.comment).slice(0, 5).map(r => ({
+      '@type': 'Review', datePublished: r.createdAt.slice(0, 10), reviewBody: r.comment,
+      author: { '@type': 'Person', name: r.user.name ?? 'Customer' },
+      reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+    })) }),
   } : null
 
   // FAQPage JSON-LD — eligible for Google rich snippets if 2+ Q&A pairs exist.
